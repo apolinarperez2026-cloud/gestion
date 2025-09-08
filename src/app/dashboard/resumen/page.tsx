@@ -296,7 +296,7 @@ export default function ResumenPage() {
                   Resumen Financiero
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal.nombre}
+                  {user.sucursal?.nombre || 'Sin sucursal'}
                 </p>
               </div>
             </div>

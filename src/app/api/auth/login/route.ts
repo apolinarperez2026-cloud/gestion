@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
       sucursal: usuario.sucursal ? {
         id: usuario.sucursal.id,
         nombre: usuario.sucursal.nombre
-      } : null
+      } : null,
+      sucursalId: usuario.sucursalId || null
     }
 
     const response = NextResponse.json({

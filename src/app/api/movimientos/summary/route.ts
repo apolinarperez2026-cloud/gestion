@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+
+const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,41 +32,46 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No se puede determinar la sucursal' }, { status: 400 })
     }
 
-    // Obtener movimientos de la sucursal
+    // Obtener movimientos de la sucursal con relaciones
     const movimientos = await prisma.movimiento.findMany({
       where: { sucursalId: sucursalId },
+      include: {
+        formaDePago: true,
+        tipoGasto: true
+      },
       orderBy: { fecha: 'desc' }
     })
 
-    // Calcular totales
+    // Calcular totales por tipo de movimiento
     const summary = {
-      saldoAcumulado: 0,
-      ventasBrutas: 0,
-      credito: 0,
-      abonosCredito: 0,
-      recargas: 0,
-      pagoTarjeta: 0,
-      gastos: 0,
-      saldoDia: 0,
-      deposito: 0
+      totalVentas: 0,
+      totalGastos: 0,
+      totalFondoCaja: 0,
+      saldo: 0,
+      ventasPorFormaPago: {} as Record<string, number>,
+      gastosPorTipo: {} as Record<string, number>
     }
 
     movimientos.forEach(movimiento => {
-      summary.ventasBrutas += movimiento.ventasBrutas || 0
-      summary.credito += movimiento.credito || 0
-      summary.abonosCredito += movimiento.abonosCredito || 0
-      summary.recargas += movimiento.recargas || 0
-      summary.pagoTarjeta += movimiento.pagoTarjeta || 0
-      summary.gastos += movimiento.gastos || 0
-      summary.deposito += movimiento.deposito || 0
-      summary.saldoDia += (movimiento.ventasBrutas || 0) - (movimiento.gastos || 0) - (movimiento.depositoManual || 0)
+      if (movimiento.tipo === 'VENTA') {
+        summary.totalVentas += movimiento.monto
+        if (movimiento.formaDePago) {
+          const formaPago = movimiento.formaDePago.nombre
+          summary.ventasPorFormaPago[formaPago] = (summary.ventasPorFormaPago[formaPago] || 0) + movimiento.monto
+        }
+      } else if (movimiento.tipo === 'GASTO') {
+        summary.totalGastos += movimiento.monto
+        if (movimiento.tipoGasto) {
+          const tipoGasto = movimiento.tipoGasto.nombre
+          summary.gastosPorTipo[tipoGasto] = (summary.gastosPorTipo[tipoGasto] || 0) + movimiento.monto
+        }
+      } else if (movimiento.tipo === 'FONDO_CAJA') {
+        summary.totalFondoCaja += movimiento.monto
+      }
     })
 
-    // Calcular saldo acumulado (último movimiento o 0)
-    const ultimoMovimiento = movimientos[0]
-    if (ultimoMovimiento) {
-      summary.saldoAcumulado = ultimoMovimiento.saldoAcumulado || 0
-    }
+    // Calcular saldo
+    summary.saldo = summary.totalVentas - summary.totalGastos
 
     return NextResponse.json(summary)
 

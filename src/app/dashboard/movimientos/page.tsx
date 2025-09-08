@@ -27,7 +27,7 @@ export default function MovimientosPage() {
   const [formData, setFormData] = useState<MovimientoForm>({
     descripcion: '',
     monto: '',
-    tipo: 'VENTA',
+    tipo: MovimientoTipo.VENTA,
     formaDePagoId: '',
     tipoGastoId: ''
   })
@@ -135,7 +135,7 @@ export default function MovimientosPage() {
       return
     }
 
-    if (formData.tipo === 'VENTA' && !formData.formaDePagoId) {
+    if (formData.tipo === MovimientoTipo.VENTA && !formData.formaDePagoId) {
       showConfirm({
         title: 'Forma de Pago Requerida',
         message: 'Por favor selecciona una forma de pago para la venta',
@@ -146,7 +146,7 @@ export default function MovimientosPage() {
       return
     }
 
-    if (formData.tipo === 'GASTO' && !formData.tipoGastoId) {
+    if (formData.tipo === MovimientoTipo.GASTO && !formData.tipoGastoId) {
       showConfirm({
         title: 'Tipo de Gasto Requerido',
         message: 'Por favor selecciona un tipo de gasto',
@@ -179,8 +179,8 @@ export default function MovimientosPage() {
         descripcion: formData.descripcion,
         monto: parseFloat(formData.monto),
         tipo: formData.tipo,
-        formaDePagoId: formData.tipo === 'VENTA' ? parseInt(formData.formaDePagoId) : null,
-        tipoGastoId: formData.tipo === 'GASTO' ? parseInt(formData.tipoGastoId) : null,
+        formaDePagoId: formData.tipo === MovimientoTipo.VENTA ? parseInt(formData.formaDePagoId) : null,
+        tipoGastoId: formData.tipo === MovimientoTipo.GASTO ? parseInt(formData.tipoGastoId) : null,
         sucursalId: user.sucursalId
       }
 
@@ -203,7 +203,7 @@ export default function MovimientosPage() {
         setFormData({
           descripcion: '',
           monto: '',
-          tipo: 'VENTA',
+          tipo: MovimientoTipo.VENTA,
           formaDePagoId: '',
           tipoGastoId: ''
         })
@@ -357,7 +357,7 @@ export default function MovimientosPage() {
       return
     }
 
-    if (formData.tipo === 'VENTA' && !formData.formaDePagoId) {
+    if (formData.tipo === MovimientoTipo.VENTA && !formData.formaDePagoId) {
       showConfirm({
         title: 'Campos Requeridos',
         message: 'Debes seleccionar una forma de pago para las ventas.',
@@ -368,7 +368,7 @@ export default function MovimientosPage() {
       return
     }
 
-    if (formData.tipo === 'GASTO' && !formData.tipoGastoId) {
+    if (formData.tipo === MovimientoTipo.GASTO && !formData.tipoGastoId) {
       showConfirm({
         title: 'Campos Requeridos',
         message: 'Debes seleccionar un tipo de gasto.',
@@ -393,8 +393,8 @@ export default function MovimientosPage() {
           descripcion: formData.descripcion,
           monto: parseFloat(formData.monto),
           tipo: formData.tipo,
-          formaDePagoId: formData.tipo === 'VENTA' ? parseInt(formData.formaDePagoId) : null,
-          tipoGastoId: formData.tipo === 'GASTO' ? parseInt(formData.tipoGastoId) : null
+          formaDePagoId: formData.tipo === MovimientoTipo.VENTA ? parseInt(formData.formaDePagoId) : null,
+          tipoGastoId: formData.tipo === MovimientoTipo.GASTO ? parseInt(formData.tipoGastoId) : null
         })
       })
 
@@ -412,7 +412,7 @@ export default function MovimientosPage() {
             setFormData({
               descripcion: '',
               monto: '',
-              tipo: 'VENTA',
+              tipo: MovimientoTipo.VENTA,
               formaDePagoId: '',
               tipoGastoId: ''
             })
@@ -448,7 +448,7 @@ export default function MovimientosPage() {
     setFormData({
       descripcion: '',
       monto: '',
-      tipo: 'VENTA',
+      tipo: MovimientoTipo.VENTA,
       formaDePagoId: '',
       tipoGastoId: ''
     })
@@ -465,8 +465,8 @@ export default function MovimientosPage() {
       return fechaMovimiento >= inicioDelDia && fechaMovimiento <= finDelDia
     })
     
-    const ventas = movimientosDelDia.filter(m => m.tipo === 'VENTA')
-    const gastos = movimientosDelDia.filter(m => m.tipo === 'GASTO')
+    const ventas = movimientosDelDia.filter(m => m.tipo === MovimientoTipo.VENTA)
+    const gastos = movimientosDelDia.filter(m => m.tipo === MovimientoTipo.GASTO)
     
     const totalVentas = ventas.reduce((sum, m) => sum + m.monto, 0)
     const totalGastos = gastos.reduce((sum, m) => sum + m.monto, 0)
@@ -580,7 +580,7 @@ export default function MovimientosPage() {
                   <p className="text-sm font-medium text-green-600">Ventas del Día</p>
                   <p className="text-2xl font-bold text-green-900">${totalVentas.toLocaleString()}</p>
                   <p className="text-xs text-green-500">
-                    {movimientosDelDia.filter(m => m.tipo === 'VENTA').length} movimientos
+                    {movimientosDelDia.filter(m => m.tipo === MovimientoTipo.VENTA).length} movimientos
                   </p>
                 </div>
               </div>
@@ -597,7 +597,7 @@ export default function MovimientosPage() {
                   <p className="text-sm font-medium text-red-600">Gastos del Día</p>
                   <p className="text-2xl font-bold text-red-900">${totalGastos.toLocaleString()}</p>
                   <p className="text-xs text-red-500">
-                    {movimientosDelDia.filter(m => m.tipo === 'GASTO').length} movimientos
+                    {movimientosDelDia.filter(m => m.tipo === MovimientoTipo.GASTO).length} movimientos
                   </p>
                 </div>
               </div>
@@ -670,21 +670,21 @@ export default function MovimientosPage() {
                 </select>
               </div>
 
-              {formData.tipo !== 'FONDO_CAJA' && (
+              {formData.tipo !== MovimientoTipo.FONDO_CAJA && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {formData.tipo === 'VENTA' ? 'Forma de Pago *' : 'Tipo de Gasto *'}
+                    {formData.tipo === MovimientoTipo.VENTA ? 'Forma de Pago *' : 'Tipo de Gasto *'}
                   </label>
                   <select
-                    name={formData.tipo === 'VENTA' ? 'formaDePagoId' : 'tipoGastoId'}
-                    value={formData.tipo === 'VENTA' ? formData.formaDePagoId : formData.tipoGastoId}
+                    name={formData.tipo === MovimientoTipo.VENTA ? 'formaDePagoId' : 'tipoGastoId'}
+                    value={formData.tipo === MovimientoTipo.VENTA ? formData.formaDePagoId : formData.tipoGastoId}
                     onChange={handleChange}
                     className="input-field"
                     required
                     disabled={!user?.sucursalId}
                   >
                     <option value="">Seleccionar...</option>
-                    {formData.tipo === 'VENTA' 
+                    {formData.tipo === MovimientoTipo.VENTA 
                       ? formasDePago.map((forma) => (
                           <option key={forma.id} value={forma.id}>
                             {forma.nombre}
@@ -746,12 +746,12 @@ export default function MovimientosPage() {
               )}
               <button
                 type="submit"
-                className={`btn-primary ${formData.tipo === 'VENTA' ? 'bg-green-600 hover:bg-green-700' : formData.tipo === 'GASTO' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`btn-primary ${formData.tipo === MovimientoTipo.VENTA ? 'bg-green-600 hover:bg-green-700' : formData.tipo === MovimientoTipo.GASTO ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={!user?.sucursalId}
               >
                 {isEditing 
-                  ? (formData.tipo === 'VENTA' ? 'Actualizar Venta' : formData.tipo === 'GASTO' ? 'Actualizar Gasto' : 'Actualizar Fondo')
-                  : (formData.tipo === 'VENTA' ? 'Registrar Venta' : formData.tipo === 'GASTO' ? 'Registrar Gasto' : 'Registrar Fondo')
+                  ? (formData.tipo === MovimientoTipo.VENTA ? 'Actualizar Venta' : formData.tipo === MovimientoTipo.GASTO ? 'Actualizar Gasto' : 'Actualizar Fondo')
+                  : (formData.tipo === MovimientoTipo.VENTA ? 'Registrar Venta' : formData.tipo === MovimientoTipo.GASTO ? 'Registrar Gasto' : 'Registrar Fondo')
                 }
               </button>
             </div>
@@ -835,36 +835,36 @@ export default function MovimientosPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              movimiento.tipo === 'VENTA' 
+                              movimiento.tipo === MovimientoTipo.VENTA 
                                 ? 'bg-green-100 text-green-800' 
-                                : movimiento.tipo === 'GASTO'
+                                : movimiento.tipo === MovimientoTipo.GASTO
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-blue-100 text-blue-800'
                             }`}>
-                              {movimiento.tipo === 'FONDO_CAJA' ? 'FONDO CAJA' : movimiento.tipo}
+                              {movimiento.tipo === MovimientoTipo.FONDO_CAJA ? 'FONDO CAJA' : movimiento.tipo}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900">
                             {movimiento.descripcion}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {movimiento.tipo === 'VENTA' 
+                            {movimiento.tipo === MovimientoTipo.VENTA 
                               ? movimiento.formaDePago?.nombre || 'N/A'
-                              : movimiento.tipo === 'GASTO'
+                              : movimiento.tipo === MovimientoTipo.GASTO
                               ? movimiento.tipoGasto?.nombre || 'N/A'
                               : 'N/A'
                             }
                           </td>
                           <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                            movimiento.tipo === 'VENTA' 
+                            movimiento.tipo === MovimientoTipo.VENTA 
                               ? 'text-green-600' 
-                              : movimiento.tipo === 'GASTO'
+                              : movimiento.tipo === MovimientoTipo.GASTO
                               ? 'text-red-600'
                               : 'text-blue-600'
                           }`}>
-                            {movimiento.tipo === 'VENTA' 
+                            {movimiento.tipo === MovimientoTipo.VENTA 
                               ? '+' 
-                              : movimiento.tipo === 'GASTO'
+                              : movimiento.tipo === MovimientoTipo.GASTO
                               ? '-'
                               : ''
                             }${movimiento.monto.toLocaleString()}

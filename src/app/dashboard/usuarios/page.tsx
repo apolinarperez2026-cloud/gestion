@@ -206,7 +206,7 @@ export default function UsuariosPage() {
       password: '',
       confirmarPassword: '',
       rolId: usuario.rolId.toString(),
-      sucursalId: usuario.sucursalId.toString()
+      sucursalId: usuario.sucursalId?.toString() || ''
     })
     setEditingId(usuario.id)
     setShowForm(true)
@@ -218,7 +218,7 @@ export default function UsuariosPage() {
       message: '¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.',
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
-      type: 'danger',
+      type: 'error',
       onConfirm: async () => {
         try {
           const token = localStorage.getItem('token')
@@ -274,7 +274,7 @@ export default function UsuariosPage() {
   // Funciones de filtrado
   const usuariosFiltrados = usuarios.filter(usuario => {
     if (filtroRol && usuario.rol.nombre !== filtroRol) return false
-    if (filtroSucursal && usuario.sucursal.nombre !== filtroSucursal) return false
+    if (filtroSucursal && usuario.sucursal?.nombre !== filtroSucursal) return false
     return true
   })
 
@@ -576,7 +576,7 @@ export default function UsuariosPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {usuario.sucursal.nombre}
+                      {usuario.sucursal?.nombre || 'Sin sucursal'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">

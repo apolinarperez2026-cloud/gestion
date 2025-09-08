@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         nombre: nuevoUsuario.nombre,
         email: nuevoUsuario.email,
         rol: nuevoUsuario.rol.nombre,
-        sucursal: nuevoUsuario.sucursal.nombre
+        sucursal: nuevoUsuario.sucursal?.nombre || null
       }
     })
   } catch (error) {

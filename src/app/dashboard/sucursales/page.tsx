@@ -170,9 +170,9 @@ export default function SucursalesPage() {
         
         showNotification(
           'Éxito', 
-          user.sucursal 
-            ? `Cambiado a sucursal: ${sucursal.nombre}` 
-            : `Accediendo a sucursal: ${sucursal.nombre}`, 
+          user?.sucursal
+            ? `Cambiado a sucursal: ${sucursal.nombre}`
+            : `Accediendo a sucursal: ${sucursal.nombre}`,
           'success'
         )
         // Redirigir al dashboard principal

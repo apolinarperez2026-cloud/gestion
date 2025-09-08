@@ -10,7 +10,7 @@ interface ConfirmModalProps {
   message: string
   confirmText?: string
   cancelText?: string
-  type?: 'danger' | 'warning' | 'info' | 'success'
+  type?: 'danger' | 'warning' | 'info' | 'success' | 'error'
 }
 
 export default function ConfirmModal({
@@ -77,6 +77,14 @@ export default function ConfirmModal({
           iconColor: 'text-green-600',
           confirmBg: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
           border: 'border-green-200'
+        }
+      case 'error':
+        return {
+          icon: '❌',
+          iconBg: 'bg-red-100',
+          iconColor: 'text-red-600',
+          confirmBg: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+          border: 'border-red-200'
         }
       default:
         return {

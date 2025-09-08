@@ -160,7 +160,7 @@ export default function PedidosEspecialesPage() {
                   Pedidos Especiales
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal.nombre}
+                  {user.sucursal?.nombre || 'Sin sucursal'}
                 </p>
               </div>
             </div>
