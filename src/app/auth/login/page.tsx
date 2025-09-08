@@ -28,6 +28,9 @@ export default function LoginPage() {
       })
 
       if (response.ok) {
+        const data = await response.json()
+        // Guardar el token en localStorage
+        localStorage.setItem('token', data.token)
         router.push('/dashboard')
       } else {
         const data = await response.json()

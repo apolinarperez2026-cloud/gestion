@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       message: 'Login exitoso',
-      user: authUser
+      user: authUser,
+      token: token
     })
 
     // Establecer cookie con el token

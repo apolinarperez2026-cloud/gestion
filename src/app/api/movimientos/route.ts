@@ -66,19 +66,30 @@ export async function POST(request: NextRequest) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
     const body: CreateMovimientoData = await request.json()
 
-    const movimiento = await prisma.movimiento.create({
-      data: {
-        fecha: body.fecha,
-        tipo: body.tipo,
-        categoria: body.categoria,
-        monto: body.monto,
-        descripcion: body.descripcion,
-        referencia: body.referencia,
-        tipoGastoId: body.tipoGastoId,
-        usuarioEntregaId: decoded.userId,
-        sucursalId: decoded.sucursalId
-      }
-    })
+      const movimiento = await prisma.movimiento.create({
+        data: {
+          fecha: body.fecha,
+          tipo: 'MOVIMIENTO',
+          categoria: body.tipoPago || 'ventasBrutas',
+          monto: body.monto,
+          descripcion: `Venta Bruta: $${body.ventasBrutas}${body.tipoPago ? `, ${body.tipoPago}: $${body.importeTipoPago}` : ''}${body.depositoManual ? `, Depósito Manual: $${body.depositoManual}` : ''}`,
+          referencia: null,
+          tipoGastoId: null,
+          usuarioEntregaId: decoded.userId,
+          sucursalId: decoded.sucursalId,
+          ventasBrutas: body.ventasBrutas,
+          credito: body.credito,
+          abonosCredito: body.abonosCredito,
+          recargas: body.recargas,
+          pagoTarjeta: body.pagoTarjeta,
+          transferencias: body.transferencias,
+          gastos: body.gastos,
+          depositoManual: body.depositoManual,
+          saldoDia: null,
+          deposito: null,
+          saldoAcumulado: null
+        }
+      })
 
     return NextResponse.json({
       message: 'Movimiento creado exitosamente',

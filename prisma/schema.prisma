@@ -57,11 +57,11 @@ model TipoGasto {
 model Movimiento {
   id                Int      @id @default(autoincrement())
   fecha             DateTime
-  tipo              String
-  categoria         String?
+  tipo              String   // ENTRADA, SALIDA
+  categoria         String?  // Ventas Brutas, Crédito, Abonos, etc.
   monto             Float
   descripcion       String?
-  referencia        String?
+  referencia        String?  // Referencia ODOO
   tipoGasto         TipoGasto? @relation(fields: [tipoGastoId], references: [id])
   tipoGastoId       Int?
   usuarioEntrega    Usuario?   @relation("Entrega", fields: [usuarioEntregaId], references: [id])
@@ -70,6 +70,18 @@ model Movimiento {
   usuarioRecibeId   Int?
   sucursal          Sucursal   @relation(fields: [sucursalId], references: [id])
   sucursalId        Int
+  // Campos adicionales para el formato específico
+  ventasBrutas      Float?   // Ventas en efectivo
+  credito           Float?   // Ventas a crédito
+  abonosCredito     Float?   // Abonos de crédito
+  recargas          Float?   // Recargas (Eleventa)
+  pagoTarjeta       Float?   // Pago con tarjeta
+  transferencias    Float?   // Transferencias
+  gastos            Float?   // Total de gastos del día
+  depositoManual    Float?   // Depósito manual (opcional)
+  saldoDia          Float?   // Saldo del día
+  deposito          Float?   // Depósito realizado
+  saldoAcumulado    Float?   // Saldo acumulado
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
