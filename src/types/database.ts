@@ -116,18 +116,9 @@ export interface CreateSucursalData {
 }
 
 export interface CreatePedidoEspecialData {
-  marca: string
-  codigo: string
-  cantidad: number
   descripcion: string
-  precioVenta: number
-  total: number
-  anticipo: number
-  fechaPedido: Date
-  fechaEntrega: Date
-  estado: string
-  usuarioId: number
-  sucursalId: number
+  monto: number
+  fecha?: Date
 }
 
 // Tipos para autenticación

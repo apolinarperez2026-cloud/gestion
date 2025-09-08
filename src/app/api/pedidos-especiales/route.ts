@@ -20,15 +20,8 @@ export async function GET(request: NextRequest) {
       where: {
         sucursalId: decoded.sucursalId
       },
-      include: {
-        usuario: {
-          select: {
-            nombre: true
-          }
-        }
-      },
       orderBy: {
-        fechaPedido: 'desc'
+        fecha: 'desc'
       }
     })
 
@@ -58,17 +51,9 @@ export async function POST(request: NextRequest) {
 
     const pedido = await prisma.pedidoEspecial.create({
       data: {
-        marca: body.marca,
-        codigo: body.codigo,
-        cantidad: body.cantidad,
         descripcion: body.descripcion,
-        precioVenta: body.precioVenta,
-        total: body.total,
-        anticipo: body.anticipo,
-        fechaPedido: body.fechaPedido,
-        fechaEntrega: body.fechaEntrega,
-        estado: body.estado,
-        usuarioId: decoded.userId,
+        monto: body.monto,
+        fecha: body.fecha || new Date(),
         sucursalId: decoded.sucursalId
       }
     })

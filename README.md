@@ -1,167 +1,227 @@
-# Libro Diario - Sistema de Gestión de Tiendas
+# 📊 Libro Diario de Tiendas
 
-Sistema de gestión de libro diario para múltiples tiendas desarrollado con Next.js 15, Prisma y PostgreSQL.
+Sistema de gestión financiera para tiendas con múltiples sucursales, desarrollado con Next.js 15, Prisma y PostgreSQL.
 
-## Características
+## 🚀 Características
 
-- 🔐 Sistema de autenticación con JWT
-- 👥 Gestión de usuarios con roles (Administrador, Gerente, Empleado)
-- 🏪 Gestión de múltiples sucursales
-- 📊 Registro de movimientos contables
-- 💰 Control de fondo de caja
-- 📦 Gestión de pedidos especiales
-- 🎨 Interfaz moderna con Tailwind CSS
+- **Gestión de Movimientos**: Registro de ventas, gastos y fondos de caja
+- **Múltiples Sucursales**: Soporte para administrar varias sucursales
+- **Roles de Usuario**: Administrador, Gerente y Empleado
+- **Resumen Financiero**: Reportes mensuales y diarios
+- **Configuración**: Gestión de formas de pago y tipos de gasto
+- **Autenticación JWT**: Sistema seguro de autenticación
 
-## Tecnologías
+## 🛠️ Tecnologías
 
 - **Frontend**: Next.js 15, React 18, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Base de datos**: PostgreSQL con Prisma ORM
-- **Autenticación**: JWT con cookies httpOnly
-- **Validación**: Zod
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Base de Datos**: PostgreSQL
+- **Autenticación**: JWT (JSON Web Tokens)
+- **Deployment**: Vercel
 
-## Instalación
+## 📋 Prerrequisitos
 
-### 1. Clonar el repositorio
+- Node.js 18+ 
+- PostgreSQL (local o en la nube)
+- Cuenta de Vercel
 
+## 🚀 Deployment en Vercel
+
+### 1. Preparar la Base de Datos
+
+#### Opción A: PostgreSQL Local
+```bash
+# Instalar PostgreSQL localmente
+# Crear una base de datos
+createdb libro_diario_tiendas
+```
+
+#### Opción B: PostgreSQL en la Nube (Recomendado)
+- **Neon**: https://neon.tech
+- **Supabase**: https://supabase.com
+- **Railway**: https://railway.app
+- **PlanetScale**: https://planetscale.com
+
+### 2. Configurar Variables de Entorno
+
+En Vercel, agregar las siguientes variables de entorno:
+
+```env
+# Base de datos (REQUERIDO)
+DATABASE_URL="postgresql://usuario:contraseña@host:puerto/nombre_bd?schema=public"
+
+# JWT Secret (REQUERIDO - generar una clave segura)
+JWT_SECRET="tu-jwt-secret-super-seguro-aqui"
+
+# URL de la aplicación
+NEXTAUTH_URL="https://tu-app.vercel.app"
+
+# Configuración de Prisma
+PRISMA_GENERATE_DATAPROXY="true"
+```
+
+### 3. Generar JWT Secret
+
+```bash
+# Generar una clave segura
+openssl rand -base64 32
+```
+
+### 4. Deploy en Vercel
+
+#### Opción A: Vercel CLI
+```bash
+# Instalar Vercel CLI
+npm i -g vercel
+
+# Login en Vercel
+vercel login
+
+# Deploy
+vercel
+
+# Configurar variables de entorno
+vercel env add DATABASE_URL
+vercel env add JWT_SECRET
+vercel env add NEXTAUTH_URL
+```
+
+#### Opción B: GitHub Integration
+1. Conectar repositorio de GitHub con Vercel
+2. Configurar variables de entorno en el dashboard de Vercel
+3. Deploy automático en cada push
+
+### 5. Configurar Base de Datos en Producción
+
+```bash
+# Ejecutar migraciones
+vercel env pull .env.local
+npx prisma migrate deploy
+
+# Poblar con datos iniciales (opcional)
+npx prisma db seed
+```
+
+## 🔧 Desarrollo Local
+
+### 1. Clonar el Repositorio
 ```bash
 git clone <tu-repositorio>
 cd libro-diario-tiendas
 ```
 
-### 2. Instalar dependencias
-
+### 2. Instalar Dependencias
 ```bash
 npm install
 ```
 
-### 3. Configurar variables de entorno
-
-Copia el archivo `env.example` a `.env.local` y configura las variables:
-
+### 3. Configurar Variables de Entorno
 ```bash
+# Copiar archivo de ejemplo
 cp env.example .env.local
+
+# Editar .env.local con tus valores
 ```
 
-Edita `.env.local` con tus valores:
-
-```env
-# Base de datos
-DATABASE_URL="postgresql://usuario:contraseña@host:puerto/nombre_bd?schema=public"
-
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="tu-secret-key-aqui"
-
-# JWT
-JWT_SECRET="tu-jwt-secret-aqui"
-```
-
-### 4. Configurar la base de datos
-
+### 4. Configurar Base de Datos
 ```bash
-# Generar el cliente de Prisma
-npm run db:generate
+# Generar cliente Prisma
+npx prisma generate
 
-# Aplicar las migraciones a la base de datos
-npm run db:push
+# Ejecutar migraciones
+npx prisma migrate dev
+
+# Poblar con datos iniciales
+npx prisma db seed
 ```
 
-### 5. Ejecutar la aplicación
-
+### 5. Ejecutar en Desarrollo
 ```bash
 npm run dev
 ```
 
-La aplicación estará disponible en [http://localhost:3000](http://localhost:3000)
+## 📊 Estructura de la Base de Datos
 
-## Estructura del Proyecto
+### Modelos Principales
+- **Usuario**: Gestión de usuarios y roles
+- **Sucursal**: Múltiples sucursales
+- **Movimiento**: Ventas, gastos y fondos de caja
+- **FormaDePago**: Métodos de pago (efectivo, tarjeta, etc.)
+- **TipoGasto**: Categorías de gastos
 
-```
-src/
-├── app/                    # App Router de Next.js
-│   ├── api/               # API Routes
-│   │   └── auth/          # Endpoints de autenticación
-│   ├── auth/              # Páginas de autenticación
-│   ├── dashboard/         # Panel principal
-│   └── globals.css        # Estilos globales
-├── components/            # Componentes reutilizables
-├── lib/                   # Utilidades y configuración
-│   └── prisma.ts         # Cliente de Prisma
-└── types/                 # Definiciones de TypeScript
-    └── database.ts       # Tipos de la base de datos
-```
+### Roles de Usuario
+- **Administrador**: Acceso completo al sistema
+- **Gerente**: Gestión de sucursal específica
+- **Empleado**: Registro de movimientos diarios
 
-## Modelos de Base de Datos
+## 🔐 Seguridad
 
-### Usuarios y Roles
-- **Usuario**: Información personal y credenciales
-- **Rol**: Administrador, Gerente, Empleado
-- **Sucursal**: Ubicaciones físicas de las tiendas
+- **JWT Authentication**: Tokens seguros para autenticación
+- **Bcrypt**: Hash de contraseñas
+- **Validación**: Validación de datos en frontend y backend
+- **CORS**: Configuración de CORS para APIs
 
-### Contabilidad
-- **Movimiento**: Registro de ingresos y gastos
-- **TipoGasto**: Categorización de gastos
-- **FondoCaja**: Control diario de efectivo
+## 📱 Funcionalidades
 
-### Inventario
-- **PedidoEspecial**: Gestión de pedidos especiales
+### Dashboard Principal
+- Resumen financiero
+- Acceso rápido a funciones principales
+- Gestión de sucursales (solo administradores)
 
-## Roles y Permisos
+### Gestión de Movimientos
+- Registro de ventas con formas de pago
+- Registro de gastos por categorías
+- Fondo de caja
+- Edición y eliminación de movimientos
 
-### Administrador
-- Acceso a todas las sucursales
-- Gestión de usuarios
-- Gestión de sucursales
-- Reportes globales
+### Resumen Financiero
+- Reportes mensuales
+- Desglose por formas de pago
+- Totales de ventas y gastos
+- Búsqueda y paginación
 
-### Gerente de Tienda
-- Acceso solo a su sucursal
-- Gestión de empleados de su sucursal
-- Reportes de su sucursal
+### Configuración
+- Gestión de formas de pago
+- Gestión de tipos de gasto
+- CRUD completo con validaciones
 
-### Empleado
-- Acceso limitado a funciones básicas
-- Registro de movimientos
-- Consulta de información
+## 🚨 Solución de Problemas
 
-## Comandos Útiles
-
+### Error de Conexión a Base de Datos
 ```bash
-# Desarrollo
-npm run dev
+# Verificar conexión
+npx prisma db pull
 
-# Construcción
-npm run build
-
-# Producción
-npm start
-
-# Base de datos
-npm run db:generate    # Generar cliente Prisma
-npm run db:push        # Aplicar cambios al esquema
-npm run db:migrate     # Crear migración
-npm run db:studio      # Abrir Prisma Studio
+# Regenerar cliente
+npx prisma generate
 ```
 
-## Próximas Funcionalidades
+### Error de Build en Vercel
+```bash
+# Verificar variables de entorno
+vercel env ls
 
-- [ ] Dashboard con gráficos y estadísticas
-- [ ] Reportes en PDF
-- [ ] Notificaciones en tiempo real
-- [ ] API REST completa
-- [ ] Tests unitarios y de integración
-- [ ] Dockerización
-- [ ] Despliegue en la nube
+# Revisar logs de build
+vercel logs
+```
 
-## Contribución
+### Error de Migraciones
+```bash
+# Resetear base de datos (CUIDADO: elimina datos)
+npx prisma migrate reset
 
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+# Aplicar migraciones manualmente
+npx prisma migrate deploy
+```
 
-## Licencia
+## 📞 Soporte
 
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+Para soporte técnico o reportar bugs, crear un issue en el repositorio.
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT.
+
+---
+
+**¡Listo para producción! 🎉**

@@ -5,116 +5,99 @@ generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Rol {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique
+  usuarios  Usuario[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Usuario {
+  id         Int      @id @default(autoincrement())
+  nombre     String
+  email      String   @unique
+  password   String
+  rolId      Int
+  rol        Rol      @relation(fields: [rolId], references: [id])
+  sucursalId Int?
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Sucursal {
+  id                Int                @id @default(autoincrement())
+  nombre            String             @unique
+  direccion         String
+  usuarios          Usuario[]
+  movimientos       Movimiento[]
+  fondoCajas        FondoCaja[]
+  pedidosEspeciales PedidoEspecial[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model FormaDePago {
+  id         Int         @id @default(autoincrement())
+  nombre     String      @unique
+  movimientos Movimiento[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model TipoGasto {
+  id         Int         @id @default(autoincrement())
+  nombre     String      @unique
+  movimientos Movimiento[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
 enum MovimientoTipo {
   VENTA
   GASTO
   FONDO_CAJA
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model Sucursal {
-  id        Int      @id @default(autoincrement())
-  nombre    String   @unique
-  direccion String
-  usuarios  Usuario[]
-  movimientos Movimiento[]
-  fondoCajas FondoCaja[]
-  pedidosEspeciales PedidoEspecial[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Rol {
-  id      Int      @id @default(autoincrement())
-  nombre  String   @unique
-  usuarios Usuario[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Usuario {
-  id          Int      @id @default(autoincrement())
-  nombre      String
-  email       String   @unique
-  password    String
-  rol         Rol      @relation(fields: [rolId], references: [id])
-  rolId       Int
-  sucursal    Sucursal? @relation(fields: [sucursalId], references: [id])
-  sucursalId  Int?
-  pedidosEspeciales  PedidoEspecial[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model FormaDePago {
-  id          Int          @id @default(autoincrement())
-  nombre      String       @unique
-  movimientos Movimiento[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model TipoGasto {
-  id          Int          @id @default(autoincrement())
-  nombre      String       @unique
-  movimientos Movimiento[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-
-
-
-// Movimientos unificados (ventas y gastos)
 model Movimiento {
-  id            Int             @id @default(autoincrement())
-  fecha         DateTime        @default(now())
+  id            Int            @id @default(autoincrement())
+  fecha         DateTime       @default(now())
   descripcion   String
   monto         Float
   tipo          MovimientoTipo
-  formaDePagoId Int?            // Solo para ventas
-  formaDePago   FormaDePago?    @relation(fields: [formaDePagoId], references: [id])
-  tipoGastoId   Int?            // Solo para gastos
-  tipoGasto     TipoGasto?      @relation(fields: [tipoGastoId], references: [id])
-  sucursal      Sucursal        @relation(fields: [sucursalId], references: [id])
+  formaDePagoId Int?           // Solo para ventas
+  formaDePago   FormaDePago?   @relation(fields: [formaDePagoId], references: [id])
+  tipoGastoId   Int?           // Solo para gastos
+  tipoGasto     TipoGasto?     @relation(fields: [tipoGastoId], references: [id])
   sucursalId    Int
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  sucursal      Sucursal       @relation(fields: [sucursalId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
-
 
 model FondoCaja {
   id         Int      @id @default(autoincrement())
-  fecha      DateTime
-  saldoInicial Float
-  saldoFinal Float?
-  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  monto      Float
+  fecha      DateTime @default(now())
   sucursalId Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model PedidoEspecial {
-  id            Int      @id @default(autoincrement())
-  marca         String
-  codigo        String
-  cantidad      Int
-  descripcion   String
-  precioVenta   Float
-  total         Float
-  anticipo      Float
-  fechaPedido   DateTime
-  fechaEntrega  DateTime
-  estado        String
-  usuario       Usuario   @relation(fields: [usuarioId], references: [id])
-  usuarioId     Int
-  sucursal      Sucursal  @relation(fields: [sucursalId], references: [id])
-  sucursalId    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  descripcion String
+  monto       Float
+  fecha       DateTime @default(now())
+  sucursalId  Int
+  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
-

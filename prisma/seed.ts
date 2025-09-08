@@ -357,26 +357,22 @@ async function main() {
     data: [
       {
         fecha: hoy,
-        saldoInicial: 2000.00,
-        saldoFinal: 3500.00,
+        monto: 2000.00,
         sucursalId: sucursalNorte.id
       },
       {
         fecha: hoy,
-        saldoInicial: 1500.00,
-        saldoFinal: 2200.00,
+        monto: 1500.00,
         sucursalId: sucursalSur.id
       },
       {
         fecha: hoy,
-        saldoInicial: 1000.00,
-        saldoFinal: null,
+        monto: 1000.00,
         sucursalId: sucursalEste.id
       },
       {
         fecha: hoy,
-        saldoInicial: 1800.00,
-        saldoFinal: null,
+        monto: 1800.00,
         sucursalId: sucursalOeste.id
       }
     ]
@@ -391,31 +387,15 @@ async function main() {
   await prisma.pedidoEspecial.createMany({
     data: [
       {
-        marca: 'Samsung',
-        codigo: 'SM-G991',
-        cantidad: 2,
-        descripcion: 'Samsung Galaxy S21',
-        precioVenta: 800.00,
-        total: 1600.00,
-        anticipo: 400.00,
-        fechaPedido: hoy,
-        fechaEntrega: fechaEntrega,
-        estado: 'Pendiente',
-        usuarioId: empleado1.id,
+        descripcion: 'Samsung Galaxy S21 - 2 unidades',
+        monto: 1600.00,
+        fecha: hoy,
         sucursalId: sucursalNorte.id
       },
       {
-        marca: 'Apple',
-        codigo: 'IPH-13',
-        cantidad: 1,
-        descripcion: 'iPhone 13 Pro',
-        precioVenta: 1200.00,
-        total: 1200.00,
-        anticipo: 600.00,
-        fechaPedido: ayer,
-        fechaEntrega: fechaEntrega,
-        estado: 'Confirmado',
-        usuarioId: empleado2.id,
+        descripcion: 'iPhone 13 Pro - 1 unidad',
+        monto: 1200.00,
+        fecha: ayer,
         sucursalId: sucursalSur.id
       }
     ]
