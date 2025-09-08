@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sucursal {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  direccion String
+  usuarios  Usuario[]
+  movimientos Movimiento[]
+  fondoCajas FondoCaja[]
+  pedidosEspeciales PedidoEspecial[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rol {
+  id      Int      @id @default(autoincrement())
+  nombre  String   @unique
+  usuarios Usuario[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Usuario {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  email       String   @unique
+  password    String
+  rol         Rol      @relation(fields: [rolId], references: [id])
+  rolId       Int
+  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+  sucursalId  Int
+  movimientosEntrega Movimiento[] @relation("Entrega")
+  movimientosRecibe  Movimiento[] @relation("Recibe")
+  pedidosEspeciales  PedidoEspecial[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TipoGasto {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique
+  movimientos Movimiento[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Movimiento {
+  id                Int      @id @default(autoincrement())
+  fecha             DateTime
+  tipo              String
+  categoria         String?
+  monto             Float
+  descripcion       String?
+  referencia        String?
+  tipoGasto         TipoGasto? @relation(fields: [tipoGastoId], references: [id])
+  tipoGastoId       Int?
+  usuarioEntrega    Usuario?   @relation("Entrega", fields: [usuarioEntregaId], references: [id])
+  usuarioEntregaId  Int?
+  usuarioRecibe     Usuario?   @relation("Recibe", fields: [usuarioRecibeId], references: [id])
+  usuarioRecibeId   Int?
+  sucursal          Sucursal   @relation(fields: [sucursalId], references: [id])
+  sucursalId        Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FondoCaja {
+  id         Int      @id @default(autoincrement())
+  fecha      DateTime
+  saldoInicial Float
+  saldoFinal Float?
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  sucursalId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PedidoEspecial {
+  id            Int      @id @default(autoincrement())
+  marca         String
+  codigo        String
+  cantidad      Int
+  descripcion   String
+  precioVenta   Float
+  total         Float
+  anticipo      Float
+  fechaPedido   DateTime
+  fechaEntrega  DateTime
+  estado        String
+  usuario       Usuario   @relation(fields: [usuarioId], references: [id])
+  usuarioId     Int
+  sucursal      Sucursal  @relation(fields: [sucursalId], references: [id])
+  sucursalId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
