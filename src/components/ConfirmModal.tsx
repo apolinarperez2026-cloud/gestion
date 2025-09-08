@@ -125,7 +125,7 @@ export default function ConfirmModal({
 
           {/* Footer */}
           <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
-            {cancelText && (
+            {cancelText && cancelText.trim().length > 0 && (
               <button
                 type="button"
                 onClick={onClose}

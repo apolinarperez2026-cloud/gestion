@@ -72,7 +72,14 @@ export default function MovimientosPage() {
 
   const fetchFormasDePago = async () => {
     try {
-      const response = await fetch('/api/tipos-venta')
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch('/api/formas-pago', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setFormasDePago(data.formasDePago || [])
@@ -84,7 +91,14 @@ export default function MovimientosPage() {
 
   const fetchTiposGasto = async () => {
     try {
-      const response = await fetch('/api/gastos/tipos')
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch('/api/tipos-gasto', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setTiposGasto(data.tiposGasto || [])

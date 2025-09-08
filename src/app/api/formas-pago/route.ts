@@ -14,13 +14,13 @@ export async function GET(request: NextRequest) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
     
-    const tiposGasto = await prisma.tipoGasto.findMany({
+    const formasDePago = await prisma.formaDePago.findMany({
       orderBy: { nombre: 'asc' }
     })
 
-    return NextResponse.json({ tiposGasto })
+    return NextResponse.json({ formasDePago })
   } catch (error) {
-    console.error('Error al obtener tipos de gasto:', error)
+    console.error('Error al obtener formas de pago:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
@@ -41,24 +41,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 })
     }
 
-    // Verificar si ya existe un tipo de gasto con ese nombre
-    const existingTipo = await prisma.tipoGasto.findFirst({
+    // Verificar si ya existe una forma de pago con ese nombre
+    const existingForma = await prisma.formaDePago.findFirst({
       where: { nombre: nombre.trim() }
     })
 
-    if (existingTipo) {
-      return NextResponse.json({ error: 'Ya existe un tipo de gasto con ese nombre' }, { status: 400 })
+    if (existingForma) {
+      return NextResponse.json({ error: 'Ya existe una forma de pago con ese nombre' }, { status: 400 })
     }
 
-    const tipoGasto = await prisma.tipoGasto.create({
+    const formaDePago = await prisma.formaDePago.create({
       data: {
         nombre: nombre.trim()
       }
     })
 
-    return NextResponse.json({ tipoGasto }, { status: 201 })
+    return NextResponse.json({ formaDePago }, { status: 201 })
   } catch (error) {
-    console.error('Error al crear tipo de gasto:', error)
+    console.error('Error al crear forma de pago:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
