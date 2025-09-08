@@ -1,25 +1,9 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cross-env PRISMA_GENERATE_DATAPROXY=false npm run build",
-  "installCommand": "npm install",
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
   },
-  "regions": ["iad1"],
-  "env": {
-    "PRISMA_GENERATE_DATAPROXY": "false",
-    "PRISMA_CLI_QUERY_ENGINE_TYPE": "library",
-    "PRISMA_ENGINE_TYPE": "library",
-    "PRISMA_ACCELERATE_DISABLED": "true"
-  },
-  "build": {
-    "env": {
-      "PRISMA_GENERATE_DATAPROXY": "false",
-      "PRISMA_CLI_QUERY_ENGINE_TYPE": "library",
-      "PRISMA_ENGINE_TYPE": "library",
-      "PRISMA_ACCELERATE_DISABLED": "true"
-    }
-  }
+  "regions": ["iad1"]
 }
