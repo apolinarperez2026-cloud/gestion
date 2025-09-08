@@ -1,50 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import jwt from 'jsonwebtoken'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
+    const { id } = await params
+    const { 
+      descripcion, 
+      monto, 
+      tipo, 
+      formaDePagoId, 
+      tipoGastoId 
+    } = await request.json()
+
+    console.log('Actualizando movimiento:', { 
+      id,
+      descripcion, 
+      monto, 
+      tipo, 
+      formaDePagoId, 
+      tipoGastoId 
+    })
+
+    if (!descripcion || !monto || !tipo) {
+      return NextResponse.json(
+        { error: 'Faltan campos requeridos' },
+        { status: 400 }
+      )
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    if (!token) {
-      return NextResponse.json({ error: 'Token vacío' }, { status: 401 })
+    // Validar que si es VENTA tenga formaDePagoId, si es GASTO tenga tipoGastoId
+    if (tipo === 'VENTA' && !formaDePagoId) {
+      return NextResponse.json(
+        { error: 'Las ventas requieren una forma de pago' },
+        { status: 400 }
+      )
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const body = await request.json()
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    if (tipo === 'GASTO' && !tipoGastoId) {
+      return NextResponse.json(
+        { error: 'Los gastos requieren un tipo de gasto' },
+        { status: 400 }
+      )
+    }
 
     const movimiento = await prisma.movimiento.update({
-      where: { id },
+      where: { id: parseInt(id) },
       data: {
-        fecha: body.fecha,
-        tipo: 'MOVIMIENTO',
-        categoria: body.tipoPago || 'ventasBrutas',
-        monto: body.monto,
-        descripcion: `Venta Bruta: $${body.ventasBrutas}${body.tipoPago ? `, ${body.tipoPago}: $${body.importeTipoPago}` : ''}${body.depositoManual ? `, Depósito Manual: $${body.depositoManual}` : ''}`,
-        ventasBrutas: body.ventasBrutas,
-        credito: body.credito,
-        abonosCredito: body.abonosCredito,
-        recargas: body.recargas,
-        pagoTarjeta: body.pagoTarjeta,
-        transferencias: body.transferencias,
-        gastos: body.gastos,
-        depositoManual: body.depositoManual,
+        descripcion,
+        monto,
+        tipo,
+        formaDePagoId: tipo === 'VENTA' ? formaDePagoId : null,
+        tipoGastoId: tipo === 'GASTO' ? tipoGastoId : null
+      },
+      include: {
+        formaDePago: true,
+        tipoGasto: true,
+        sucursal: true
       }
     })
 
-    return NextResponse.json({
-      message: 'Movimiento actualizado exitosamente',
-      movimiento
-    })
+    return NextResponse.json({ movimiento })
   } catch (error) {
     console.error('Error al actualizar movimiento:', error)
     return NextResponse.json(
@@ -59,27 +79,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
-    }
+    const { id } = await params
 
-    const token = authHeader.replace('Bearer ', '')
-    if (!token) {
-      return NextResponse.json({ error: 'Token vacío' }, { status: 401 })
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    console.log('Eliminando movimiento:', { id })
 
     await prisma.movimiento.delete({
-      where: { id }
+      where: { id: parseInt(id) }
     })
 
-    return NextResponse.json({
-      message: 'Movimiento eliminado exitosamente'
-    })
+    return NextResponse.json({ message: 'Movimiento eliminado exitosamente' })
   } catch (error) {
     console.error('Error al eliminar movimiento:', error)
     return NextResponse.json(

@@ -2,30 +2,37 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Movimiento, AuthUser } from '@/types/database'
+import { AuthUser, FormaDePago, TipoGasto, Movimiento, MovimientoTipo } from '@/types/database'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
-import SummaryCards from '@/components/SummaryCards'
+
+interface MovimientoForm {
+  descripcion: string
+  monto: string
+  tipo: MovimientoTipo
+  formaDePagoId: string
+  tipoGastoId: string
+}
 
 export default function MovimientosPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [formasDePago, setFormasDePago] = useState<FormaDePago[]>([])
+  const [tiposGasto, setTiposGasto] = useState<TipoGasto[]>([])
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
-  const [fechaInicio, setFechaInicio] = useState('')
-  const [fechaFin, setFechaFin] = useState('')
-  const [tipoPagoFiltro, setTipoPagoFiltro] = useState('')
   const { modalState, showConfirm, hideConfirm, handleConfirm } = useConfirmModal()
-  const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split('T')[0],
-    ventasBrutas: '',
-    tipoPago: '',
-    importeTipoPago: '',
-    depositoManual: ''
+  const [formData, setFormData] = useState<MovimientoForm>({
+    descripcion: '',
+    monto: '',
+    tipo: 'VENTA',
+    formaDePagoId: '',
+    tipoGastoId: ''
   })
+  const [editingMovimiento, setEditingMovimiento] = useState<Movimiento | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -45,176 +52,189 @@ export default function MovimientosPage() {
         if (response.ok) {
           const userData = await response.json()
           setUser(userData.user)
-          fetchMovimientos()
+          await Promise.all([
+            fetchFormasDePago(),
+            fetchTiposGasto(),
+            fetchMovimientos()
+          ])
         } else {
           router.push('/auth/login')
         }
       } catch (error) {
         router.push('/auth/login')
+      } finally {
+        setLoading(false)
       }
     }
 
     fetchUser()
   }, [router])
 
-  // Resetear página cuando cambien los movimientos o filtros
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [movimientos.length, fechaInicio, fechaFin, tipoPagoFiltro])
+  const fetchFormasDePago = async () => {
+    try {
+      const response = await fetch('/api/tipos-venta')
+      if (response.ok) {
+        const data = await response.json()
+        setFormasDePago(data.formasDePago || [])
+      }
+    } catch (error) {
+      console.error('Error al cargar formas de pago:', error)
+    }
+  }
+
+  const fetchTiposGasto = async () => {
+    try {
+      const response = await fetch('/api/gastos/tipos')
+      if (response.ok) {
+        const data = await response.json()
+        setTiposGasto(data.tiposGasto || [])
+      }
+    } catch (error) {
+      console.error('Error al cargar tipos de gasto:', error)
+    }
+  }
 
   const fetchMovimientos = async () => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
-
-      const response = await fetch('/api/movimientos', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const response = await fetch('/api/movimientos')
       if (response.ok) {
         const data = await response.json()
-        setMovimientos(data.movimientos)
+        setMovimientos(data.movimientos || [])
       }
     } catch (error) {
       console.error('Error al cargar movimientos:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validaciones del frontend
+    if (!formData.descripcion || !formData.monto) {
+      showConfirm({
+        title: 'Campos Requeridos',
+        message: 'Por favor completa todos los campos requeridos',
+        confirmText: 'Entendido',
+        cancelText: '',
+        type: 'warning'
+      })
+      return
+    }
+
+    if (formData.tipo === 'VENTA' && !formData.formaDePagoId) {
+      showConfirm({
+        title: 'Forma de Pago Requerida',
+        message: 'Por favor selecciona una forma de pago para la venta',
+        confirmText: 'Entendido',
+        cancelText: '',
+        type: 'warning'
+      })
+      return
+    }
+
+    if (formData.tipo === 'GASTO' && !formData.tipoGastoId) {
+      showConfirm({
+        title: 'Tipo de Gasto Requerido',
+        message: 'Por favor selecciona un tipo de gasto',
+        confirmText: 'Entendido',
+        cancelText: '',
+        type: 'warning'
+      })
+      return
+    }
+
+    if (!user?.sucursalId) {
+      showConfirm({
+        title: 'Sucursal Requerida',
+        message: 'Los administradores deben seleccionar una sucursal antes de registrar movimientos',
+        confirmText: 'Entendido',
+        cancelText: '',
+        type: 'warning'
+      })
+      return
+    }
+
     try {
       const token = localStorage.getItem('token')
       if (!token) {
-        console.error('No hay token disponible, redirigiendo al login')
         router.push('/auth/login')
         return
       }
-      
-      const url = editingId ? `/api/movimientos/${editingId}` : '/api/movimientos'
-      const method = editingId ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method: method,
+
+      const requestData = {
+        descripcion: formData.descripcion,
+        monto: parseFloat(formData.monto),
+        tipo: formData.tipo,
+        formaDePagoId: formData.tipo === 'VENTA' ? parseInt(formData.formaDePagoId) : null,
+        tipoGastoId: formData.tipo === 'GASTO' ? parseInt(formData.tipoGastoId) : null,
+        sucursalId: user.sucursalId
+      }
+
+      console.log('Enviando datos:', requestData)
+
+      const response = await fetch('/api/movimientos', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...formData,
-          fecha: new Date(formData.fecha),
-          ventasBrutas: parseFloat(formData.ventasBrutas),
-          // Mapear el tipo de pago a los campos correspondientes
-          credito: formData.tipoPago === 'credito' ? parseFloat(formData.importeTipoPago || '0') : 0,
-          abonosCredito: formData.tipoPago === 'abonosCredito' ? parseFloat(formData.importeTipoPago || '0') : 0,
-          recargas: formData.tipoPago === 'recargas' ? parseFloat(formData.importeTipoPago || '0') : 0,
-          pagoTarjeta: formData.tipoPago === 'pagoTarjeta' ? parseFloat(formData.importeTipoPago || '0') : 0,
-          transferencias: formData.tipoPago === 'transferencias' ? parseFloat(formData.importeTipoPago || '0') : 0,
-          gastos: formData.tipoPago === 'gastos' ? parseFloat(formData.importeTipoPago || '0') : 0,
-          depositoManual: formData.depositoManual ? parseFloat(formData.depositoManual) : 0,
-          // Calcular monto total: Venta Bruta - Gastos - Depósito Manual
-          monto: parseFloat(formData.ventasBrutas) - (formData.tipoPago === 'gastos' ? parseFloat(formData.importeTipoPago || '0') : 0) - parseFloat(formData.depositoManual || '0')
-        }),
+        body: JSON.stringify(requestData)
       })
 
       if (response.ok) {
-        setShowForm(false)
-        setEditingId(null)
+        const data = await response.json()
+        setMovimientos([data.movimiento, ...movimientos])
+        
+        // Limpiar formulario
         setFormData({
-          fecha: new Date().toISOString().split('T')[0],
-          ventasBrutas: '',
-          tipoPago: '',
-          importeTipoPago: '',
-          depositoManual: ''
+          descripcion: '',
+          monto: '',
+          tipo: 'VENTA',
+          formaDePagoId: '',
+          tipoGastoId: ''
         })
-        fetchMovimientos()
+        
+        showConfirm({
+          title: 'Movimiento Guardado',
+          message: 'El movimiento se ha registrado exitosamente',
+          confirmText: 'Entendido',
+          cancelText: '',
+          type: 'success'
+        })
+      } else {
+        const error = await response.json()
+        console.error('Error del servidor:', error)
+        showConfirm({
+          title: 'Error al Guardar',
+          message: error.error || 'Error al guardar el movimiento',
+          confirmText: 'Entendido',
+          cancelText: '',
+          type: 'error'
+        })
       }
     } catch (error) {
       console.error('Error al guardar movimiento:', error)
+      showConfirm({
+        title: 'Error de Conexión',
+        message: 'Error al guardar el movimiento. Verifica tu conexión.',
+        confirmText: 'Entendido',
+        cancelText: '',
+        type: 'error'
+      })
     }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
-  }
-
-  const handleEdit = (movimiento: Movimiento) => {
-    // Determinar el tipo de pago basado en qué campo tiene valor
-    let tipoPago = ''
-    let importeTipoPago = ''
-    
-    if (movimiento.credito && movimiento.credito > 0) {
-      tipoPago = 'credito'
-      importeTipoPago = movimiento.credito.toString()
-    } else if (movimiento.abonosCredito && movimiento.abonosCredito > 0) {
-      tipoPago = 'abonosCredito'
-      importeTipoPago = movimiento.abonosCredito.toString()
-    } else if (movimiento.recargas && movimiento.recargas > 0) {
-      tipoPago = 'recargas'
-      importeTipoPago = movimiento.recargas.toString()
-    } else if (movimiento.pagoTarjeta && movimiento.pagoTarjeta > 0) {
-      tipoPago = 'pagoTarjeta'
-      importeTipoPago = movimiento.pagoTarjeta.toString()
-    } else if (movimiento.transferencias && movimiento.transferencias > 0) {
-      tipoPago = 'transferencias'
-      importeTipoPago = movimiento.transferencias.toString()
-    } else if (movimiento.gastos && movimiento.gastos > 0) {
-      tipoPago = 'gastos'
-      importeTipoPago = movimiento.gastos.toString()
-    }
-
-    setFormData({
-      fecha: new Date(movimiento.fecha).toISOString().split('T')[0],
-      ventasBrutas: movimiento.ventasBrutas?.toString() || '',
-      tipoPago: tipoPago,
-      importeTipoPago: importeTipoPago,
-      depositoManual: movimiento.depositoManual?.toString() || ''
-    })
-    setEditingId(movimiento.id)
-    setShowForm(true)
-  }
-
-  const handleDelete = (id: number) => {
-    showConfirm({
-      title: 'Eliminar Movimiento',
-      message: '¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.',
-      confirmText: 'Eliminar',
-      cancelText: 'Cancelar',
-      type: 'danger',
-      onConfirm: async () => {
-        try {
-          const token = localStorage.getItem('token')
-          if (!token) {
-            console.error('No hay token disponible, redirigiendo al login')
-            router.push('/auth/login')
-            return
-          }
-          
-          const response = await fetch(`/api/movimientos/${id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (response.ok) {
-            fetchMovimientos()
-          } else {
-            console.error('Error al eliminar movimiento')
-          }
-        } catch (error) {
-          console.error('Error al eliminar movimiento:', error)
-        }
-      }
-    })
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      // Limpiar campos cuando cambia el tipo
+      ...(name === 'tipo' && {
+        formaDePagoId: '',
+        tipoGastoId: ''
+      })
+    }))
   }
 
   const handleLogout = async () => {
@@ -226,63 +246,248 @@ export default function MovimientosPage() {
     }
   }
 
-  // Funciones de filtrado
-  const getTipoPagoTexto = (movimiento: Movimiento) => {
-    if (movimiento.credito && movimiento.credito > 0) return 'Crédito'
-    if (movimiento.abonosCredito && movimiento.abonosCredito > 0) return 'Abonos de crédito'
-    if (movimiento.recargas && movimiento.recargas > 0) return 'Recargas'
-    if (movimiento.pagoTarjeta && movimiento.pagoTarjeta > 0) return 'Pago con tarjeta'
-    if (movimiento.gastos && movimiento.gastos > 0) return 'Gastos'
-    if (movimiento.transferencias && movimiento.transferencias > 0) return 'Transferencias'
-    return 'Ventas Brutas'
+  const handleEdit = (movimiento: Movimiento) => {
+    setEditingMovimiento(movimiento)
+    setIsEditing(true)
+    setFormData({
+      descripcion: movimiento.descripcion,
+      monto: movimiento.monto.toString(),
+      tipo: movimiento.tipo,
+      formaDePagoId: movimiento.formaDePagoId?.toString() || '',
+      tipoGastoId: movimiento.tipoGastoId?.toString() || ''
+    })
   }
 
-  const movimientosFiltrados = movimientos.filter(movimiento => {
-    // Filtro por rango de fechas
-    const fechaMovimiento = new Date(movimiento.fecha)
-    const inicio = fechaInicio ? new Date(fechaInicio) : null
-    const fin = fechaFin ? new Date(fechaFin) : null
+  const handleDelete = async (movimiento: Movimiento) => {
+    showConfirm({
+      title: 'Eliminar Movimiento',
+      message: `¿Estás seguro de que quieres eliminar el movimiento "${movimiento.descripcion}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem('token')
+          if (!token) return
+
+          const response = await fetch(`/api/movimientos/${movimiento.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (response.ok) {
+            showConfirm({
+              title: 'Movimiento Eliminado',
+              message: 'El movimiento ha sido eliminado exitosamente.',
+              confirmText: 'Aceptar',
+              cancelText: '',
+              type: 'success',
+              onConfirm: () => {
+                fetchMovimientos()
+                hideConfirm()
+              }
+            })
+          } else {
+            showConfirm({
+              title: 'Error',
+              message: 'No se pudo eliminar el movimiento. Inténtalo de nuevo.',
+              confirmText: 'Aceptar',
+              cancelText: '',
+              type: 'error',
+              onConfirm: hideConfirm
+            })
+          }
+        } catch (error) {
+          console.error('Error al eliminar movimiento:', error)
+          showConfirm({
+            title: 'Error de Conexión',
+            message: 'No se pudo conectar con el servidor. Verifica tu conexión.',
+            confirmText: 'Aceptar',
+            cancelText: '',
+            type: 'error',
+            onConfirm: hideConfirm
+          })
+        }
+      }
+    })
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
     
-    if (inicio && fechaMovimiento < inicio) return false
-    if (fin && fechaMovimiento > fin) return false
-    
-    // Filtro por tipo de pago
-    if (tipoPagoFiltro) {
-      const tipoPagoMovimiento = getTipoPagoTexto(movimiento)
-      if (tipoPagoMovimiento !== tipoPagoFiltro) return false
+    if (!editingMovimiento) return
+
+    // Validaciones
+    if (!formData.descripcion.trim()) {
+      showConfirm({
+        title: 'Campos Requeridos',
+        message: 'La descripción es obligatoria.',
+        confirmText: 'Aceptar',
+        type: 'warning',
+        onConfirm: hideConfirm
+      })
+      return
     }
+
+    if (!formData.monto || parseFloat(formData.monto) <= 0) {
+      showConfirm({
+        title: 'Campos Requeridos',
+        message: 'El monto debe ser mayor a 0.',
+        confirmText: 'Aceptar',
+        type: 'warning',
+        onConfirm: hideConfirm
+      })
+      return
+    }
+
+    if (formData.tipo === 'VENTA' && !formData.formaDePagoId) {
+      showConfirm({
+        title: 'Campos Requeridos',
+        message: 'Debes seleccionar una forma de pago para las ventas.',
+        confirmText: 'Aceptar',
+        type: 'warning',
+        onConfirm: hideConfirm
+      })
+      return
+    }
+
+    if (formData.tipo === 'GASTO' && !formData.tipoGastoId) {
+      showConfirm({
+        title: 'Campos Requeridos',
+        message: 'Debes seleccionar un tipo de gasto.',
+        confirmText: 'Aceptar',
+        type: 'warning',
+        onConfirm: hideConfirm
+      })
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`/api/movimientos/${editingMovimiento.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          descripcion: formData.descripcion,
+          monto: parseFloat(formData.monto),
+          tipo: formData.tipo,
+          formaDePagoId: formData.tipo === 'VENTA' ? parseInt(formData.formaDePagoId) : null,
+          tipoGastoId: formData.tipo === 'GASTO' ? parseInt(formData.tipoGastoId) : null
+        })
+      })
+
+      if (response.ok) {
+        showConfirm({
+          title: 'Movimiento Actualizado',
+          message: 'El movimiento ha sido actualizado exitosamente.',
+          confirmText: 'Aceptar',
+          cancelText: '',
+          type: 'success',
+          onConfirm: () => {
+            fetchMovimientos()
+            setIsEditing(false)
+            setEditingMovimiento(null)
+            setFormData({
+              descripcion: '',
+              monto: '',
+              tipo: 'VENTA',
+              formaDePagoId: '',
+              tipoGastoId: ''
+            })
+            hideConfirm()
+          }
+        })
+      } else {
+        showConfirm({
+          title: 'Error',
+          message: 'No se pudo actualizar el movimiento. Inténtalo de nuevo.',
+          confirmText: 'Aceptar',
+          cancelText: '',
+          type: 'error',
+          onConfirm: hideConfirm
+        })
+      }
+    } catch (error) {
+      console.error('Error al actualizar movimiento:', error)
+      showConfirm({
+        title: 'Error de Conexión',
+        message: 'No se pudo conectar con el servidor. Verifica tu conexión.',
+        confirmText: 'Aceptar',
+        cancelText: '',
+        type: 'error',
+        onConfirm: hideConfirm
+      })
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditingMovimiento(null)
+    setFormData({
+      descripcion: '',
+      monto: '',
+      tipo: 'VENTA',
+      formaDePagoId: '',
+      tipoGastoId: ''
+    })
+  }
+
+  // Calcular totales del día actual
+  const calcularTotalesDelDia = () => {
+    const hoy = new Date()
+    const inicioDelDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+    const finDelDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59)
     
-    return true
+    const movimientosDelDia = movimientos.filter(m => {
+      const fechaMovimiento = new Date(m.fecha)
+      return fechaMovimiento >= inicioDelDia && fechaMovimiento <= finDelDia
+    })
+    
+    const ventas = movimientosDelDia.filter(m => m.tipo === 'VENTA')
+    const gastos = movimientosDelDia.filter(m => m.tipo === 'GASTO')
+    
+    const totalVentas = ventas.reduce((sum, m) => sum + m.monto, 0)
+    const totalGastos = gastos.reduce((sum, m) => sum + m.monto, 0)
+    const saldo = totalVentas - totalGastos
+
+    return { totalVentas, totalGastos, saldo, movimientosDelDia }
+  }
+
+  const { totalVentas, totalGastos, saldo, movimientosDelDia } = calcularTotalesDelDia()
+
+  // Filtrar movimientos por término de búsqueda
+  const movimientosFiltrados = movimientos.filter(movimiento => {
+    if (!searchTerm) return true
+    
+    const termino = searchTerm.toLowerCase()
+    return (
+      movimiento.descripcion.toLowerCase().includes(termino) ||
+      movimiento.tipo.toLowerCase().includes(termino) ||
+      (movimiento.formaDePago?.nombre.toLowerCase().includes(termino)) ||
+      (movimiento.tipoGasto?.nombre.toLowerCase().includes(termino)) ||
+      movimiento.monto.toString().includes(termino) ||
+      new Date(movimiento.fecha).toLocaleDateString().includes(termino)
+    )
   })
 
-  const limpiarFiltros = () => {
-    setFechaInicio('')
-    setFechaFin('')
-    setTipoPagoFiltro('')
-    setCurrentPage(1)
-  }
-
-  // Funciones de paginación
+  // Calcular paginación
   const totalPages = Math.ceil(movimientosFiltrados.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentMovimientos = movimientosFiltrados.slice(startIndex, endIndex)
+  const movimientosPaginados = movimientosFiltrados.slice(startIndex, endIndex)
 
-  const goToPage = (page: number) => {
-    setCurrentPage(page)
-  }
-
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
-    }
-  }
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1)
-    }
-  }
+  // Resetear página cuando cambia el filtro de búsqueda
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
 
   if (loading) {
     return (
@@ -298,7 +503,6 @@ export default function MovimientosPage() {
   if (!user) {
     return null
   }
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -318,7 +522,7 @@ export default function MovimientosPage() {
                   Movimientos
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal.nombre}
+                  {user.sucursal?.nombre}
                 </p>
               </div>
             </div>
@@ -340,420 +544,450 @@ export default function MovimientosPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tarjetas de Resumen */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Resumen Financiero</h2>
-          <SummaryCards />
-        </div>
-
-        {/* Botón para agregar movimiento */}
+        {/* Resumen del día */}
         <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : '+ Nuevo Movimiento'}
-          </button>
-        </div>
-
-        {/* Filtros de búsqueda */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros de Búsqueda</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Tipo de pago */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Pago
-              </label>
-              <select
-                value={tipoPagoFiltro}
-                onChange={(e) => setTipoPagoFiltro(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">Todos los tipos</option>
-                <option value="Ventas Brutas">Ventas Brutas</option>
-                <option value="Crédito">Crédito</option>
-                <option value="Abonos de crédito">Abonos de crédito</option>
-                <option value="Recargas">Recargas</option>
-                <option value="Pago con tarjeta">Pago con tarjeta</option>
-                <option value="Gastos">Gastos</option>
-                <option value="Transferencias">Transferencias</option>
-              </select>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Resumen del Día - {new Date().toLocaleDateString('es-ES', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-green-50 rounded-lg p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M15 4.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-green-600">Ventas del Día</p>
+                  <p className="text-2xl font-bold text-green-900">${totalVentas.toLocaleString()}</p>
+                  <p className="text-xs text-green-500">
+                    {movimientosDelDia.filter(m => m.tipo === 'VENTA').length} movimientos
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Fecha inicio */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha Inicio
-              </label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+            <div className="bg-red-50 rounded-lg p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-red-600">Gastos del Día</p>
+                  <p className="text-2xl font-bold text-red-900">${totalGastos.toLocaleString()}</p>
+                  <p className="text-xs text-red-500">
+                    {movimientosDelDia.filter(m => m.tipo === 'GASTO').length} movimientos
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Fecha fin */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha Fin
-              </label>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Botón limpiar */}
-            <div className="flex items-end">
-              <button
-                onClick={limpiarFiltros}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-              >
-                Limpiar Filtros
-              </button>
+            <div className={`rounded-lg p-6 ${saldo >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className={`h-8 w-8 ${saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className={`text-sm font-medium ${saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    {saldo >= 0 ? 'Ganancia del Día' : 'Pérdida del Día'}
+                  </p>
+                  <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-blue-900' : 'text-orange-900'}`}>
+                    ${saldo.toLocaleString()}
+                  </p>
+                  <p className={`text-xs ${saldo >= 0 ? 'text-blue-500' : 'text-orange-500'}`}>
+                    {movimientosDelDia.length} movimientos totales
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-
-          {/* Información de resultados */}
-          {movimientosFiltrados.length !== movimientos.length && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-700">
-                Mostrando {movimientosFiltrados.length} de {movimientos.length} movimientos
-                {fechaInicio && fechaFin && ` (${fechaInicio} - ${fechaFin})`}
-                {tipoPagoFiltro && ` - Tipo: ${tipoPagoFiltro}`}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Formulario para nuevo movimiento */}
-        {showForm && (
-          <div className="card mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {editingId ? 'Editar Movimiento' : 'Nuevo Movimiento'}
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha *
-                  </label>
-                  <input
-                    type="date"
-                    name="fecha"
-                    value={formData.fecha}
-                    onChange={handleChange}
-                    className="input-field"
-                    required
-                  />
+        <div className="card mb-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Nuevo Movimiento</h3>
+          
+          {!user?.sucursalId ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Venta Bruta *
-                  </label>
-                  <input
-                    type="number"
-                    name="ventasBrutas"
-                    value={formData.ventasBrutas}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="0.00"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tipo de Pago (Opcional)
-                  </label>
-                  <select
-                    name="tipoPago"
-                    value={formData.tipoPago}
-                    onChange={handleChange}
-                    className="input-field"
-                  >
-                    <option value="">Seleccionar tipo...</option>
-                    <option value="credito">Crédito</option>
-                    <option value="abonosCredito">Abonos de Crédito</option>
-                    <option value="recargas">Recargas (Eleventa)</option>
-                    <option value="pagoTarjeta">Pago con Tarjeta</option>
-                    <option value="transferencias">Transferencias</option>
-                    <option value="gastos">Gastos</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Importe Tipo de Pago (Opcional)
-                  </label>
-                  <input
-                    type="number"
-                    name="importeTipoPago"
-                    value={formData.importeTipoPago}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="0.00"
-                    step="0.01"
-                    disabled={!formData.tipoPago}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Depósito Manual (Opcional)
-                  </label>
-                  <input
-                    type="number"
-                    name="depositoManual"
-                    value={formData.depositoManual}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="0.00"
-                    step="0.01"
-                  />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-yellow-800">
+                    Selecciona una sucursal
+                  </h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>Como administrador, debes seleccionar una sucursal antes de registrar movimientos.</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-end space-x-4">
+            </div>
+          ) : null}
+          
+          <form onSubmit={isEditing ? handleUpdate : handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Movimiento *
+                </label>
+                <select
+                  name="tipo"
+                  value={formData.tipo}
+                  onChange={handleChange}
+                  className="input-field"
+                  required
+                  disabled={!user?.sucursalId}
+                >
+                  <option value="VENTA">Venta</option>
+                  <option value="GASTO">Gasto</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {formData.tipo === 'VENTA' ? 'Forma de Pago *' : 'Tipo de Gasto *'}
+                </label>
+                <select
+                  name={formData.tipo === 'VENTA' ? 'formaDePagoId' : 'tipoGastoId'}
+                  value={formData.tipo === 'VENTA' ? formData.formaDePagoId : formData.tipoGastoId}
+                  onChange={handleChange}
+                  className="input-field"
+                  required
+                  disabled={!user?.sucursalId}
+                >
+                  <option value="">Seleccionar...</option>
+                  {formData.tipo === 'VENTA' 
+                    ? formasDePago.map((forma) => (
+                        <option key={forma.id} value={forma.id}>
+                          {forma.nombre}
+                        </option>
+                      ))
+                    : tiposGasto.map((tipo) => (
+                        <option key={tipo.id} value={tipo.id}>
+                          {tipo.nombre}
+                        </option>
+                      ))
+                  }
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Monto *
+                </label>
+                <input
+                  type="number"
+                  name="monto"
+                  value={formData.monto}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="0.00"
+                  step="0.01"
+                  required
+                  disabled={!user?.sucursalId}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Descripción *
+              </label>
+              <input
+                type="text"
+                name="descripcion"
+                value={formData.descripcion}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Descripción del movimiento"
+                required
+                disabled={!user?.sucursalId}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              {isEditing && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForm(false)
-                    setEditingId(null)
-                    setFormData({
-                      fecha: new Date().toISOString().split('T')[0],
-                      ventasBrutas: '',
-                      tipoPago: '',
-                      importeTipoPago: '',
-                      depositoManual: ''
-                    })
-                  }}
+                  onClick={handleCancelEdit}
                   className="btn-secondary"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                >
-                  {editingId ? 'Actualizar Movimiento' : 'Crear Movimiento'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+              )}
+              <button
+                type="submit"
+                className={`btn-primary ${formData.tipo === 'VENTA' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!user?.sucursalId}
+              >
+                {isEditing 
+                  ? (formData.tipo === 'VENTA' ? 'Actualizar Venta' : 'Actualizar Gasto')
+                  : (formData.tipo === 'VENTA' ? 'Registrar Venta' : 'Registrar Gasto')
+                }
+              </button>
+            </div>
+          </form>
+        </div>
 
         {/* Lista de movimientos */}
         <div className="card">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Historial de Movimientos</h3>
-          {movimientos.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No hay movimientos registrados</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Venta Bruta
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo de Pago
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Importe
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Depósito Manual
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Saldo del Día
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Saldo Total
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentMovimientos.map((movimiento) => {
-                    // Determinar el tipo de pago y su importe
-                    let tipoPago = '-'
-                    let importeTipoPago = 0
-                    
-                    if (movimiento.credito && movimiento.credito > 0) {
-                      tipoPago = 'Crédito'
-                      importeTipoPago = movimiento.credito
-                    } else if (movimiento.abonosCredito && movimiento.abonosCredito > 0) {
-                      tipoPago = 'Abonos Crédito'
-                      importeTipoPago = movimiento.abonosCredito
-                    } else if (movimiento.recargas && movimiento.recargas > 0) {
-                      tipoPago = 'Recargas'
-                      importeTipoPago = movimiento.recargas
-                    } else if (movimiento.pagoTarjeta && movimiento.pagoTarjeta > 0) {
-                      tipoPago = 'Pago Tarjeta'
-                      importeTipoPago = movimiento.pagoTarjeta
-                    } else if (movimiento.transferencias && movimiento.transferencias > 0) {
-                      tipoPago = 'Transferencias'
-                      importeTipoPago = movimiento.transferencias
-                    } else if (movimiento.gastos && movimiento.gastos > 0) {
-                      tipoPago = 'Gastos'
-                      importeTipoPago = movimiento.gastos
-                    }
-
-                    // Calcular Saldo del Día: Venta Bruta - Tipo de Pago
-                    const saldoDelDia = (movimiento.ventasBrutas || 0) - importeTipoPago
-                    
-                    // Calcular Saldo Total: Venta Bruta - Gastos - Depósito Manual
-                    const saldoTotal = (movimiento.ventasBrutas || 0) - (movimiento.gastos || 0) - (movimiento.depositoManual || 0)
-
-                    return (
-                      <tr key={movimiento.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(movimiento.fecha).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                          {movimiento.ventasBrutas ? `$${movimiento.ventasBrutas.toLocaleString()}` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {tipoPago}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                          {importeTipoPago > 0 ? `$${importeTipoPago.toLocaleString()}` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600">
-                          {movimiento.depositoManual ? `$${movimiento.depositoManual.toLocaleString()}` : '-'}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                          saldoDelDia >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          ${saldoDelDia.toLocaleString()}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${
-                          saldoTotal >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          ${saldoTotal.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleEdit(movimiento)}
-                              className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDelete(movimiento.id)}
-                              className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs"
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Movimientos Recientes</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {searchTerm ? (
+                  <>Mostrando {movimientosPaginados.length} de {movimientosFiltrados.length} resultados (de {movimientos.length} total)</>
+                ) : (
+                  <>Mostrando {movimientosPaginados.length} de {movimientos.length} movimientos</>
+                )}
+              </p>
             </div>
-          )}
+            
+            {/* Buscador */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar movimientos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field pl-10 pr-4 py-2 w-full sm:w-64"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {movimientos.length > 0 ? (
+            <>
+              {movimientosFiltrados.length > 0 ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tipo
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Descripción
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Categoría
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Monto
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {movimientosPaginados.map((movimiento) => (
+                        <tr key={movimiento.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(movimiento.fecha).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              movimiento.tipo === 'VENTA' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {movimiento.tipo}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            {movimiento.descripcion}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {movimiento.tipo === 'VENTA' 
+                              ? movimiento.formaDePago?.nombre || 'N/A'
+                              : movimiento.tipoGasto?.nombre || 'N/A'
+                            }
+                          </td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                            movimiento.tipo === 'VENTA' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {movimiento.tipo === 'VENTA' ? '+' : '-'}${movimiento.monto.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleEdit(movimiento)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Editar"
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDelete(movimiento)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Eliminar"
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-          {/* Paginación */}
-          {movimientosFiltrados.length > itemsPerPage && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 rounded-b-lg">
-              <div className="flex-1 flex justify-between sm:hidden">
-                <button
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Siguiente
-                </button>
-              </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Mostrando{' '}
-                    <span className="font-medium">{startIndex + 1}</span>
-                    {' '}a{' '}
-                    <span className="font-medium">{Math.min(endIndex, movimientosFiltrados.length)}</span>
-                    {' '}de{' '}
-                    <span className="font-medium">{movimientosFiltrados.length}</span>
-                    {' '}resultados
-                  </p>
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <button
-                      onClick={goToPreviousPage}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="sr-only">Anterior</span>
-                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    
-                    {/* Números de página */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                      // Mostrar solo algunas páginas alrededor de la actual
-                      if (
-                        page === 1 ||
-                        page === totalPages ||
-                        (page >= currentPage - 1 && page <= currentPage + 1)
-                      ) {
-                        return (
+                  {/* Controles de paginación */}
+                  {totalPages > 1 && (
+                    <div className="bg-white px-4 py-3 border-t border-gray-200">
+                      {/* Botones de paginación centrados */}
+                      <div className="flex justify-center mb-4">
+                        {/* Versión móvil */}
+                        <div className="flex justify-center space-x-2 sm:hidden">
                           <button
-                            key={page}
-                            onClick={() => goToPage(page)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              page === currentPage
-                                ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {page}
+                            Anterior
                           </button>
-                        )
-                      } else if (
-                        page === currentPage - 2 ||
-                        page === currentPage + 2
-                      ) {
-                        return (
-                          <span key={page} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                            ...
-                          </span>
-                        )
-                      }
-                      return null
-                    })}
-                    
-                    <button
-                      onClick={goToNextPage}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="sr-only">Siguiente</span>
-                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </nav>
+                          <button
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+
+                        {/* Versión escritorio */}
+                        <nav className="hidden sm:inline-flex relative z-0 rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <span className="sr-only">Anterior</span>
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          
+                          {/* Números de página */}
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                            // Mostrar solo algunas páginas alrededor de la actual
+                            if (
+                              page === 1 ||
+                              page === totalPages ||
+                              (page >= currentPage - 1 && page <= currentPage + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => setCurrentPage(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    page === currentPage
+                                      ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
+                                      : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              )
+                            } else if (
+                              page === currentPage - 2 ||
+                              page === currentPage + 2
+                            ) {
+                              return (
+                                <span key={page} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                  ...
+                                </span>
+                              )
+                            }
+                            return null
+                          })}
+                          
+                          <button
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <span className="sr-only">Siguiente</span>
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </nav>
+                      </div>
+
+                      {/* Información centrada debajo de los botones */}
+                      <div className="text-center">
+                        <p className="text-sm text-gray-700">
+                          Mostrando{' '}
+                          <span className="font-medium">{startIndex + 1}</span>
+                          {' '}a{' '}
+                          <span className="font-medium">{Math.min(endIndex, movimientosFiltrados.length)}</span>
+                          {' '}de{' '}
+                          <span className="font-medium">{movimientosFiltrados.length}</span>
+                          {' '}resultados
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="px-6 py-12 text-center">
+                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <p className="text-lg font-medium text-gray-900 mb-2">No se encontraron resultados</p>
+                  <p className="text-gray-500">No hay movimientos que coincidan con "{searchTerm}"</p>
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="mt-4 text-primary-600 hover:text-primary-500 text-sm font-medium"
+                  >
+                    Limpiar búsqueda
+                  </button>
                 </div>
-              </div>
+              )}
+            </>
+          ) : (
+            <div className="px-6 py-12 text-center">
+              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <p className="text-lg font-medium text-gray-900 mb-2">No hay movimientos registrados</p>
+              <p className="text-gray-500">Comienza registrando tu primer movimiento</p>
             </div>
           )}
         </div>

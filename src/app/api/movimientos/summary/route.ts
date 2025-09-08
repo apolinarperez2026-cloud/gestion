@@ -23,9 +23,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
     }
 
-    // Obtener movimientos de la sucursal del usuario
+    // Usar la sucursal del token JWT (si está disponible) o la de la base de datos
+    const sucursalId = decoded.sucursalId || user.sucursalId
+
+    if (!sucursalId) {
+      return NextResponse.json({ error: 'No se puede determinar la sucursal' }, { status: 400 })
+    }
+
+    // Obtener movimientos de la sucursal
     const movimientos = await prisma.movimiento.findMany({
-      where: { sucursalId: user.sucursalId },
+      where: { sucursalId: sucursalId },
       orderBy: { fecha: 'desc' }
     })
 

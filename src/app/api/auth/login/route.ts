@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
         id: usuario.rol.id,
         nombre: usuario.rol.nombre
       },
-      sucursal: {
+      sucursal: usuario.sucursal ? {
         id: usuario.sucursal.id,
         nombre: usuario.sucursal.nombre
-      }
+      } : null
     }
 
     const response = NextResponse.json({

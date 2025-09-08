@@ -25,10 +25,8 @@ export interface Usuario {
   password: string
   rol: Rol
   rolId: number
-  sucursal: Sucursal
-  sucursalId: number
-  movimientosEntrega?: Movimiento[]
-  movimientosRecibe?: Movimiento[]
+  sucursal: Sucursal | null
+  sucursalId: number | null
   pedidosEspeciales?: PedidoEspecial[]
   createdAt: Date
   updatedAt: Date
@@ -42,37 +40,6 @@ export interface TipoGasto {
   updatedAt: Date
 }
 
-export interface Movimiento {
-  id: number
-  fecha: Date
-  tipo: string // ENTRADA, SALIDA
-  categoria?: string // Ventas Brutas, Crédito, Abonos, etc.
-  monto: number
-  descripcion?: string
-  referencia?: string // Referencia ODOO
-  tipoGasto?: TipoGasto
-  tipoGastoId?: number
-  usuarioEntrega?: Usuario
-  usuarioEntregaId?: number
-  usuarioRecibe?: Usuario
-  usuarioRecibeId?: number
-  sucursal: Sucursal
-  sucursalId: number
-  // Campos adicionales para el formato específico
-  ventasBrutas?: number // Ventas en efectivo
-  credito?: number // Ventas a crédito
-  abonosCredito?: number // Abonos de crédito
-  recargas?: number // Recargas (Eleventa)
-  pagoTarjeta?: number // Pago con tarjeta
-  transferencias?: number // Transferencias
-  gastos?: number // Total de gastos del día
-  depositoManual?: number // Depósito manual (opcional)
-  saldoDia?: number // Saldo del día
-  deposito?: number // Depósito realizado
-  saldoAcumulado?: number // Saldo acumulado
-  createdAt: Date
-  updatedAt: Date
-}
 
 export interface FondoCaja {
   id: number
@@ -131,6 +98,7 @@ export interface CreateMovimientoData {
   importeTipoPago?: string
   depositoManual?: string
   // Campos adicionales para el formato específico
+  efectivo?: number
   credito?: number
   abonosCredito?: number
   recargas?: number
@@ -179,5 +147,37 @@ export interface AuthUser {
   sucursal: {
     id: number
     nombre: string
-  }
+  } | null
+  sucursalId: number | null
+}
+
+// Nuevos modelos para el sistema de movimientos unificados
+
+export enum MovimientoTipo {
+  VENTA = 'VENTA',
+  GASTO = 'GASTO'
+}
+
+export interface FormaDePago {
+  id: number
+  nombre: string
+  movimientos?: Movimiento[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Movimiento {
+  id: number
+  fecha: Date
+  descripcion: string
+  monto: number
+  tipo: MovimientoTipo
+  formaDePagoId?: number
+  formaDePago?: FormaDePago
+  tipoGastoId?: number
+  tipoGasto?: TipoGasto
+  sucursal: Sucursal
+  sucursalId: number
+  createdAt: Date
+  updatedAt: Date
 }

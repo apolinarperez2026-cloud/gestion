@@ -1,52 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import jwt from 'jsonwebtoken'
-import { prisma } from '@/lib/prisma'
-import { CreateMovimientoData } from '@/types/database'
+import { PrismaClient } from '@prisma/client'
 
-export async function GET(request: NextRequest) {
+const prisma = new PrismaClient()
+
+export async function GET() {
   try {
-    const token = request.cookies.get('auth-token')?.value
-
-    if (!token) {
-      return NextResponse.json(
-        { message: 'No autorizado' },
-        { status: 401 }
-      )
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-
     const movimientos = await prisma.movimiento.findMany({
-      where: {
-        sucursalId: decoded.sucursalId
-      },
       include: {
-        usuarioEntrega: {
-          select: {
-            nombre: true
-          }
-        },
-        usuarioRecibe: {
-          select: {
-            nombre: true
-          }
-        },
-        tipoGasto: {
-          select: {
-            nombre: true
-          }
-        }
+        formaDePago: true,
+        tipoGasto: true,
+        sucursal: true
       },
-      orderBy: {
-        fecha: 'desc'
-      }
+      orderBy: { fecha: 'desc' }
     })
 
     return NextResponse.json({ movimientos })
   } catch (error) {
     console.error('Error al obtener movimientos:', error)
     return NextResponse.json(
-      { message: 'Error interno del servidor' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }
@@ -54,51 +26,73 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value
+    const { 
+      descripcion, 
+      monto, 
+      tipo, 
+      formaDePagoId, 
+      tipoGastoId, 
+      sucursalId 
+    } = await request.json()
 
-    if (!token) {
+    console.log('Datos recibidos:', { 
+      descripcion, 
+      monto, 
+      tipo, 
+      formaDePagoId, 
+      tipoGastoId, 
+      sucursalId 
+    })
+
+    if (!descripcion || !monto || !tipo || !sucursalId) {
+      console.log('Validación fallida:', {
+        descripcion: !!descripcion,
+        monto: !!monto,
+        tipo: !!tipo,
+        sucursalId: !!sucursalId
+      })
       return NextResponse.json(
-        { message: 'No autorizado' },
-        { status: 401 }
+        { error: 'Faltan campos requeridos' },
+        { status: 400 }
       )
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const body: CreateMovimientoData = await request.json()
+    // Validar que si es VENTA tenga formaDePagoId, si es GASTO tenga tipoGastoId
+    if (tipo === 'VENTA' && !formaDePagoId) {
+      return NextResponse.json(
+        { error: 'Las ventas requieren una forma de pago' },
+        { status: 400 }
+      )
+    }
 
-      const movimiento = await prisma.movimiento.create({
-        data: {
-          fecha: body.fecha,
-          tipo: 'MOVIMIENTO',
-          categoria: body.tipoPago || 'ventasBrutas',
-          monto: body.monto,
-          descripcion: `Venta Bruta: $${body.ventasBrutas}${body.tipoPago ? `, ${body.tipoPago}: $${body.importeTipoPago}` : ''}${body.depositoManual ? `, Depósito Manual: $${body.depositoManual}` : ''}`,
-          referencia: null,
-          tipoGastoId: null,
-          usuarioEntregaId: decoded.userId,
-          sucursalId: decoded.sucursalId,
-          ventasBrutas: body.ventasBrutas,
-          credito: body.credito,
-          abonosCredito: body.abonosCredito,
-          recargas: body.recargas,
-          pagoTarjeta: body.pagoTarjeta,
-          transferencias: body.transferencias,
-          gastos: body.gastos,
-          depositoManual: body.depositoManual,
-          saldoDia: null,
-          deposito: null,
-          saldoAcumulado: null
-        }
-      })
+    if (tipo === 'GASTO' && !tipoGastoId) {
+      return NextResponse.json(
+        { error: 'Los gastos requieren un tipo de gasto' },
+        { status: 400 }
+      )
+    }
 
-    return NextResponse.json({
-      message: 'Movimiento creado exitosamente',
-      movimiento
+    const movimiento = await prisma.movimiento.create({
+      data: {
+        descripcion,
+        monto,
+        tipo,
+        formaDePagoId: tipo === 'VENTA' ? formaDePagoId : null,
+        tipoGastoId: tipo === 'GASTO' ? tipoGastoId : null,
+        sucursalId
+      },
+      include: {
+        formaDePago: true,
+        tipoGasto: true,
+        sucursal: true
+      }
     })
+
+    return NextResponse.json({ movimiento }, { status: 201 })
   } catch (error) {
     console.error('Error al crear movimiento:', error)
     return NextResponse.json(
-      { message: 'Error interno del servidor' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }

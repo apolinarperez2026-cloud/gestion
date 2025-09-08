@@ -5,6 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum MovimientoTipo {
+  VENTA
+  GASTO
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -12,7 +17,7 @@ datasource db {
 
 model Sucursal {
   id        Int      @id @default(autoincrement())
-  nombre    String
+  nombre    String   @unique
   direccion String
   usuarios  Usuario[]
   movimientos Movimiento[]
@@ -37,54 +42,49 @@ model Usuario {
   password    String
   rol         Rol      @relation(fields: [rolId], references: [id])
   rolId       Int
-  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
-  sucursalId  Int
-  movimientosEntrega Movimiento[] @relation("Entrega")
-  movimientosRecibe  Movimiento[] @relation("Recibe")
+  sucursal    Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId  Int?
   pedidosEspeciales  PedidoEspecial[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model TipoGasto {
-  id          Int      @id @default(autoincrement())
-  nombre      String   @unique
+model FormaDePago {
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
   movimientos Movimiento[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
-model Movimiento {
-  id                Int      @id @default(autoincrement())
-  fecha             DateTime
-  tipo              String   // ENTRADA, SALIDA
-  categoria         String?  // Ventas Brutas, Crédito, Abonos, etc.
-  monto             Float
-  descripcion       String?
-  referencia        String?  // Referencia ODOO
-  tipoGasto         TipoGasto? @relation(fields: [tipoGastoId], references: [id])
-  tipoGastoId       Int?
-  usuarioEntrega    Usuario?   @relation("Entrega", fields: [usuarioEntregaId], references: [id])
-  usuarioEntregaId  Int?
-  usuarioRecibe     Usuario?   @relation("Recibe", fields: [usuarioRecibeId], references: [id])
-  usuarioRecibeId   Int?
-  sucursal          Sucursal   @relation(fields: [sucursalId], references: [id])
-  sucursalId        Int
-  // Campos adicionales para el formato específico
-  ventasBrutas      Float?   // Ventas en efectivo
-  credito           Float?   // Ventas a crédito
-  abonosCredito     Float?   // Abonos de crédito
-  recargas          Float?   // Recargas (Eleventa)
-  pagoTarjeta       Float?   // Pago con tarjeta
-  transferencias    Float?   // Transferencias
-  gastos            Float?   // Total de gastos del día
-  depositoManual    Float?   // Depósito manual (opcional)
-  saldoDia          Float?   // Saldo del día
-  deposito          Float?   // Depósito realizado
-  saldoAcumulado    Float?   // Saldo acumulado
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model TipoGasto {
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
+  movimientos Movimiento[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
+
+
+
+
+// Movimientos unificados (ventas y gastos)
+model Movimiento {
+  id            Int             @id @default(autoincrement())
+  fecha         DateTime        @default(now())
+  descripcion   String
+  monto         Float
+  tipo          MovimientoTipo
+  formaDePagoId Int?            // Solo para ventas
+  formaDePago   FormaDePago?    @relation(fields: [formaDePagoId], references: [id])
+  tipoGastoId   Int?            // Solo para gastos
+  tipoGasto     TipoGasto?      @relation(fields: [tipoGastoId], references: [id])
+  sucursal      Sucursal        @relation(fields: [sucursalId], references: [id])
+  sucursalId    Int
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
 
 model FondoCaja {
   id         Int      @id @default(autoincrement())
@@ -116,3 +116,4 @@ model PedidoEspecial {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+

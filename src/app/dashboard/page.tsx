@@ -9,23 +9,34 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me')
-        if (response.ok) {
-          const userData = await response.json()
-          setUser(userData.user)
-        } else {
-          router.push('/auth/login')
-        }
-      } catch (error) {
+  const fetchUser = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
         router.push('/auth/login')
-      } finally {
-        setLoading(false)
+        return
       }
-    }
 
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData.user)
+      } else {
+        router.push('/auth/login')
+      }
+    } catch (error) {
+      router.push('/auth/login')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchUser()
   }, [router])
 
@@ -35,6 +46,42 @@ export default function DashboardPage() {
       router.push('/auth/login')
     } catch (error) {
       console.error('Error al cerrar sesión:', error)
+    }
+  }
+
+  const handleResetSucursal = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch('/api/auth/reset-sucursal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Actualizar el token en localStorage
+        if (data.token) {
+          localStorage.setItem('token', data.token)
+        }
+        
+        // Recargar los datos del usuario
+        await fetchUser()
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.message || 'Error al resetear sucursal'}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al resetear sucursal')
     }
   }
 
@@ -64,14 +111,27 @@ export default function DashboardPage() {
                 Libro Diario
               </h1>
               <p className="text-sm text-gray-600">
-                {user.sucursal.nombre}
+                {user.sucursal ? user.sucursal.nombre : 'Administración General'}
               </p>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{user.nombre}</p>
                 <p className="text-xs text-gray-500">{user.rol.nombre}</p>
+                {user.sucursal && (
+                  <p className="text-xs text-blue-600 font-medium">
+                    📍 {user.sucursal.nombre}
+                  </p>
+                )}
               </div>
+              {user.rol.nombre === 'Administrador' && user.sucursal && (
+                <button
+                  onClick={handleResetSucursal}
+                  className="btn-secondary text-sm"
+                >
+                  Volver a Sucursales
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="btn-secondary text-sm"
@@ -85,84 +145,10 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Card de Movimientos */}
-          <div className="card">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900">Movimientos</h3>
-                <p className="text-sm text-gray-500">Gestionar ingresos y gastos</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <button 
-                onClick={() => router.push('/dashboard/movimientos')}
-                className="btn-primary w-full"
-              >
-                Ver Movimientos
-              </button>
-            </div>
-          </div>
-
-          {/* Card de Fondo de Caja */}
-          <div className="card">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900">Fondo de Caja</h3>
-                <p className="text-sm text-gray-500">Control de efectivo diario</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <button 
-                onClick={() => router.push('/dashboard/fondo-caja')}
-                className="btn-primary w-full"
-              >
-                Ver Fondo de Caja
-              </button>
-            </div>
-          </div>
-
-          {/* Card de Pedidos Especiales */}
-          <div className="card">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900">Pedidos Especiales</h3>
-                <p className="text-sm text-gray-500">Gestionar pedidos especiales</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <button 
-                onClick={() => router.push('/dashboard/pedidos-especiales')}
-                className="btn-primary w-full"
-              >
-                Ver Pedidos
-              </button>
-            </div>
-          </div>
-
-          {/* Card de Usuarios (solo para admin) */}
-          {user.rol.nombre === 'Administrador' && (
+        {user.rol.nombre === 'Administrador' && user.sucursal === null ? (
+          // Dashboard para Administradores (sin sucursal específica)
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card de Usuarios */}
             <div className="card">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -186,10 +172,8 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-          )}
 
-          {/* Card de Sucursales (solo para admin) */}
-          {user.rol.nombre === 'Administrador' && (
+            {/* Card de Sucursales */}
             <div className="card">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -201,7 +185,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="ml-4">
                   <h3 className="text-lg font-medium text-gray-900">Sucursales</h3>
-                  <p className="text-sm text-gray-500">Gestionar sucursales</p>
+                  <p className="text-sm text-gray-500">Gestionar sucursales y ver movimientos</p>
                 </div>
               </div>
               <div className="mt-4">
@@ -213,8 +197,136 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          // Dashboard para Gerentes y Empleados
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card de Resumen */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Resumen</h3>
+                  <p className="text-sm text-gray-500">Ver resumen financiero y movimientos</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/resumen')}
+                  className="btn-primary w-full"
+                >
+                  Ver Resumen
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Fondo de Caja */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Fondo de Caja</h3>
+                  <p className="text-sm text-gray-500">Control de efectivo diario</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/fondo-caja')}
+                  className="btn-primary w-full"
+                >
+                  Ver Fondo de Caja
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Pedidos Especiales */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Pedidos Especiales</h3>
+                  <p className="text-sm text-gray-500">Gestionar pedidos especiales</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/pedidos-especiales')}
+                  className="btn-primary w-full"
+                >
+                  Ver Pedidos
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Movimientos */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Movimientos</h3>
+                  <p className="text-sm text-gray-500">Ingresar movimientos diarios</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/movimientos')}
+                  className="btn-primary w-full"
+                >
+                  Ver Movimientos
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Gastos */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M15 4.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Gastos</h3>
+                  <p className="text-sm text-gray-500">Gestionar gastos de la sucursal</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/gastos')}
+                  className="btn-primary w-full"
+                >
+                  Ver Gastos
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
