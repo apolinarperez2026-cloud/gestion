@@ -32,5 +32,6 @@ Thumbs.db
 *.backup
 *.bak
 
-# Prisma Accelerate
+# Prisma Accelerate - Forzar engine local
 node_modules/.prisma/client/libquery_engine*
+node_modules/.prisma/client/query-engine*
