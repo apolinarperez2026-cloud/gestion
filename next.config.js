@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuración para producción
-  output: 'standalone',
-  
   // Optimizaciones de imágenes
   images: {
     domains: [],

@@ -31,8 +31,3 @@ Thumbs.db
 # Archivos de backup
 *.backup
 *.bak
-
-# Archivos de documentación local
-docs/
-*.md
-!README.md
