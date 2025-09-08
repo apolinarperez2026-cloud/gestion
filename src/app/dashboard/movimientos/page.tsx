@@ -652,36 +652,39 @@ export default function MovimientosPage() {
                 >
                   <option value="VENTA">Venta</option>
                   <option value="GASTO">Gasto</option>
+                  <option value="FONDO_CAJA">Fondo de Caja</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {formData.tipo === 'VENTA' ? 'Forma de Pago *' : 'Tipo de Gasto *'}
-                </label>
-                <select
-                  name={formData.tipo === 'VENTA' ? 'formaDePagoId' : 'tipoGastoId'}
-                  value={formData.tipo === 'VENTA' ? formData.formaDePagoId : formData.tipoGastoId}
-                  onChange={handleChange}
-                  className="input-field"
-                  required
-                  disabled={!user?.sucursalId}
-                >
-                  <option value="">Seleccionar...</option>
-                  {formData.tipo === 'VENTA' 
-                    ? formasDePago.map((forma) => (
-                        <option key={forma.id} value={forma.id}>
-                          {forma.nombre}
-                        </option>
-                      ))
-                    : tiposGasto.map((tipo) => (
-                        <option key={tipo.id} value={tipo.id}>
-                          {tipo.nombre}
-                        </option>
-                      ))
-                  }
-                </select>
-              </div>
+              {formData.tipo !== 'FONDO_CAJA' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {formData.tipo === 'VENTA' ? 'Forma de Pago *' : 'Tipo de Gasto *'}
+                  </label>
+                  <select
+                    name={formData.tipo === 'VENTA' ? 'formaDePagoId' : 'tipoGastoId'}
+                    value={formData.tipo === 'VENTA' ? formData.formaDePagoId : formData.tipoGastoId}
+                    onChange={handleChange}
+                    className="input-field"
+                    required
+                    disabled={!user?.sucursalId}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {formData.tipo === 'VENTA' 
+                      ? formasDePago.map((forma) => (
+                          <option key={forma.id} value={forma.id}>
+                            {forma.nombre}
+                          </option>
+                        ))
+                      : tiposGasto.map((tipo) => (
+                          <option key={tipo.id} value={tipo.id}>
+                            {tipo.nombre}
+                          </option>
+                        ))
+                    }
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -729,12 +732,12 @@ export default function MovimientosPage() {
               )}
               <button
                 type="submit"
-                className={`btn-primary ${formData.tipo === 'VENTA' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`btn-primary ${formData.tipo === 'VENTA' ? 'bg-green-600 hover:bg-green-700' : formData.tipo === 'GASTO' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={!user?.sucursalId}
               >
                 {isEditing 
-                  ? (formData.tipo === 'VENTA' ? 'Actualizar Venta' : 'Actualizar Gasto')
-                  : (formData.tipo === 'VENTA' ? 'Registrar Venta' : 'Registrar Gasto')
+                  ? (formData.tipo === 'VENTA' ? 'Actualizar Venta' : formData.tipo === 'GASTO' ? 'Actualizar Gasto' : 'Actualizar Fondo')
+                  : (formData.tipo === 'VENTA' ? 'Registrar Venta' : formData.tipo === 'GASTO' ? 'Registrar Gasto' : 'Registrar Fondo')
                 }
               </button>
             </div>
@@ -820,9 +823,11 @@ export default function MovimientosPage() {
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               movimiento.tipo === 'VENTA' 
                                 ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
+                                : movimiento.tipo === 'GASTO'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
                             }`}>
-                              {movimiento.tipo}
+                              {movimiento.tipo === 'FONDO_CAJA' ? 'FONDO CAJA' : movimiento.tipo}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900">
@@ -831,13 +836,24 @@ export default function MovimientosPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.tipo === 'VENTA' 
                               ? movimiento.formaDePago?.nombre || 'N/A'
-                              : movimiento.tipoGasto?.nombre || 'N/A'
+                              : movimiento.tipo === 'GASTO'
+                              ? movimiento.tipoGasto?.nombre || 'N/A'
+                              : 'N/A'
                             }
                           </td>
                           <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                            movimiento.tipo === 'VENTA' ? 'text-green-600' : 'text-red-600'
+                            movimiento.tipo === 'VENTA' 
+                              ? 'text-green-600' 
+                              : movimiento.tipo === 'GASTO'
+                              ? 'text-red-600'
+                              : 'text-blue-600'
                           }`}>
-                            {movimiento.tipo === 'VENTA' ? '+' : '-'}${movimiento.monto.toLocaleString()}
+                            {movimiento.tipo === 'VENTA' 
+                              ? '+' 
+                              : movimiento.tipo === 'GASTO'
+                              ? '-'
+                              : ''
+                            }${movimiento.monto.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">

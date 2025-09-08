@@ -155,7 +155,8 @@ export interface AuthUser {
 
 export enum MovimientoTipo {
   VENTA = 'VENTA',
-  GASTO = 'GASTO'
+  GASTO = 'GASTO',
+  FONDO_CAJA = 'FONDO_CAJA'
 }
 
 export interface FormaDePago {

@@ -10,7 +10,7 @@ interface ConfirmModalProps {
   message: string
   confirmText?: string
   cancelText?: string
-  type?: 'danger' | 'warning' | 'info'
+  type?: 'danger' | 'warning' | 'info' | 'success'
 }
 
 export default function ConfirmModal({
@@ -70,6 +70,14 @@ export default function ConfirmModal({
           confirmBg: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
           border: 'border-blue-200'
         }
+      case 'success':
+        return {
+          icon: '✅',
+          iconBg: 'bg-green-100',
+          iconColor: 'text-green-600',
+          confirmBg: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
+          border: 'border-green-200'
+        }
       default:
         return {
           icon: '⚠️',
@@ -117,13 +125,15 @@ export default function ConfirmModal({
 
           {/* Footer */}
           <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-            >
-              {cancelText}
-            </button>
+            {cancelText && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+              >
+                {cancelText}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

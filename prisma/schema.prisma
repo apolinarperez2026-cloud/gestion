@@ -8,6 +8,7 @@ generator client {
 enum MovimientoTipo {
   VENTA
   GASTO
+  FONDO_CAJA
 }
 
 datasource db {
