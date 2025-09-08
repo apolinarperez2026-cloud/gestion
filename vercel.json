@@ -7,6 +7,13 @@
   },
   "regions": ["iad1"],
   "env": {
-    "PRISMA_GENERATE_DATAPROXY": "false"
+    "PRISMA_GENERATE_DATAPROXY": "false",
+    "PRISMA_CLI_QUERY_ENGINE_TYPE": "library"
+  },
+  "build": {
+    "env": {
+      "PRISMA_GENERATE_DATAPROXY": "false",
+      "PRISMA_CLI_QUERY_ENGINE_TYPE": "library"
+    }
   }
 }

@@ -31,3 +31,6 @@ Thumbs.db
 # Archivos de backup
 *.backup
 *.bak
+
+# Prisma Accelerate
+node_modules/.prisma/client/libquery_engine*
