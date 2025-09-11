@@ -9,7 +9,12 @@ export async function GET() {
       include: {
         formaDePago: true,
         tipoGasto: true,
-        sucursal: true
+        sucursal: true,
+        usuario: {
+          include: {
+            rol: true
+          }
+        }
       },
       orderBy: { fecha: 'desc' }
     })
@@ -30,18 +35,22 @@ export async function POST(request: NextRequest) {
       descripcion, 
       monto, 
       tipo, 
+      imagen,
       formaDePagoId, 
       tipoGastoId, 
-      sucursalId 
+      sucursalId,
+      usuarioId
     } = await request.json()
 
     console.log('Datos recibidos:', { 
       descripcion, 
       monto, 
       tipo, 
+      imagen,
       formaDePagoId, 
       tipoGastoId, 
-      sucursalId 
+      sucursalId,
+      usuarioId
     })
 
     if (!descripcion || !monto || !tipo || !sucursalId) {
@@ -49,7 +58,8 @@ export async function POST(request: NextRequest) {
         descripcion: !!descripcion,
         monto: !!monto,
         tipo: !!tipo,
-        sucursalId: !!sucursalId
+        sucursalId: !!sucursalId,
+        usuarioId: !!usuarioId
       })
       return NextResponse.json(
         { error: 'Faltan campos requeridos' },
@@ -77,14 +87,21 @@ export async function POST(request: NextRequest) {
         descripcion,
         monto,
         tipo,
+        imagen: imagen || null,
         formaDePagoId: tipo === 'VENTA' ? formaDePagoId : null,
         tipoGastoId: tipo === 'GASTO' ? tipoGastoId : null,
-        sucursalId
+        sucursalId,
+        usuarioId: usuarioId || null
       },
       include: {
         formaDePago: true,
         tipoGasto: true,
-        sucursal: true
+        sucursal: true,
+        usuario: {
+          include: {
+            rol: true
+          }
+        }
       }
     })
 

@@ -27,6 +27,9 @@ model Usuario {
   rol        Rol      @relation(fields: [rolId], references: [id])
   sucursalId Int?
   sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  movimientos Movimiento[] // Movimientos registrados por este usuario
+  movimientosDiarios MovimientoDiario[] // Movimientos diarios registrados por este usuario
+  movimientosDiariosHistorial MovimientoDiarioHistorial[] // Historial de cambios en movimientos diarios
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -37,6 +40,7 @@ model Sucursal {
   direccion         String
   usuarios          Usuario[]
   movimientos       Movimiento[]
+  movimientosDiarios MovimientoDiario[]
   fondoCajas        FondoCaja[]
   pedidosEspeciales PedidoEspecial[]
   createdAt         DateTime           @default(now())
@@ -71,14 +75,54 @@ model Movimiento {
   descripcion   String
   monto         Float
   tipo          MovimientoTipo
+  imagen        String?        // URL o path de la imagen
   formaDePagoId Int?           // Solo para ventas
   formaDePago   FormaDePago?   @relation(fields: [formaDePagoId], references: [id])
   tipoGastoId   Int?           // Solo para gastos
   tipoGasto     TipoGasto?     @relation(fields: [tipoGastoId], references: [id])
   sucursalId    Int
   sucursal      Sucursal       @relation(fields: [sucursalId], references: [id])
+  usuarioId     Int?           // Usuario que registró el movimiento
+  usuario       Usuario?       @relation(fields: [usuarioId], references: [id])
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+}
+
+model MovimientoDiario {
+  id                Int      @id @default(autoincrement())
+  fecha             DateTime @default(now())
+  ventasBrutas      Float    @default(0)
+  efectivo          Float    @default(0)
+  credito           Float    @default(0)
+  abonosCredito     Float    @default(0)
+  recargas          Float    @default(0)
+  pagoTarjeta       Float    @default(0)
+  transferencias    Float    @default(0)
+  gastos            Float    @default(0)
+  saldoDia          Float    @default(0)
+  observaciones     String?
+  sucursalId        Int
+  sucursal          Sucursal @relation(fields: [sucursalId], references: [id])
+  usuarioId         Int?     // Usuario que registró el movimiento diario
+  usuario           Usuario? @relation(fields: [usuarioId], references: [id])
+  historial         MovimientoDiarioHistorial[] // Historial de cambios
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([fecha, sucursalId])
+}
+
+model MovimientoDiarioHistorial {
+  id                    Int      @id @default(autoincrement())
+  movimientoDiarioId    Int
+  movimientoDiario      MovimientoDiario @relation(fields: [movimientoDiarioId], references: [id], onDelete: Cascade)
+  usuarioId             Int
+  usuario               Usuario @relation(fields: [usuarioId], references: [id])
+  campoModificado       String   // "efectivo", "ventasBrutas", "observaciones", etc.
+  valorAnterior         String   // Para mantener formato original
+  valorNuevo            String
+  fechaCambio           DateTime @default(now())
+  observaciones         String?  // Comentario opcional del usuario
 }
 
 model FondoCaja {

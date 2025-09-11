@@ -272,7 +272,8 @@ async function main() {
       monto: 1250.00,
       tipo: 'VENTA' as const,
       formaDePagoId: efectivo?.id,
-      sucursalId: sucursalNorte.id
+      sucursalId: sucursalNorte.id,
+      usuarioId: empleado1.id
     },
     {
       fecha: hoy,
@@ -280,7 +281,8 @@ async function main() {
       monto: 850.50,
       tipo: 'VENTA' as const,
       formaDePagoId: tarjeta?.id,
-      sucursalId: sucursalNorte.id
+      sucursalId: sucursalNorte.id,
+      usuarioId: empleado1.id
     },
     {
       fecha: ayer,
@@ -288,7 +290,8 @@ async function main() {
       monto: 2000.00,
       tipo: 'VENTA' as const,
       formaDePagoId: credito?.id,
-      sucursalId: sucursalNorte.id
+      sucursalId: sucursalNorte.id,
+      usuarioId: gerenteNorte.id
     },
     // Gastos
     {
@@ -297,7 +300,8 @@ async function main() {
       monto: 5000.00,
       tipo: 'GASTO' as const,
       tipoGastoId: nomina?.id,
-      sucursalId: sucursalNorte.id
+      sucursalId: sucursalNorte.id,
+      usuarioId: gerenteNorte.id
     },
     {
       fecha: ayer,
@@ -305,7 +309,8 @@ async function main() {
       monto: 1200.00,
       tipo: 'GASTO' as const,
       tipoGastoId: renta?.id,
-      sucursalId: sucursalNorte.id
+      sucursalId: sucursalNorte.id,
+      usuarioId: gerenteNorte.id
     },
     {
       fecha: ayer,
@@ -313,7 +318,8 @@ async function main() {
       monto: 350.75,
       tipo: 'GASTO' as const,
       tipoGastoId: luz?.id,
-      sucursalId: sucursalNorte.id
+      sucursalId: sucursalNorte.id,
+      usuarioId: empleado1.id
     }
   ]
 
@@ -325,7 +331,8 @@ async function main() {
       monto: 750.00,
       tipo: 'VENTA' as const,
       formaDePagoId: efectivo?.id,
-      sucursalId: sucursalSur.id
+      sucursalId: sucursalSur.id,
+      usuarioId: empleado2.id
     },
     {
       fecha: hoy,
@@ -333,7 +340,8 @@ async function main() {
       monto: 3000.00,
       tipo: 'GASTO' as const,
       tipoGastoId: mercaderia?.id,
-      sucursalId: sucursalSur.id
+      sucursalId: sucursalSur.id,
+      usuarioId: gerenteSur.id
     },
     {
       fecha: ayer,
@@ -341,7 +349,8 @@ async function main() {
       monto: 1500.00,
       tipo: 'VENTA' as const,
       formaDePagoId: transferencia?.id,
-      sucursalId: sucursalSur.id
+      sucursalId: sucursalSur.id,
+      usuarioId: empleado2.id
     }
   ]
 
@@ -352,56 +361,56 @@ async function main() {
 
   console.log('✅ Movimientos de ejemplo creados')
 
-  // Crear fondos de caja
-  await prisma.fondoCaja.createMany({
-    data: [
-      {
-        fecha: hoy,
-        monto: 2000.00,
-        sucursalId: sucursalNorte.id
-      },
-      {
-        fecha: hoy,
-        monto: 1500.00,
-        sucursalId: sucursalSur.id
-      },
-      {
-        fecha: hoy,
-        monto: 1000.00,
-        sucursalId: sucursalEste.id
-      },
-      {
-        fecha: hoy,
-        monto: 1800.00,
-        sucursalId: sucursalOeste.id
-      }
-    ]
-  })
+  // Crear fondos de caja (comentado temporalmente por problemas de migración)
+  // await prisma.fondoCaja.createMany({
+  //   data: [
+  //     {
+  //       fecha: hoy,
+  //       monto: 2000.00,
+  //       sucursalId: sucursalNorte.id
+  //     },
+  //     {
+  //       fecha: hoy,
+  //       monto: 1500.00,
+  //       sucursalId: sucursalSur.id
+  //     },
+  //     {
+  //       fecha: hoy,
+  //       monto: 1000.00,
+  //       sucursalId: sucursalEste.id
+  //     },
+  //     {
+  //       fecha: hoy,
+  //       monto: 1800.00,
+  //       sucursalId: sucursalOeste.id
+  //     }
+  //   ]
+  // })
 
-  console.log('✅ Fondos de caja creados')
+  console.log('✅ Fondos de caja omitidos (problema de migración)')
 
-  // Crear pedidos especiales
-  const fechaEntrega = new Date(hoy)
-  fechaEntrega.setDate(fechaEntrega.getDate() + 7)
+  // Crear pedidos especiales (comentado temporalmente por problemas de migración)
+  // const fechaEntrega = new Date(hoy)
+  // fechaEntrega.setDate(fechaEntrega.getDate() + 7)
 
-  await prisma.pedidoEspecial.createMany({
-    data: [
-      {
-        descripcion: 'Samsung Galaxy S21 - 2 unidades',
-        monto: 1600.00,
-        fecha: hoy,
-        sucursalId: sucursalNorte.id
-      },
-      {
-        descripcion: 'iPhone 13 Pro - 1 unidad',
-        monto: 1200.00,
-        fecha: ayer,
-        sucursalId: sucursalSur.id
-      }
-    ]
-  })
+  // await prisma.pedidoEspecial.createMany({
+  //   data: [
+  //     {
+  //       descripcion: 'Samsung Galaxy S21 - 2 unidades',
+  //       monto: 1600.00,
+  //       fecha: hoy,
+  //       sucursalId: sucursalNorte.id
+  //     },
+  //     {
+  //       descripcion: 'iPhone 13 Pro - 1 unidad',
+  //       monto: 1200.00,
+  //       fecha: ayer,
+  //       sucursalId: sucursalSur.id
+  //     }
+  //   ]
+  // })
 
-  console.log('✅ Pedidos especiales creados')
+  console.log('✅ Pedidos especiales omitidos (problema de migración)')
 
   console.log('🎉 Semilla completada exitosamente!')
   console.log('\n📋 Usuarios de prueba creados:')

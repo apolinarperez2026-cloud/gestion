@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Movimiento, AuthUser } from '@/types/database'
+import { MovimientoDiario, AuthUser } from '@/types/database'
 import SummaryCards from '@/components/SummaryCards'
 
 export default function ResumenPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([])
+  const [movimientosDiarios, setMovimientosDiarios] = useState<MovimientoDiario[]>([])
   const [loading, setLoading] = useState(true)
   const [mesSeleccionado, setMesSeleccionado] = useState(() => {
     const now = new Date()
@@ -35,7 +35,7 @@ export default function ResumenPage() {
         if (response.ok) {
           const userData = await response.json()
           setUser(userData.user)
-          fetchMovimientos()
+          fetchMovimientosDiarios()
         } else {
           router.push('/auth/login')
         }
@@ -49,7 +49,7 @@ export default function ResumenPage() {
 
   useEffect(() => {
     if (user) {
-      fetchMovimientos()
+      fetchMovimientosDiarios()
     }
   }, [mesSeleccionado, user])
 
@@ -57,7 +57,7 @@ export default function ResumenPage() {
     setCurrentPage(1)
   }, [searchTerm])
 
-  const fetchMovimientos = async () => {
+  const fetchMovimientosDiarios = async () => {
     try {
       const token = localStorage.getItem('token')
       if (!token) {
@@ -65,17 +65,17 @@ export default function ResumenPage() {
         return
       }
 
-      const response = await fetch('/api/movimientos', {
+      const response = await fetch('/api/movimientos-diarios', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
       if (response.ok) {
         const data = await response.json()
-        setMovimientos(data.movimientos || [])
+        setMovimientosDiarios(data.movimientosDiarios || [])
       }
     } catch (error) {
-      console.error('Error al cargar movimientos:', error)
+      console.error('Error al cargar movimientos diarios:', error)
     } finally {
       setLoading(false)
     }
@@ -90,8 +90,8 @@ export default function ResumenPage() {
     }
   }
 
-  // Filtrar movimientos por mes seleccionado
-  const movimientosDelMes = movimientos.filter(movimiento => {
+  // Filtrar movimientos diarios por mes seleccionado
+  const movimientosDelMes = movimientosDiarios.filter(movimiento => {
     const fechaMovimiento = new Date(movimiento.fecha)
     const [año, mes] = mesSeleccionado.split('-')
     return fechaMovimiento.getFullYear() === parseInt(año) && 
@@ -108,44 +108,16 @@ export default function ResumenPage() {
     let totalRecargas = 0
     let totalPagoTarjeta = 0
     let totalTransferencias = 0
-    let totalCheque = 0
-    let totalDepositoBancario = 0
 
     movimientosDelMes.forEach(movimiento => {
-      if (movimiento.tipo === 'VENTA') {
-        totalVentas += movimiento.monto
-        
-        // Agrupar por forma de pago
-        const formaPago = movimiento.formaDePago?.nombre
-        switch (formaPago) {
-          case 'Efectivo':
-            totalEfectivo += movimiento.monto
-            break
-          case 'Crédito':
-            totalCredito += movimiento.monto
-            break
-          case 'Abonos de Crédito':
-            totalAbonosCredito += movimiento.monto
-            break
-          case 'Recargas':
-            totalRecargas += movimiento.monto
-            break
-          case 'Pago con Tarjeta':
-            totalPagoTarjeta += movimiento.monto
-            break
-          case 'Transferencias':
-            totalTransferencias += movimiento.monto
-            break
-          case 'Cheque':
-            totalCheque += movimiento.monto
-            break
-          case 'Depósito Bancario':
-            totalDepositoBancario += movimiento.monto
-            break
-        }
-      } else if (movimiento.tipo === 'GASTO') {
-        totalGastos += movimiento.monto
-      }
+      totalVentas += movimiento.ventasBrutas
+      totalGastos += movimiento.gastos
+      totalEfectivo += movimiento.efectivo
+      totalCredito += movimiento.credito
+      totalAbonosCredito += movimiento.abonosCredito
+      totalRecargas += movimiento.recargas
+      totalPagoTarjeta += movimiento.pagoTarjeta
+      totalTransferencias += movimiento.transferencias
     })
 
     const totalSaldo = totalVentas - totalGastos
@@ -159,8 +131,6 @@ export default function ResumenPage() {
       totalRecargas,
       totalPagoTarjeta,
       totalTransferencias,
-      totalCheque,
-      totalDepositoBancario,
       totalSaldo,
       cantidadMovimientos: movimientosDelMes.length
     }
@@ -168,72 +138,23 @@ export default function ResumenPage() {
 
   const resumen = calcularResumen()
 
-  // Agrupar movimientos por día
-  const movimientosPorDia = movimientosDelMes.reduce((acc, movimiento) => {
-    const fecha = new Date(movimiento.fecha).toLocaleDateString()
-    
-    if (!acc[fecha]) {
-      acc[fecha] = {
-        fecha: new Date(movimiento.fecha),
-        movimientos: [],
-        totalVentas: 0,
-        totalGastos: 0,
-        totalEfectivo: 0,
-        totalCredito: 0,
-        totalAbonosCredito: 0,
-        totalRecargas: 0,
-        totalPagoTarjeta: 0,
-        totalTransferencias: 0,
-        totalCheque: 0,
-        totalDepositoBancario: 0,
-        saldoDia: 0
-      }
-    }
-    
-    acc[fecha].movimientos.push(movimiento)
-    
-    if (movimiento.tipo === 'VENTA') {
-      acc[fecha].totalVentas += movimiento.monto
-      
-      // Agrupar por forma de pago
-      const formaPago = movimiento.formaDePago?.nombre
-      switch (formaPago) {
-        case 'Efectivo':
-          acc[fecha].totalEfectivo += movimiento.monto
-          break
-        case 'Crédito':
-          acc[fecha].totalCredito += movimiento.monto
-          break
-        case 'Abonos de Crédito':
-          acc[fecha].totalAbonosCredito += movimiento.monto
-          break
-        case 'Recargas':
-          acc[fecha].totalRecargas += movimiento.monto
-          break
-        case 'Pago con Tarjeta':
-          acc[fecha].totalPagoTarjeta += movimiento.monto
-          break
-        case 'Transferencias':
-          acc[fecha].totalTransferencias += movimiento.monto
-          break
-        case 'Cheque':
-          acc[fecha].totalCheque += movimiento.monto
-          break
-        case 'Depósito Bancario':
-          acc[fecha].totalDepositoBancario += movimiento.monto
-          break
-      }
-    } else if (movimiento.tipo === 'GASTO') {
-      acc[fecha].totalGastos += movimiento.monto
-    }
-    
-    acc[fecha].saldoDia = acc[fecha].totalVentas - acc[fecha].totalGastos
-    
-    return acc
-  }, {} as Record<string, any>)
+  // Los movimientos diarios ya están agrupados por día, solo necesitamos mapearlos
+  const movimientosPorDia = movimientosDelMes.map(movimiento => ({
+    fecha: new Date(movimiento.fecha),
+    movimientos: [movimiento],
+    totalVentas: movimiento.ventasBrutas,
+    totalGastos: movimiento.gastos,
+    totalEfectivo: movimiento.efectivo,
+    totalCredito: movimiento.credito,
+    totalAbonosCredito: movimiento.abonosCredito,
+    totalRecargas: movimiento.recargas,
+    totalPagoTarjeta: movimiento.pagoTarjeta,
+    totalTransferencias: movimiento.transferencias,
+    saldoDia: movimiento.saldoDia
+  }))
 
-  // Convertir a array y ordenar por fecha
-  const diasOrdenados = Object.values(movimientosPorDia).sort((a: any, b: any) => 
+  // Ordenar por fecha
+  const diasOrdenados = movimientosPorDia.sort((a: any, b: any) => 
     new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   )
 
@@ -242,12 +163,10 @@ export default function ResumenPage() {
     if (!searchTerm) return true
     
     const fechaStr = dia.fecha.toLocaleDateString('es-ES')
-    const movimientosStr = dia.movimientos.map((m: any) => 
-      `${m.descripcion} ${m.tipo} ${m.formaDePago?.nombre || ''} ${m.tipoGasto?.nombre || ''}`
-    ).join(' ')
+    const observacionesStr = dia.movimientos[0]?.observaciones || ''
     
     return fechaStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           movimientosStr.toLowerCase().includes(searchTerm.toLowerCase())
+           observacionesStr.toLowerCase().includes(searchTerm.toLowerCase())
   })
 
   // Paginación
@@ -422,7 +341,7 @@ export default function ResumenPage() {
 
         {/* Desglose Detallado */}
         <div className="mb-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {/* Efectivo */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="text-center">
@@ -513,35 +432,6 @@ export default function ResumenPage() {
               </div>
             </div>
 
-            {/* Cheque */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Cheque</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalCheque.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Depósito Bancario */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Depósito</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalDepositoBancario.toLocaleString()}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -644,17 +534,8 @@ export default function ResumenPage() {
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Transf.
                       </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Cheque
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Depósito
-                      </th>
                       <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Gastos
-                      </th>
-                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Saldo
                       </th>
                       <th className="w-16 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         #
@@ -691,19 +572,8 @@ export default function ResumenPage() {
                         <td className="px-2 py-3 text-xs text-gray-900">
                           ${dia.totalTransferencias.toLocaleString()}
                         </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalCheque.toLocaleString()}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalDepositoBancario.toLocaleString()}
-                        </td>
                         <td className="px-2 py-3 text-xs text-red-600 font-medium">
                           ${dia.totalGastos.toLocaleString()}
-                        </td>
-                        <td className={`px-2 py-3 text-xs font-bold ${
-                          dia.saldoDia >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          ${dia.saldoDia.toLocaleString()}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
                           <span className="inline-flex px-1 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800">

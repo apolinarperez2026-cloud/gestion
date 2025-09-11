@@ -4,6 +4,7 @@ export interface Sucursal {
   direccion: string
   usuarios?: Usuario[]
   movimientos?: Movimiento[]
+  movimientosDiarios?: MovimientoDiario[]
   fondoCajas?: FondoCaja[]
   pedidosEspeciales?: PedidoEspecial[]
   createdAt: Date
@@ -28,6 +29,9 @@ export interface Usuario {
   sucursal: Sucursal | null
   sucursalId: number | null
   pedidosEspeciales?: PedidoEspecial[]
+  movimientos?: Movimiento[]
+  movimientosDiarios?: MovimientoDiario[]
+  movimientosDiariosHistorial?: MovimientoDiarioHistorial[]
   createdAt: Date
   updatedAt: Date
 }
@@ -110,6 +114,32 @@ export interface CreateMovimientoData {
   saldoAcumulado?: number
 }
 
+export interface CreateMovimientoDiarioData {
+  fecha: Date
+  ventasBrutas: number
+  efectivo: number
+  credito: number
+  abonosCredito: number
+  recargas: number
+  pagoTarjeta: number
+  transferencias: number
+  gastos: number
+  observaciones?: string
+  sucursalId: number
+}
+
+export interface MovimientoDiarioForm {
+  fecha: string
+  ventasBrutas: string
+  efectivo: string
+  credito: string
+  abonosCredito: string
+  recargas: string
+  pagoTarjeta: string
+  transferencias: string
+  observaciones: string
+}
+
 export interface CreateSucursalData {
   nombre: string
   direccion: string
@@ -164,12 +194,50 @@ export interface Movimiento {
   descripcion: string
   monto: number
   tipo: MovimientoTipo
+  imagen?: string
   formaDePagoId?: number
   formaDePago?: FormaDePago
   tipoGastoId?: number
   tipoGasto?: TipoGasto
   sucursal: Sucursal
   sucursalId: number
+  usuario?: Usuario
+  usuarioId?: number
   createdAt: Date
   updatedAt: Date
+}
+
+export interface MovimientoDiario {
+  id: number
+  fecha: Date
+  ventasBrutas: number
+  efectivo: number
+  credito: number
+  abonosCredito: number
+  recargas: number
+  pagoTarjeta: number
+  transferencias: number
+  gastos: number
+  saldoDia: number
+  observaciones?: string
+  sucursal: Sucursal
+  sucursalId: number
+  usuario?: Usuario
+  usuarioId?: number
+  historial?: MovimientoDiarioHistorial[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface MovimientoDiarioHistorial {
+  id: number
+  movimientoDiarioId: number
+  movimientoDiario?: MovimientoDiario
+  usuarioId: number
+  usuario?: Usuario
+  campoModificado: string
+  valorAnterior: string
+  valorNuevo: string
+  fechaCambio: Date
+  observaciones?: string
 }
