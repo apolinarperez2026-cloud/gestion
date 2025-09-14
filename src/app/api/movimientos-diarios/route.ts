@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       gastosEncontrados: gastosDelDia.length,
       totalGastosCalculado: totalGastos
     }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     // Si es un error de constraint único (fecha + sucursal)
     if (error.code === 'P2002') {
       console.log('Movimiento diario ya existe para esta fecha y sucursal')

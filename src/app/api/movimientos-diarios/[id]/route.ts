@@ -138,8 +138,8 @@ export async function PUT(
     ]
 
     for (const campo of campos) {
-      const valorAnterior = movimientoActual[campo.nombre]
-      const valorNuevo = nuevosDatos[campo.nombre]
+      const valorAnterior = (movimientoActual as any)[campo.nombre]
+      const valorNuevo = (nuevosDatos as any)[campo.nombre]
       
       if (valorAnterior !== valorNuevo) {
         cambios.push({

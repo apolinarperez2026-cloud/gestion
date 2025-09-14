@@ -105,7 +105,7 @@ export async function PUT(
         await tx.usuarioSucursal.createMany({
           data: sucursalesIds.map((sucursalId: number) => ({
             usuarioId: id,
-            sucursalId: parseInt(sucursalId)
+            sucursalId: sucursalId
           }))
         })
       }

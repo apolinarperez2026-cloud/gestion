@@ -357,7 +357,7 @@ export default function MovimientosPage() {
           pagoTarjeta: parseFloat(formData.pagoTarjeta) || 0,
           transferencias: parseFloat(formData.transferencias) || 0,
           observaciones: formData.observaciones,
-          usuarioId: user.id
+          usuarioId: user?.id
         })
       })
 

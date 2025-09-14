@@ -443,7 +443,7 @@ export default function MovimientosIndividualesPage() {
           imagen: formData.imagen || null,
           formaDePagoId: formData.tipo === MovimientoTipo.VENTA ? parseInt(formData.formaDePagoId) : null,
           tipoGastoId: formData.tipo === MovimientoTipo.GASTO ? parseInt(formData.tipoGastoId) : null,
-          usuarioId: user.id
+          usuarioId: user?.id
         })
       })
 

@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         await tx.usuarioSucursal.createMany({
           data: sucursalesIds.map((sucursalId: number) => ({
             usuarioId: user.id,
-            sucursalId: parseInt(sucursalId)
+            sucursalId: sucursalId
           }))
         })
       }

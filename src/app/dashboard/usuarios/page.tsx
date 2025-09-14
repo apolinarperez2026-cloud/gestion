@@ -279,7 +279,7 @@ export default function UsuariosPage() {
 
   const getSucursalesAsignadas = (usuario: Usuario) => {
     const sucursalesPrincipales = usuario.sucursal ? [usuario.sucursal.nombre] : []
-    const sucursalesAdicionales = usuario.sucursales?.map(us => us.sucursal.nombre) || []
+    const sucursalesAdicionales = usuario.sucursales?.map(us => us.sucursal?.nombre).filter(Boolean) || []
     return [...sucursalesPrincipales, ...sucursalesAdicionales].join(', ')
   }
 

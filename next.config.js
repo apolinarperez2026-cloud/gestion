@@ -2,7 +2,7 @@
 const nextConfig = {
   // Optimizaciones de imágenes
   images: {
-    domains: [],
+    domains: ['utfs.io', 'uploadthing.com'],
     formats: ['image/webp', 'image/avif'],
   },
   

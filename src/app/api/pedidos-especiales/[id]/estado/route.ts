@@ -66,7 +66,7 @@ export async function PUT(
       })
 
       // Crear registro de auditoría
-      const accionMap = {
+      const accionMap: { [key: string]: string } = {
         'Cancelado': 'CANCELADO',
         'Recibido': 'RECIBIDO',
         'Entregado': 'ENTREGADO'
@@ -75,7 +75,7 @@ export async function PUT(
       await tx.pedidoEspecialHistorial.create({
         data: {
           pedidoId: id,
-          accion: accionMap[estado] || 'ACTUALIZADO',
+          accion: accionMap[estado as string] || 'ACTUALIZADO',
           descripcion: `Estado cambiado de "${pedidoActual.estado}" a "${estado}"`,
           datosAnteriores: { estado: pedidoActual.estado },
           datosNuevos: { estado },

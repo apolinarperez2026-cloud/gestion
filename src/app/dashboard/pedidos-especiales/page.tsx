@@ -445,9 +445,9 @@ export default function PedidosEspecialesPage() {
   }
 
   const pedidosPendientes = filteredPedidos.filter(p => p.estado === 'Pendiente').length
-  const pedidosEnProceso = filteredPedidos.filter(p => p.estado === 'En Proceso').length
   const pedidosRecibidos = filteredPedidos.filter(p => p.estado === 'Recibido').length
-  const totalValorPedidos = filteredPedidos.reduce((sum, p) => sum + p.total, 0)
+  const pedidosEntregados = filteredPedidos.filter(p => p.estado === 'Entregado').length
+  const pedidosCancelados = filteredPedidos.filter(p => p.estado === 'Cancelado').length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -510,22 +510,6 @@ export default function PedidosEspecialesPage() {
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900">En Proceso</h3>
-                <p className="text-2xl font-bold text-blue-600">{pedidosEnProceso}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -542,15 +526,31 @@ export default function PedidosEspecialesPage() {
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900">Valor Total</h3>
-                <p className="text-2xl font-bold text-blue-600">${totalValorPedidos.toLocaleString()}</p>
+                <h3 className="text-lg font-medium text-gray-900">Entregados</h3>
+                <p className="text-2xl font-bold text-green-600">{pedidosEntregados}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-gray-900">Cancelados</h3>
+                <p className="text-2xl font-bold text-red-600">{pedidosCancelados}</p>
               </div>
             </div>
           </div>
@@ -742,157 +742,173 @@ export default function PedidosEspecialesPage() {
               {searchTerm ? 'No se encontraron pedidos que coincidan con la búsqueda' : 'No hay pedidos especiales registrados'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Marca
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Descripción
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cantidad
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Creado por
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha Creación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha Entrega
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Historial
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {getCurrentPagePedidos().map((pedido) => (
-                    <tr 
-                      key={pedido.id}
-                      className={pedido.estado === 'Entregado' ? 'cursor-pointer hover:bg-gray-50' : ''}
-                      onClick={pedido.estado === 'Entregado' ? () => handleShowDetails(pedido) : undefined}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {pedido.marca}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {pedido.descripcion}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {pedido.cantidad}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                        ${pedido.total.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          pedido.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                          pedido.estado === 'Confirmado' ? 'bg-green-100 text-green-800' :
-                          pedido.estado === 'Entregado' ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {pedido.estado}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {pedido.creador?.nombre || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(pedido.creadoEn).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {pedido.fechaEntrega ? new Date(pedido.fechaEntrega).toLocaleDateString() : 'Pendiente'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleShowHistorial(pedido.id)
-                          }}
-                          className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                        >
-                          Ver Historial
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex flex-wrap gap-1">
-                          
-                          {/* Botones para estado Pendiente */}
-                          {pedido.estado === 'Pendiente' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleEdit(pedido)
-                                }}
-                                className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCancelar(pedido)
-                                }}
-                                className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleRecibido(pedido)
-                                }}
-                                className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Recibido
-                              </button>
-                            </>
-                          )}
-                          
-                          {/* Botones para estado En Proceso */}
-                          {pedido.estado === 'En Proceso' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleEdit(pedido)
-                                }}
-                                className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCancelar(pedido)
-                                }}
-                                className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleRecibido(pedido)
-                                }}
-                                className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Recibido
-                              </button>
+            <>
+              {/* Vista de escritorio - Tabla */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Marca
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Descripción
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cantidad
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Creado por
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha Creación
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha Entrega
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Historial
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getCurrentPagePedidos().map((pedido) => (
+                      <tr 
+                        key={pedido.id}
+                        className={pedido.estado === 'Entregado' ? 'cursor-pointer hover:bg-gray-50' : ''}
+                        onClick={pedido.estado === 'Entregado' ? () => handleShowDetails(pedido) : undefined}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {pedido.marca}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {pedido.descripcion}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {pedido.cantidad}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                          ${pedido.total.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            pedido.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                            pedido.estado === 'Recibido' ? 'bg-orange-100 text-orange-800' :
+                            pedido.estado === 'Entregado' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {pedido.estado}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {pedido.creador?.nombre || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(pedido.creadoEn).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {pedido.fechaEntrega ? new Date(pedido.fechaEntrega).toLocaleDateString() : 'Pendiente'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleShowHistorial(pedido.id)
+                            }}
+                            className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Ver Historial
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex flex-wrap gap-1">
+                            
+                            {/* Botones para estado Pendiente */}
+                            {pedido.estado === 'Pendiente' && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleEdit(pedido)
+                                  }}
+                                  className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCancelar(pedido)
+                                  }}
+                                  className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRecibido(pedido)
+                                  }}
+                                  className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Recibido
+                                </button>
+                              </>
+                            )}
+                            
+                            {/* Botones para estado En Proceso */}
+                            {pedido.estado === 'En Proceso' && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleEdit(pedido)
+                                  }}
+                                  className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCancelar(pedido)
+                                  }}
+                                  className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRecibido(pedido)
+                                  }}
+                                  className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Recibido
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleEntregar(pedido)
+                                  }}
+                                  className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  Entregar
+                                </button>
+                              </>
+                            )}
+                            
+                            {/* Botones para estado Recibido */}
+                            {pedido.estado === 'Recibido' && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -902,37 +918,188 @@ export default function PedidosEspecialesPage() {
                               >
                                 Entregar
                               </button>
-                            </>
-                          )}
-                          
-                          {/* Botones para estado Recibido */}
-                          {pedido.estado === 'Recibido' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleEntregar(pedido)
-                              }}
-                              className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                            >
-                              Entregar
-                            </button>
-                          )}
-                          
-                          {/* Estados finales */}
-                          {pedido.estado === 'Entregado' && (
-                            <span className="text-green-600 text-xs font-medium">✓ Entregado</span>
-                          )}
-                          
-                          {pedido.estado === 'Cancelado' && (
-                            <span className="text-red-600 text-xs font-medium">✗ Cancelado</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            )}
+                            
+                            {/* Estados finales */}
+                            {pedido.estado === 'Entregado' && (
+                              <span className="text-green-600 text-xs font-medium">✓ Entregado</span>
+                            )}
+                            
+                            {pedido.estado === 'Cancelado' && (
+                              <span className="text-red-600 text-xs font-medium">✗ Cancelado</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Vista móvil - Tarjetas */}
+              <div className="lg:hidden space-y-4">
+                {getCurrentPagePedidos().map((pedido) => (
+                  <div 
+                    key={pedido.id}
+                    className={`bg-white border border-gray-200 rounded-lg p-4 shadow-sm ${
+                      pedido.estado === 'Entregado' ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
+                    }`}
+                    onClick={pedido.estado === 'Entregado' ? () => handleShowDetails(pedido) : undefined}
+                  >
+                    {/* Header de la tarjeta */}
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{pedido.marca}</h3>
+                        <p className="text-sm text-gray-600">{pedido.codigo}</p>
+                      </div>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        pedido.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                        pedido.estado === 'Recibido' ? 'bg-orange-100 text-orange-800' :
+                        pedido.estado === 'Entregado' ? 'bg-green-100 text-green-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {pedido.estado}
+                      </span>
+                    </div>
+
+                    {/* Información del pedido */}
+                    <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                      <div>
+                        <span className="text-gray-500">Cantidad:</span>
+                        <span className="ml-1 font-medium">{pedido.cantidad}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Total:</span>
+                        <span className="ml-1 font-medium text-blue-600">${pedido.total.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Creado por:</span>
+                        <span className="ml-1 font-medium">{pedido.creador?.nombre || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Fecha:</span>
+                        <span className="ml-1 font-medium">{new Date(pedido.creadoEn).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Descripción */}
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-700 line-clamp-2">{pedido.descripcion}</p>
+                    </div>
+
+                    {/* Botones de acción */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleShowHistorial(pedido.id)
+                        }}
+                        className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                      >
+                        Historial
+                      </button>
+                      
+                      {/* Botones para estado Pendiente */}
+                      {pedido.estado === 'Pendiente' && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEdit(pedido)
+                            }}
+                            className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCancelar(pedido)
+                            }}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRecibido(pedido)
+                            }}
+                            className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Recibido
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* Botones para estado En Proceso */}
+                      {pedido.estado === 'En Proceso' && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEdit(pedido)
+                            }}
+                            className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCancelar(pedido)
+                            }}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRecibido(pedido)
+                            }}
+                            className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Recibido
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEntregar(pedido)
+                            }}
+                            className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            Entregar
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* Botones para estado Recibido */}
+                      {pedido.estado === 'Recibido' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEntregar(pedido)
+                          }}
+                          className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                        >
+                          Entregar
+                        </button>
+                      )}
+                      
+                      {/* Estados finales */}
+                      {pedido.estado === 'Entregado' && (
+                        <span className="text-green-600 text-xs font-medium px-3 py-1 bg-green-50 rounded">✓ Entregado</span>
+                      )}
+                      
+                      {pedido.estado === 'Cancelado' && (
+                        <span className="text-red-600 text-xs font-medium px-3 py-1 bg-red-50 rounded">✗ Cancelado</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Paginación */}
