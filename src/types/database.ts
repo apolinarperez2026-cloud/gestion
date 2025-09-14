@@ -19,6 +19,16 @@ export interface Rol {
   updatedAt: Date
 }
 
+export interface UsuarioSucursal {
+  id: number
+  usuarioId: number
+  sucursalId: number
+  usuario?: Usuario
+  sucursal?: Sucursal
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface Usuario {
   id: number
   nombre: string
@@ -28,10 +38,17 @@ export interface Usuario {
   rolId: number
   sucursal: Sucursal | null
   sucursalId: number | null
+  sucursales?: UsuarioSucursal[]
   pedidosEspeciales?: PedidoEspecial[]
   movimientos?: Movimiento[]
   movimientosDiarios?: MovimientoDiario[]
   movimientosDiariosHistorial?: MovimientoDiarioHistorial[]
+  
+  // Relaciones de auditoría para pedidos especiales
+  pedidosCreados?: PedidoEspecial[]
+  pedidosActualizados?: PedidoEspecial[]
+  historialPedidos?: PedidoEspecialHistorial[]
+  
   createdAt: Date
   updatedAt: Date
 }
@@ -66,12 +83,27 @@ export interface PedidoEspecial {
   total: number
   anticipo: number
   fechaPedido: Date
-  fechaEntrega: Date
+  fechaEntrega: Date | null
   estado: string
+  comprobante: string | null
   usuario: Usuario
   usuarioId: number
   sucursal: Sucursal
   sucursalId: number
+  
+  // Campos de auditoría
+  creadoPor: number
+  creadoEn: Date
+  actualizadoPor?: number
+  actualizadoEn?: Date
+  
+  // Relaciones de auditoría
+  creador?: Usuario
+  actualizador?: Usuario
+  
+  // Historial de cambios
+  historial?: PedidoEspecialHistorial[]
+  
   createdAt: Date
   updatedAt: Date
 }
@@ -82,7 +114,8 @@ export interface CreateUsuarioData {
   email: string
   password: string
   rolId: number
-  sucursalId: number
+  sucursalId?: number
+  sucursalesIds?: number[]
 }
 
 export interface CreateMovimientoData {
@@ -146,9 +179,15 @@ export interface CreateSucursalData {
 }
 
 export interface CreatePedidoEspecialData {
+  marca: string
+  codigo: string
+  cantidad: number
   descripcion: string
-  monto: number
-  fecha?: Date
+  precioVenta: number
+  total: number
+  anticipo: number
+  fechaPedido?: Date
+  estado: string
 }
 
 // Tipos para autenticación
@@ -240,4 +279,17 @@ export interface MovimientoDiarioHistorial {
   valorNuevo: string
   fechaCambio: Date
   observaciones?: string
+}
+
+export interface PedidoEspecialHistorial {
+  id: number
+  pedidoId: number
+  pedido?: PedidoEspecial
+  accion: string
+  descripcion: string
+  datosAnteriores?: any
+  datosNuevos?: any
+  usuarioId: number
+  usuario?: Usuario
+  fechaAccion: Date
 }

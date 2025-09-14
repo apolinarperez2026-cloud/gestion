@@ -36,7 +36,12 @@ export async function GET(request: NextRequest) {
       },
       include: {
         rol: true,
-        sucursal: true
+        sucursal: true,
+        sucursales: {
+          include: {
+            sucursal: true
+          }
+        }
       },
       orderBy: { nombre: 'asc' }
     })
@@ -79,12 +84,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { nombre, email, password, rolId, sucursalId } = body
+    const { nombre, email, password, rolId, sucursalId, sucursalesIds } = body
 
     // Validar datos requeridos
-    if (!nombre || !email || !password || !rolId || !sucursalId) {
+    if (!nombre || !email || !password || !rolId) {
       return NextResponse.json(
-        { error: 'Todos los campos son requeridos' },
+        { error: 'Nombre, email, contraseña y rol son requeridos' },
         { status: 400 }
       )
     }
@@ -104,19 +109,42 @@ export async function POST(request: NextRequest) {
     // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Crear usuario
-    const newUser = await prisma.usuario.create({
-      data: {
-        nombre,
-        email,
-        password: hashedPassword,
-        rolId: parseInt(rolId),
-        sucursalId: parseInt(sucursalId)
-      },
-      include: {
-        rol: true,
-        sucursal: true
+    // Crear usuario con transacción para manejar sucursales
+    const newUser = await prisma.$transaction(async (tx) => {
+      // Crear usuario
+      const user = await tx.usuario.create({
+        data: {
+          nombre,
+          email,
+          password: hashedPassword,
+          rolId: parseInt(rolId),
+          sucursalId: sucursalId ? parseInt(sucursalId) : null // Sucursal principal opcional
+        }
+      })
+
+      // Asignar sucursales adicionales si se proporcionan
+      if (sucursalesIds && sucursalesIds.length > 0) {
+        await tx.usuarioSucursal.createMany({
+          data: sucursalesIds.map((sucursalId: number) => ({
+            usuarioId: user.id,
+            sucursalId: parseInt(sucursalId)
+          }))
+        })
       }
+
+      // Retornar usuario con todas las relaciones
+      return await tx.usuario.findUnique({
+        where: { id: user.id },
+        include: {
+          rol: true,
+          sucursal: true,
+          sucursales: {
+            include: {
+              sucursal: true
+            }
+          }
+        }
+      })
     })
 
     return NextResponse.json({

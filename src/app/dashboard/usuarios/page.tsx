@@ -26,7 +26,8 @@ export default function UsuariosPage() {
     password: '',
     confirmarPassword: '',
     rolId: '',
-    sucursalId: ''
+    sucursalId: '',
+    sucursalesIds: [] as number[]
   })
   const [roles, setRoles] = useState<any[]>([])
   const [sucursales, setSucursales] = useState<any[]>([])
@@ -161,7 +162,8 @@ export default function UsuariosPage() {
             nombre: formData.nombre,
             email: formData.email,
             rolId: parseInt(formData.rolId),
-            sucursalId: parseInt(formData.sucursalId),
+            sucursalId: formData.sucursalId ? parseInt(formData.sucursalId) : null,
+            sucursalesIds: formData.sucursalesIds,
             ...(formData.password && { password: formData.password })
           }
         : {
@@ -169,7 +171,8 @@ export default function UsuariosPage() {
             email: formData.email,
             password: formData.password,
             rolId: parseInt(formData.rolId),
-            sucursalId: parseInt(formData.sucursalId)
+            sucursalId: formData.sucursalId ? parseInt(formData.sucursalId) : null,
+            sucursalesIds: formData.sucursalesIds
           }
 
       const response = await fetch(url, {
@@ -206,7 +209,8 @@ export default function UsuariosPage() {
       password: '',
       confirmarPassword: '',
       rolId: usuario.rolId.toString(),
-      sucursalId: usuario.sucursalId?.toString() || ''
+      sucursalId: usuario.sucursalId?.toString() || '',
+      sucursalesIds: usuario.sucursales?.map(us => us.sucursalId) || []
     })
     setEditingId(usuario.id)
     setShowForm(true)
@@ -256,10 +260,27 @@ export default function UsuariosPage() {
       password: '',
       confirmarPassword: '',
       rolId: '',
-      sucursalId: ''
+      sucursalId: '',
+      sucursalesIds: []
     })
     setEditingId(null)
     setShowForm(false)
+  }
+
+  // Funciones para manejar sucursales múltiples
+  const handleSucursalToggle = (sucursalId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      sucursalesIds: prev.sucursalesIds.includes(sucursalId)
+        ? prev.sucursalesIds.filter(id => id !== sucursalId)
+        : [...prev.sucursalesIds, sucursalId]
+    }))
+  }
+
+  const getSucursalesAsignadas = (usuario: Usuario) => {
+    const sucursalesPrincipales = usuario.sucursal ? [usuario.sucursal.nombre] : []
+    const sucursalesAdicionales = usuario.sucursales?.map(us => us.sucursal.nombre) || []
+    return [...sucursalesPrincipales, ...sucursalesAdicionales].join(', ')
   }
 
   const handleLogout = async () => {
@@ -274,7 +295,12 @@ export default function UsuariosPage() {
   // Funciones de filtrado
   const usuariosFiltrados = usuarios.filter(usuario => {
     if (filtroRol && usuario.rol.nombre !== filtroRol) return false
-    if (filtroSucursal && usuario.sucursal?.nombre !== filtroSucursal) return false
+    if (filtroSucursal) {
+      const sucursalesAsignadas = getSucursalesAsignadas(usuario)
+      if (!sucursalesAsignadas.toLowerCase().includes(filtroSucursal.toLowerCase())) {
+        return false
+      }
+    }
     return true
   })
 
@@ -445,15 +471,14 @@ export default function UsuariosPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sucursal
+                    Sucursal Principal (Opcional)
                   </label>
                   <select
                     value={formData.sucursalId}
                     onChange={(e) => setFormData({...formData, sucursalId: e.target.value})}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Seleccionar sucursal</option>
+                    <option value="">Seleccionar sucursal principal</option>
                     {sucursales.length > 0 ? (
                       sucursales.map(sucursal => (
                         <option key={sucursal.id} value={sucursal.id}>{sucursal.nombre}</option>
@@ -463,6 +488,35 @@ export default function UsuariosPage() {
                     )}
                   </select>
                 </div>
+              </div>
+              
+              {/* Sección para selección múltiple de sucursales */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sucursales Adicionales
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+                  {sucursales.length > 0 ? (
+                    sucursales.map(sucursal => (
+                      <label key={sucursal.id} className="flex items-center space-x-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={formData.sucursalesIds.includes(sucursal.id)}
+                          onChange={() => handleSucursalToggle(sucursal.id)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="text-gray-700">{sucursal.nombre}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-sm">No hay sucursales disponibles</p>
+                  )}
+                </div>
+                {formData.sucursalesIds.length > 0 && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    Sucursales seleccionadas: {formData.sucursalesIds.length}
+                  </p>
+                )}
               </div>
               <div className="flex space-x-4">
                 <button type="submit" className="btn-primary">
@@ -575,8 +629,10 @@ export default function UsuariosPage() {
                         {usuario.rol.nombre}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {usuario.sucursal?.nombre || 'Sin sucursal'}
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="max-w-xs">
+                        {getSucursalesAsignadas(usuario) || 'Sin sucursales asignadas'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">

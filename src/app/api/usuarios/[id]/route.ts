@@ -40,12 +40,12 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { nombre, email, password, rolId, sucursalId } = body
+    const { nombre, email, password, rolId, sucursalId, sucursalesIds } = body
 
     // Validar datos requeridos
-    if (!nombre || !email || !rolId || !sucursalId) {
+    if (!nombre || !email || !rolId) {
       return NextResponse.json(
-        { error: 'Todos los campos son requeridos' },
+        { error: 'Nombre, email y rol son requeridos' },
         { status: 400 }
       )
     }
@@ -74,27 +74,55 @@ export async function PUT(
       )
     }
 
-    // Preparar datos de actualización
-    const updateData: any = {
-      nombre,
-      email,
-      rolId: parseInt(rolId),
-      sucursalId: parseInt(sucursalId)
-    }
-
-    // Solo actualizar contraseña si se proporciona
-    if (password && password.trim() !== '') {
-      updateData.password = await bcrypt.hash(password, 10)
-    }
-
-    // Actualizar usuario
-    const updatedUser = await prisma.usuario.update({
-      where: { id },
-      data: updateData,
-      include: {
-        rol: true,
-        sucursal: true
+    // Actualizar usuario con transacción para manejar sucursales
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      // Preparar datos de actualización
+      const updateData: any = {
+        nombre,
+        email,
+        rolId: parseInt(rolId),
+        sucursalId: sucursalId ? parseInt(sucursalId) : null
       }
+
+      // Solo actualizar contraseña si se proporciona
+      if (password && password.trim() !== '') {
+        updateData.password = await bcrypt.hash(password, 10)
+      }
+
+      // Actualizar usuario
+      await tx.usuario.update({
+        where: { id },
+        data: updateData
+      })
+
+      // Eliminar asignaciones de sucursales existentes
+      await tx.usuarioSucursal.deleteMany({
+        where: { usuarioId: id }
+      })
+
+      // Crear nuevas asignaciones de sucursales si se proporcionan
+      if (sucursalesIds && sucursalesIds.length > 0) {
+        await tx.usuarioSucursal.createMany({
+          data: sucursalesIds.map((sucursalId: number) => ({
+            usuarioId: id,
+            sucursalId: parseInt(sucursalId)
+          }))
+        })
+      }
+
+      // Retornar usuario actualizado con todas las relaciones
+      return await tx.usuario.findUnique({
+        where: { id },
+        include: {
+          rol: true,
+          sucursal: true,
+          sucursales: {
+            include: {
+              sucursal: true
+            }
+          }
+        }
+      })
     })
 
     return NextResponse.json({

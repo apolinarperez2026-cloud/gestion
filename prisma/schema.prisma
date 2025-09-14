@@ -25,11 +25,19 @@ model Usuario {
   password   String
   rolId      Int
   rol        Rol      @relation(fields: [rolId], references: [id])
-  sucursalId Int?
-  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?     // Mantener para compatibilidad con usuarios existentes
+  sucursal   Sucursal? @relation("UsuarioSucursalPrincipal", fields: [sucursalId], references: [id])
+  sucursales UsuarioSucursal[] // Relación muchos-a-muchos con sucursales
   movimientos Movimiento[] // Movimientos registrados por este usuario
   movimientosDiarios MovimientoDiario[] // Movimientos diarios registrados por este usuario
   movimientosDiariosHistorial MovimientoDiarioHistorial[] // Historial de cambios en movimientos diarios
+  pedidosEspeciales PedidoEspecial[] // Pedidos especiales creados por este usuario
+  
+  // Relaciones de auditoría para pedidos especiales
+  pedidosCreados     PedidoEspecial[] @relation("PedidoCreadoPor")
+  pedidosActualizados PedidoEspecial[] @relation("PedidoActualizadoPor")
+  historialPedidos   PedidoEspecialHistorial[]
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -38,7 +46,8 @@ model Sucursal {
   id                Int                @id @default(autoincrement())
   nombre            String             @unique
   direccion         String
-  usuarios          Usuario[]
+  usuarios          Usuario[]          @relation("UsuarioSucursalPrincipal") // Usuarios con sucursal principal
+  usuariosAsignados UsuarioSucursal[]  // Relación muchos-a-muchos con usuarios
   movimientos       Movimiento[]
   movimientosDiarios MovimientoDiario[]
   fondoCajas        FondoCaja[]
@@ -137,11 +146,65 @@ model FondoCaja {
 
 model PedidoEspecial {
   id          Int      @id @default(autoincrement())
+  marca       String
+  codigo      String
+  cantidad    Int
   descripcion String
-  monto       Float
-  fecha       DateTime @default(now())
+  precioVenta Float
+  total       Float
+  anticipo    Float
+  fechaPedido DateTime @default(now())
+  fechaEntrega DateTime?
+  estado      String   @default("Pendiente")
+  comprobante String?  // URL del comprobante subido
+  usuarioId   Int
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
   sucursalId  Int
   sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+  
+  // Campos de auditoría
+  creadoPor     Int      // ID del usuario que creó el pedido
+  creadoEn      DateTime @default(now())
+  actualizadoPor Int?    // ID del usuario que hizo la última actualización
+  actualizadoEn DateTime @updatedAt
+  
+  // Relaciones de auditoría
+  creador       Usuario  @relation("PedidoCreadoPor", fields: [creadoPor], references: [id])
+  actualizador  Usuario? @relation("PedidoActualizadoPor", fields: [actualizadoPor], references: [id])
+  
+  // Historial de cambios
+  historial     PedidoEspecialHistorial[]
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Tabla intermedia para la relación muchos-a-muchos entre Usuario y Sucursal
+model UsuarioSucursal {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  sucursalId Int
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([usuarioId, sucursalId]) // Evitar duplicados
+}
+
+// Modelo para el historial de cambios en pedidos especiales
+model PedidoEspecialHistorial {
+  id            Int      @id @default(autoincrement())
+  pedidoId      Int
+  accion        String   // "CREADO", "ACTUALIZADO", "CANCELADO", "RECIBIDO", "ENTREGADO"
+  descripcion   String   // Descripción de la acción
+  datosAnteriores Json?  // Datos antes del cambio (opcional)
+  datosNuevos   Json?    // Datos después del cambio (opcional)
+  usuarioId     Int      // Usuario que realizó la acción
+  fechaAccion   DateTime @default(now())
+  
+  pedido        PedidoEspecial @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuario       Usuario        @relation(fields: [usuarioId], references: [id])
+  
+  @@map("pedidos_especiales_historial")
 }
