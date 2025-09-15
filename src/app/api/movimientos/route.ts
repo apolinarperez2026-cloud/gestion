@@ -32,6 +32,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { 
+      fecha,
       descripcion, 
       monto, 
       tipo, 
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
     } = await request.json()
 
     console.log('Datos recibidos:', { 
+      fecha,
       descripcion, 
       monto, 
       tipo, 
@@ -82,8 +84,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Crear fecha específica para evitar problemas de zona horaria
+    const fechaEspecifica = fecha ? new Date(fecha + 'T12:00:00.000Z') : new Date()
+    
     const movimiento = await prisma.movimiento.create({
       data: {
+        fecha: fechaEspecifica,
         descripcion,
         monto,
         tipo,

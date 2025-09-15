@@ -8,6 +8,7 @@ import { useConfirmModal } from '@/hooks/useConfirmModal'
 import UploadThingComponent from '@/components/UploadThing'
 
 interface MovimientoForm {
+  fecha: string
   descripcion: string
   monto: string
   tipo: MovimientoTipo
@@ -28,15 +29,18 @@ export default function MovimientosIndividualesPage() {
   const itemsPerPage = 10
   const { modalState, showConfirm, hideConfirm, handleConfirm } = useConfirmModal()
   const [formData, setFormData] = useState<MovimientoForm>({
+    fecha: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
     descripcion: '',
     monto: '',
-    tipo: MovimientoTipo.VENTA,
+    tipo: MovimientoTipo.GASTO,
     imagen: '',
     formaDePagoId: '',
     tipoGastoId: ''
   })
   const [editingMovimiento, setEditingMovimiento] = useState<Movimiento | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [selectedMovimiento, setSelectedMovimiento] = useState<Movimiento | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -165,16 +169,7 @@ export default function MovimientosIndividualesPage() {
       return
     }
 
-    if (formData.tipo === MovimientoTipo.VENTA && !formData.formaDePagoId) {
-      showConfirm({
-        title: 'Forma de Pago Requerida',
-        message: 'Por favor selecciona una forma de pago para la venta',
-        confirmText: 'Entendido',
-        cancelText: '',
-        type: 'warning'
-      })
-      return
-    }
+    // Validación de forma de pago eliminada ya que solo se manejan gastos
 
     if (formData.tipo === MovimientoTipo.GASTO && !formData.tipoGastoId) {
       showConfirm({
@@ -206,6 +201,7 @@ export default function MovimientosIndividualesPage() {
       }
 
       const requestData = {
+        fecha: formData.fecha,
         descripcion: formData.descripcion,
         monto: parseFloat(formData.monto),
         tipo: formData.tipo,
@@ -233,9 +229,10 @@ export default function MovimientosIndividualesPage() {
         
         // Limpiar formulario
         setFormData({
+          fecha: new Date().toISOString().split('T')[0],
           descripcion: '',
           monto: '',
-          tipo: MovimientoTipo.VENTA,
+          tipo: MovimientoTipo.GASTO,
           imagen: '',
           formaDePagoId: '',
           tipoGastoId: ''
@@ -297,6 +294,7 @@ export default function MovimientosIndividualesPage() {
     setEditingMovimiento(movimiento)
     setIsEditing(true)
     setFormData({
+      fecha: new Date(movimiento.fecha).toISOString().split('T')[0],
       descripcion: movimiento.descripcion,
       monto: movimiento.monto.toString(),
       tipo: movimiento.tipo,
@@ -404,16 +402,7 @@ export default function MovimientosIndividualesPage() {
       return
     }
 
-    if (formData.tipo === MovimientoTipo.VENTA && !formData.formaDePagoId) {
-      showConfirm({
-        title: 'Campos Requeridos',
-        message: 'Debes seleccionar una forma de pago para las ventas.',
-        confirmText: 'Aceptar',
-        type: 'warning',
-        onConfirm: hideConfirm
-      })
-      return
-    }
+    // Validación de forma de pago eliminada ya que solo se manejan gastos
 
     if (formData.tipo === MovimientoTipo.GASTO && !formData.tipoGastoId) {
       showConfirm({
@@ -437,6 +426,7 @@ export default function MovimientosIndividualesPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          fecha: formData.fecha,
           descripcion: formData.descripcion,
           monto: parseFloat(formData.monto),
           tipo: formData.tipo,
@@ -459,9 +449,10 @@ export default function MovimientosIndividualesPage() {
             setIsEditing(false)
             setEditingMovimiento(null)
             setFormData({
+              fecha: new Date().toISOString().split('T')[0],
               descripcion: '',
               monto: '',
-              tipo: MovimientoTipo.VENTA,
+              tipo: MovimientoTipo.GASTO,
               imagen: '',
               formaDePagoId: '',
               tipoGastoId: ''
@@ -496,13 +487,52 @@ export default function MovimientosIndividualesPage() {
     setIsEditing(false)
     setEditingMovimiento(null)
     setFormData({
+      fecha: new Date().toISOString().split('T')[0],
       descripcion: '',
       monto: '',
-      tipo: MovimientoTipo.VENTA,
+      tipo: MovimientoTipo.GASTO,
       imagen: '',
       formaDePagoId: '',
       tipoGastoId: ''
     })
+  }
+
+  const handleRowClick = (movimiento: Movimiento) => {
+    setSelectedMovimiento(movimiento)
+    setShowDetailsModal(true)
+  }
+
+  // Función para calcular gastos por categoría
+  const getGastosPorCategoria = () => {
+    const gastos = movimientos.filter(m => m.tipo === MovimientoTipo.GASTO)
+    const gastosPorCategoria: { [key: string]: { nombre: string; total: number; cantidad: number } } = {}
+    
+    // Inicializar todas las categorías con valores en 0
+    tiposGasto.forEach(tipo => {
+      gastosPorCategoria[tipo.id.toString()] = {
+        nombre: tipo.nombre,
+        total: 0,
+        cantidad: 0
+      }
+    })
+    
+    // Agregar los gastos reales
+    gastos.forEach(gasto => {
+      if (gasto.tipoGasto) {
+        const categoriaId = gasto.tipoGasto.id.toString()
+        gastosPorCategoria[categoriaId].total += gasto.monto
+        gastosPorCategoria[categoriaId].cantidad += 1
+      }
+    })
+    
+    return Object.values(gastosPorCategoria).sort((a, b) => b.total - a.total)
+  }
+
+  // Función para obtener el total de gastos
+  const getTotalGastos = () => {
+    return movimientos
+      .filter(m => m.tipo === MovimientoTipo.GASTO)
+      .reduce((sum, m) => sum + m.monto, 0)
   }
 
   // Filtrar movimientos por término de búsqueda y solo mostrar gastos
@@ -588,7 +618,38 @@ export default function MovimientosIndividualesPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className=" mx-auto px-0 sm:px-4 lg:px-40  py-8">
+        {/* Resumen Compacto de Gastos por Categoría */}
+        <div className="card mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900">Resumen de Gastos por Categoría</h2>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-800">${getTotalGastos().toLocaleString()}</p>
+              <p className="text-xs text-gray-500">
+                {movimientos.filter(m => m.tipo === MovimientoTipo.GASTO).length} gastos totales
+              </p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {getGastosPorCategoria().map((categoria, index) => (
+              <div key={index} className={`p-3 rounded-lg border ${categoria.total === 0 ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-white border-gray-200'}`}>
+                <div className="text-center">
+                  <h3 className={`text-xs font-medium truncate mb-1 ${categoria.total === 0 ? 'text-gray-500' : 'text-gray-900'}`}>
+                    {categoria.nombre}
+                  </h3>
+                  <p className={`text-lg font-bold ${categoria.total === 0 ? 'text-gray-400' : 'text-red-600'}`}>
+                    ${categoria.total.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {categoria.cantidad} {categoria.cantidad === 1 ? 'gasto' : 'gastos'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Formulario para nuevo movimiento */}
         <div className="card mb-8">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -617,6 +678,21 @@ export default function MovimientosIndividualesPage() {
           
           <form onSubmit={isEditing ? handleUpdate : handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fecha *
+                </label>
+                <input
+                  type="date"
+                  name="fecha"
+                  value={formData.fecha}
+                  onChange={handleChange}
+                  className="input-field"
+                  required
+                  disabled={!user?.sucursalId}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tipo de Movimiento *
@@ -817,7 +893,11 @@ export default function MovimientosIndividualesPage() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {movimientosPaginados.map((movimiento) => (
-                        <tr key={movimiento.id} className="hover:bg-gray-50">
+                        <tr 
+                          key={movimiento.id} 
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleRowClick(movimiento)}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(movimiento.fecha).toLocaleDateString()}
                           </td>
@@ -883,7 +963,10 @@ export default function MovimientosIndividualesPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => handleEdit(movimiento)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEdit(movimiento)
+                                }}
                                 className="text-blue-600 hover:text-blue-900"
                                 title="Editar"
                               >
@@ -893,7 +976,10 @@ export default function MovimientosIndividualesPage() {
                               </button>
                               {user?.rol.nombre === 'Administrador' && (
                                 <button
-                                  onClick={() => handleDelete(movimiento)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDelete(movimiento)
+                                  }}
                                   className="text-red-600 hover:text-red-900"
                                   title="Eliminar"
                                 >
@@ -1034,6 +1120,108 @@ export default function MovimientosIndividualesPage() {
           )}
         </div>
       </main>
+
+      {/* Modal de detalles del gasto */}
+      {showDetailsModal && selectedMovimiento && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Detalles del Gasto</h3>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Información básica */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {new Date(selectedMovimiento.fecha).toLocaleDateString()}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Monto</label>
+                    <p className="mt-1 text-sm font-bold text-red-600">
+                      -${selectedMovimiento.monto.toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Tipo de Gasto</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedMovimiento.tipoGasto?.nombre || 'N/A'}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Registrado por</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedMovimiento.usuario?.nombre || 'Sistema'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Descripción */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Descripción</label>
+                  <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded-md">
+                    {selectedMovimiento.descripcion}
+                  </p>
+                </div>
+                
+                {/* Imagen */}
+                {selectedMovimiento.imagen && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Comprobante</label>
+                    <div className="flex justify-center">
+                      <img
+                        src={selectedMovimiento.imagen}
+                        alt="Comprobante del gasto"
+                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Información adicional */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha de Creación</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {new Date(selectedMovimiento.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Última Actualización</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {new Date(selectedMovimiento.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmación */}
       <ConfirmModal

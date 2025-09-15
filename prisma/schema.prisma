@@ -38,6 +38,15 @@ model Usuario {
   pedidosActualizados PedidoEspecial[] @relation("PedidoActualizadoPor")
   historialPedidos   PedidoEspecialHistorial[]
   
+  // Relación con mercaderías
+  mercaderias        Mercaderia[]
+  
+  // Relación con garantías
+  garantias          Garantia[]
+  
+  // Relación con TPV
+  tpvs               Tpv[]
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -52,6 +61,9 @@ model Sucursal {
   movimientosDiarios MovimientoDiario[]
   fondoCajas        FondoCaja[]
   pedidosEspeciales PedidoEspecial[]
+  mercaderias       Mercaderia[]
+  garantias         Garantia[]
+  tpvs              Tpv[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -207,4 +219,61 @@ model PedidoEspecialHistorial {
   usuario       Usuario        @relation(fields: [usuarioId], references: [id])
   
   @@map("pedidos_especiales_historial")
+}
+
+model Mercaderia {
+  id          Int      @id @default(autoincrement())
+  fecha       DateTime
+  tipo        String   // "entrada" o "salida"
+  referencia  String   // Referencia o ODO
+  entrega     String   // Nombre de quien entrega
+  recibe      String   // Nombre de quien recibe
+  monto       Float
+  sucursalId  Int
+  usuarioId   Int      // Usuario que registró la mercadería
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("mercaderias")
+}
+
+model Garantia {
+  id              Int      @id @default(autoincrement())
+  fechaRegistro   DateTime
+  quienCobro      String
+  monto           Float
+  estado          String   // "exitoso", "devuelto", "cancelado"
+  foto            String?  // URL de la foto (opcional)
+  usuarioRegistro String   // Nombre del usuario que registró
+  sucursalId      Int
+  usuarioId       Int      // Usuario que registró la garantía
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sucursal        Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("garantias")
+}
+
+model Tpv {
+  id              Int      @id @default(autoincrement())
+  fecha           DateTime
+  quienCobro      String
+  monto           Float
+  estado          String   // "exitoso", "en_proceso"
+  foto            String?  // URL de la foto (opcional)
+  usuarioRegistro String   // Nombre del usuario que registró
+  sucursalId      Int
+  usuarioId       Int      // Usuario que registró el cobro TPV
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sucursal        Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("tpv")
 }

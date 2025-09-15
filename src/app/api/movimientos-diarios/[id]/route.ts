@@ -92,6 +92,13 @@ export async function PUT(
     
     const fechaFin = new Date(movimientoActual.fecha)
     fechaFin.setHours(23, 59, 59, 999)
+    
+    console.log('Calculando gastos para fecha:', {
+      fechaOriginal: movimientoActual.fecha,
+      fechaInicio: fechaInicio.toISOString(),
+      fechaFin: fechaFin.toISOString(),
+      sucursalId: movimientoActual.sucursalId
+    })
 
     const gastosDelDia = await prisma.movimiento.findMany({
       where: {
@@ -105,6 +112,26 @@ export async function PUT(
     })
 
     const totalGastos = gastosDelDia.reduce((sum, gasto) => sum + gasto.monto, 0)
+    
+    console.log('Gastos encontrados:', {
+      cantidad: gastosDelDia.length,
+      gastos: gastosDelDia.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, descripcion: g.descripcion })),
+      totalGastos
+    })
+
+    // Calcular total de cobros TPV del día
+    const cobrosTpvDelDia = await prisma.tpv.findMany({
+      where: {
+        sucursalId: movimientoActual.sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        },
+        estado: 'exitoso' // Solo contar cobros exitosos
+      }
+    })
+
+    const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
 
     // Calcular el saldo del día
     const ventasBrutasFinal = ventasBrutas !== undefined ? parseFloat(ventasBrutas) : movimientoActual.ventasBrutas
@@ -117,7 +144,7 @@ export async function PUT(
       credito: credito !== undefined ? parseFloat(credito) : movimientoActual.credito,
       abonosCredito: abonosCredito !== undefined ? parseFloat(abonosCredito) : movimientoActual.abonosCredito,
       recargas: recargas !== undefined ? parseFloat(recargas) : movimientoActual.recargas,
-      pagoTarjeta: pagoTarjeta !== undefined ? parseFloat(pagoTarjeta) : movimientoActual.pagoTarjeta,
+      pagoTarjeta: totalTpvDelDia, // Siempre recalculado desde cobros TPV
       transferencias: transferencias !== undefined ? parseFloat(transferencias) : movimientoActual.transferencias,
       gastos: totalGastos, // Siempre recalculado desde movimientos
       saldoDia,
@@ -177,6 +204,8 @@ export async function PUT(
       movimientoDiario,
       gastosEncontrados: gastosDelDia.length,
       totalGastosCalculado: totalGastos,
+      cobrosTpvEncontrados: cobrosTpvDelDia.length,
+      totalTpvCalculado: totalTpvDelDia,
       cambiosRegistrados: cambios.length
     })
   } catch (error) {

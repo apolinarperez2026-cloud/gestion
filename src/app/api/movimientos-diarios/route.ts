@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
 
     console.log('Datos recibidos:', { 
       fecha,
+      fechaOriginal: fecha,
+      fechaComoDate: new Date(fecha),
+      fechaISO: new Date(fecha).toISOString(),
       ventasBrutas,
       efectivo,
       credito,
@@ -68,11 +71,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calcular gastos del día desde la tabla movimientos
-    const fechaInicio = new Date(fecha)
+    // Crear fecha específica para evitar problemas de zona horaria
+    const fechaEspecifica = new Date(fecha + 'T12:00:00.000Z') // Mediodía UTC para evitar cambios de día
+    
+    // Calcular gastos del día desde la tabla movimientos usando la misma fecha específica
+    const fechaInicio = new Date(fechaEspecifica)
     fechaInicio.setHours(0, 0, 0, 0)
     
-    const fechaFin = new Date(fecha)
+    const fechaFin = new Date(fechaEspecifica)
     fechaFin.setHours(23, 59, 59, 999)
 
     const gastosDelDia = await prisma.movimiento.findMany({
@@ -87,19 +93,39 @@ export async function POST(request: NextRequest) {
     })
 
     const totalGastos = gastosDelDia.reduce((sum, gasto) => sum + gasto.monto, 0)
+    
+    console.log('Gastos encontrados:', {
+      cantidad: gastosDelDia.length,
+      gastos: gastosDelDia.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, descripcion: g.descripcion })),
+      totalGastos
+    })
+
+    // Calcular total de cobros TPV del día
+    const cobrosTpvDelDia = await prisma.tpv.findMany({
+      where: {
+        sucursalId: sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        },
+        estado: 'exitoso' // Solo contar cobros exitosos
+      }
+    })
+
+    const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
 
     // Calcular el saldo del día
     const saldoDia = parseFloat(ventasBrutas) - totalGastos
-
+    
     const movimientoDiario = await prisma.movimientoDiario.create({
       data: {
-        fecha: new Date(fecha),
+        fecha: fechaEspecifica,
         ventasBrutas: parseFloat(ventasBrutas) || 0,
         efectivo: parseFloat(efectivo) || 0,
         credito: parseFloat(credito) || 0,
         abonosCredito: parseFloat(abonosCredito) || 0,
         recargas: parseFloat(recargas) || 0,
-        pagoTarjeta: parseFloat(pagoTarjeta) || 0,
+        pagoTarjeta: totalTpvDelDia, // Cargado automáticamente desde cobros TPV
         transferencias: parseFloat(transferencias) || 0,
         gastos: totalGastos, // Cargado automáticamente desde movimientos
         saldoDia,
@@ -120,7 +146,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       movimientoDiario,
       gastosEncontrados: gastosDelDia.length,
-      totalGastosCalculado: totalGastos
+      totalGastosCalculado: totalGastos,
+      cobrosTpvEncontrados: cobrosTpvDelDia.length,
+      totalTpvCalculado: totalTpvDelDia
     }, { status: 201 })
   } catch (error: any) {
     // Si es un error de constraint único (fecha + sucursal)

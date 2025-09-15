@@ -157,7 +157,7 @@ export default function MovimientosPage() {
         credito: parseFloat(formData.credito) || 0,
         abonosCredito: parseFloat(formData.abonosCredito) || 0,
         recargas: parseFloat(formData.recargas) || 0,
-        pagoTarjeta: parseFloat(formData.pagoTarjeta) || 0,
+        // pagoTarjeta se calcula automáticamente en el backend desde cobros TPV
         transferencias: parseFloat(formData.transferencias) || 0,
         observaciones: formData.observaciones,
         sucursalId: user.sucursalId,
@@ -354,7 +354,7 @@ export default function MovimientosPage() {
           credito: parseFloat(formData.credito) || 0,
           abonosCredito: parseFloat(formData.abonosCredito) || 0,
           recargas: parseFloat(formData.recargas) || 0,
-          pagoTarjeta: parseFloat(formData.pagoTarjeta) || 0,
+          // pagoTarjeta se calcula automáticamente en el backend desde cobros TPV
           transferencias: parseFloat(formData.transferencias) || 0,
           observaciones: formData.observaciones,
           usuarioId: user?.id
@@ -737,16 +737,18 @@ export default function MovimientosPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Pago con Tarjeta
+                  <span className="text-xs text-blue-600 ml-1">(Auto-completado desde TPV)</span>
                 </label>
                 <input
                   type="number"
                   name="pagoTarjeta"
                   value={formData.pagoTarjeta}
                   onChange={handleChange}
-                  className="input-field"
+                  className="input-field bg-gray-50"
                   placeholder="0.00"
                   step="0.01"
-                  disabled={!user?.sucursalId}
+                  disabled={true}
+                  title="Este campo se auto-completa con el total de cobros TPV exitosos del día"
                 />
               </div>
 

@@ -10,6 +10,7 @@ export async function PUT(
   try {
     const { id } = await params
     const { 
+      fecha,
       descripcion, 
       monto, 
       tipo, 
@@ -20,6 +21,7 @@ export async function PUT(
 
     console.log('Actualizando movimiento:', { 
       id,
+      fecha,
       descripcion, 
       monto, 
       tipo, 
@@ -50,9 +52,13 @@ export async function PUT(
       )
     }
 
+    // Crear fecha específica para evitar problemas de zona horaria
+    const fechaEspecifica = fecha ? new Date(fecha + 'T12:00:00.000Z') : undefined
+    
     const movimiento = await prisma.movimiento.update({
       where: { id: parseInt(id) },
       data: {
+        fecha: fechaEspecifica,
         descripcion,
         monto,
         tipo,
