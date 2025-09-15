@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useUploadThing } from '@/lib/uploadthing-provider'
 
 interface UploadThingProps {
   onUploadComplete?: (url: string) => void;
@@ -15,6 +16,7 @@ export default function UploadThingComponent({
 }: UploadThingProps) {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { startUpload } = useUploadThing('imageUploader')
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -26,31 +28,19 @@ export default function UploadThingComponent({
       return
     }
 
-    // Validar tamaño (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      onUploadError?.(new Error('El archivo es demasiado grande. Máximo 5MB'))
+    // Validar tamaño (4MB - límite de UploadThing)
+    if (file.size > 4 * 1024 * 1024) {
+      onUploadError?.(new Error('El archivo es demasiado grande. Máximo 4MB'))
       return
     }
 
     setUploading(true)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Error al subir la imagen')
-      }
-
-      const data = await response.json()
-      if (data.fileUrl) {
-        onUploadComplete?.(data.fileUrl)
+      const res = await startUpload([file])
+      
+      if (res && res[0]?.url) {
+        onUploadComplete?.(res[0].url)
       } else {
         throw new Error('No se recibió la URL de la imagen')
       }
@@ -79,7 +69,7 @@ export default function UploadThingComponent({
       >
         {uploading ? 'Subiendo...' : 'Seleccionar Imagen'}
       </button>
-      <p className="text-xs text-gray-500 mt-1">Imagen (máx. 5MB)</p>
+      <p className="text-xs text-gray-500 mt-1">Imagen (máx. 4MB)</p>
     </div>
   )
 }
