@@ -8,7 +8,7 @@ import UploadThingComponent from '@/components/UploadThing'
 interface TpvData {
   fecha: string
   quienCobro: string
-  monto: number
+  monto: number | string
   estado: 'exitoso' | 'en_proceso'
   foto: string
   usuarioRegistro: string
@@ -21,7 +21,7 @@ export default function TpvPage() {
   const [formData, setFormData] = useState<TpvData>({
     fecha: new Date().toISOString().split('T')[0],
     quienCobro: '',
-    monto: 0,
+    monto: '',
     estado: 'exitoso',
     foto: '',
     usuarioRegistro: ''
@@ -99,7 +99,7 @@ export default function TpvPage() {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'monto' ? parseFloat(value) || 0 : value
+      [name]: name === 'monto' ? (value === '' ? '' : parseFloat(value) || 0) : value
     }))
   }
 
@@ -133,14 +133,17 @@ export default function TpvPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          monto: typeof formData.monto === 'string' ? parseFloat(formData.monto) || 0 : formData.monto
+        })
       })
 
       if (response.ok) {
         setFormData({
           fecha: new Date().toISOString().split('T')[0],
           quienCobro: '',
-          monto: 0,
+          monto: '',
           estado: 'exitoso',
           foto: '',
           usuarioRegistro: user?.nombre || ''
@@ -230,7 +233,7 @@ export default function TpvPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <button
@@ -265,7 +268,7 @@ export default function TpvPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Botón para agregar cobro TPV */}
         <div className="mb-6">
           <button
@@ -276,35 +279,6 @@ export default function TpvPage() {
           </button>
         </div>
 
-        {/* Barra de búsqueda */}
-        <div className="mb-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={handleSearch}
-              className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Buscar por quien cobró, usuario o estado..."
-            />
-            {searchTerm && (
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                <button
-                  onClick={clearSearch}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Formulario */}
         {showForm && (
@@ -350,7 +324,7 @@ export default function TpvPage() {
                   <input
                     type="number"
                     name="monto"
-                    value={formData.monto}
+                    value={formData.monto === '' ? '' : formData.monto}
                     onChange={handleChange}
                     className="input-field"
                     placeholder="0.00"
@@ -430,6 +404,36 @@ export default function TpvPage() {
                 Página {currentPage} de {totalPages} ({filteredTpvs.length} registros)
               </span>
             )}
+          </div>
+
+          {/* Barra de búsqueda */}
+          <div className="mb-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearch}
+                className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Buscar por quien cobró, usuario o estado..."
+              />
+              {searchTerm && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  <button
+                    onClick={clearSearch}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {filteredTpvs.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
