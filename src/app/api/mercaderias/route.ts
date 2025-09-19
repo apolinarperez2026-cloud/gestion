@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     const mercaderia = await prisma.mercaderia.create({
       data: {
-        fecha: new Date(fecha),
+        fecha: new Date(fecha + 'T12:00:00.000Z'),
         tipo,
         referencia,
         entrega,

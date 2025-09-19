@@ -224,10 +224,44 @@ export default function MovimientosPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    
+    // Campos que solo deben permitir números
+    const numericFields = ['ventasBrutas', 'efectivo', 'credito', 'abonosCredito', 'recargas', 'pagoTarjeta', 'transferencias']
+    
+    if (numericFields.includes(name)) {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: validValue === '' ? '' : validValue
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Solo permitir números, punto decimal, backspace, delete, tab, escape, enter
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+    const isNumber = /[0-9]/.test(e.key)
+    const isDecimal = e.key === '.'
+    const isAllowedKey = allowedKeys.includes(e.key)
+    
+    if (!isNumber && !isDecimal && !isAllowedKey) {
+      e.preventDefault()
+    }
+    
+    // Evitar múltiples puntos decimales
+    if (isDecimal && (e.target as HTMLInputElement).value.includes('.')) {
+      e.preventDefault()
+    }
   }
 
   const handleLogout = async () => {
@@ -654,13 +688,13 @@ export default function MovimientosPage() {
                   Ventas Brutas *
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="ventasBrutas"
                   value={formData.ventasBrutas}
                   onChange={handleChange}
+                  onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  step="0.01"
                   required
                   disabled={!user?.sucursalId}
                 />
@@ -673,13 +707,13 @@ export default function MovimientosPage() {
                   Efectivo
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="efectivo"
                   value={formData.efectivo}
                   onChange={handleChange}
+                  onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  step="0.01"
                   disabled={!user?.sucursalId}
                 />
               </div>
@@ -689,13 +723,13 @@ export default function MovimientosPage() {
                   Crédito
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="credito"
                   value={formData.credito}
                   onChange={handleChange}
+                  onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  step="0.01"
                   disabled={!user?.sucursalId}
                 />
               </div>
@@ -705,13 +739,13 @@ export default function MovimientosPage() {
                   Abonos de Crédito
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="abonosCredito"
                   value={formData.abonosCredito}
                   onChange={handleChange}
+                  onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  step="0.01"
                   disabled={!user?.sucursalId}
                 />
               </div>
@@ -721,13 +755,13 @@ export default function MovimientosPage() {
                   Recargas
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="recargas"
                   value={formData.recargas}
                   onChange={handleChange}
+                  onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  step="0.01"
                   disabled={!user?.sucursalId}
                 />
               </div>
@@ -739,13 +773,13 @@ export default function MovimientosPage() {
                   Transferencias
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="transferencias"
                   value={formData.transferencias}
                   onChange={handleChange}
+                  onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  step="0.01"
                   disabled={!user?.sucursalId}
                 />
               </div>

@@ -97,10 +97,41 @@ export default function TpvPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'monto' ? (value === '' ? '' : parseFloat(value) || 0) : value
-    }))
+    
+    if (name === 'monto') {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: validValue === '' ? '' : validValue
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Solo permitir números, punto decimal, backspace, delete, tab, escape, enter
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+    const isNumber = /[0-9]/.test(e.key)
+    const isDecimal = e.key === '.'
+    const isAllowedKey = allowedKeys.includes(e.key)
+    
+    if (!isNumber && !isDecimal && !isAllowedKey) {
+      e.preventDefault()
+    }
+    
+    // Evitar múltiples puntos decimales
+    if (isDecimal && (e.target as HTMLInputElement).value.includes('.')) {
+      e.preventDefault()
+    }
   }
 
   const handleImageUploadComplete = (url: string) => {
@@ -322,14 +353,13 @@ export default function TpvPage() {
                     Monto *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="monto"
                     value={formData.monto === '' ? '' : formData.monto}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     className="input-field"
                     placeholder="0.00"
-                    step="0.01"
-                    min="0"
                     required
                   />
                 </div>

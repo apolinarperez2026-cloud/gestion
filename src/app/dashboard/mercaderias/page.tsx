@@ -10,7 +10,7 @@ interface MercaderiaData {
   referencia: string
   entrega: string
   recibe: string
-  monto: number
+  monto: number | string
 }
 
 export default function MercaderiasPage() {
@@ -23,7 +23,7 @@ export default function MercaderiasPage() {
     referencia: '',
     entrega: '',
     recibe: '',
-    monto: 0
+    monto: ''
   })
   const [mercaderias, setMercaderias] = useState<any[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -94,10 +94,41 @@ export default function MercaderiasPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'monto' ? parseFloat(value) || 0 : value
-    }))
+    
+    if (name === 'monto') {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: validValue === '' ? '' : validValue
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Solo permitir números, punto decimal, backspace, delete, tab, escape, enter
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+    const isNumber = /[0-9]/.test(e.key)
+    const isDecimal = e.key === '.'
+    const isAllowedKey = allowedKeys.includes(e.key)
+    
+    if (!isNumber && !isDecimal && !isAllowedKey) {
+      e.preventDefault()
+    }
+    
+    // Evitar múltiples puntos decimales
+    if (isDecimal && (e.target as HTMLInputElement).value.includes('.')) {
+      e.preventDefault()
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,7 +148,10 @@ export default function MercaderiasPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          monto: typeof formData.monto === 'string' ? (parseFloat(formData.monto) || 0) : formData.monto
+        })
       })
 
       if (response.ok) {
@@ -127,7 +161,7 @@ export default function MercaderiasPage() {
           referencia: '',
           entrega: '',
           recibe: user?.nombre || '',
-          monto: 0
+          monto: ''
         })
         setShowForm(false)
         fetchMercaderias()
@@ -422,14 +456,13 @@ export default function MercaderiasPage() {
                     Monto *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="monto"
-                    value={formData.monto}
+                    value={formData.monto === '' ? '' : formData.monto}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     className="input-field"
                     placeholder="0.00"
-                    step="0.01"
-                    min="0"
                     required
                   />
                 </div>

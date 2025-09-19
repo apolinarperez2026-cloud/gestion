@@ -138,7 +138,57 @@ export default function PedidosEspecialesPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    
+    // Campos que solo deben permitir números
+    const numericFields = ['precioVenta', 'anticipo', 'cantidad']
+    
+    if (numericFields.includes(name)) {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setFormData(prev => ({ ...prev, [name]: validValue === '' ? '' : validValue }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Solo permitir números, punto decimal, backspace, delete, tab, escape, enter
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+    const isNumber = /[0-9]/.test(e.key)
+    const isDecimal = e.key === '.'
+    const isAllowedKey = allowedKeys.includes(e.key)
+    
+    if (!isNumber && !isDecimal && !isAllowedKey) {
+      e.preventDefault()
+    }
+    
+    // Evitar múltiples puntos decimales
+    if (isDecimal && (e.target as HTMLInputElement).value.includes('.')) {
+      e.preventDefault()
+    }
+  }
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    
+    // Campos que solo deben permitir números
+    const numericFields = ['precioVenta', 'anticipo', 'cantidad']
+    
+    if (numericFields.includes(name)) {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setEditData(prev => ({ ...prev, [name]: validValue === '' ? '' : validValue }))
+    } else {
+      setEditData(prev => ({ ...prev, [name]: value }))
+    }
   }
 
   // Función para calcular el total
@@ -640,13 +690,13 @@ export default function PedidosEspecialesPage() {
                     Cantidad
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="cantidad"
                     value={formData.cantidad}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     className="input-field"
                     placeholder="1"
-                    min="1"
                     required
                   />
                 </div>
@@ -655,13 +705,13 @@ export default function PedidosEspecialesPage() {
                     Precio de Venta
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="precioVenta"
                     value={formData.precioVenta}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     className="input-field"
                     placeholder="0.00"
-                    step="0.01"
                     required
                   />
                 </div>
@@ -670,13 +720,13 @@ export default function PedidosEspecialesPage() {
                     Anticipo
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="anticipo"
                     value={formData.anticipo}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     className="input-field"
                     placeholder="0.00"
-                    step="0.01"
                     required
                   />
                 </div>
@@ -1291,9 +1341,11 @@ export default function PedidosEspecialesPage() {
                     Cantidad
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    name="cantidad"
                     value={editData.cantidad}
-                    onChange={(e) => setEditData(prev => ({ ...prev, cantidad: e.target.value }))}
+                    onChange={handleEditChange}
+                    onKeyPress={handleKeyPress}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1303,10 +1355,11 @@ export default function PedidosEspecialesPage() {
                     Precio de Venta
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    name="precioVenta"
                     value={editData.precioVenta}
-                    onChange={(e) => setEditData(prev => ({ ...prev, precioVenta: e.target.value }))}
+                    onChange={handleEditChange}
+                    onKeyPress={handleKeyPress}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1316,10 +1369,11 @@ export default function PedidosEspecialesPage() {
                     Anticipo
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    name="anticipo"
                     value={editData.anticipo}
-                    onChange={(e) => setEditData(prev => ({ ...prev, anticipo: e.target.value }))}
+                    onChange={handleEditChange}
+                    onKeyPress={handleKeyPress}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
