@@ -506,7 +506,76 @@ export default function ResumenPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              {/* Vista de tarjetas para móvil */}
+              <div className="block lg:hidden space-y-3 p-4">
+                {diasPaginados.map((dia: any, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {dia.fecha.toLocaleDateString('es-ES', { 
+                            day: '2-digit', 
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {dia.movimientos.length} movimiento{dia.movimientos.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-green-600">
+                          ${dia.totalVentas.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">Ventas</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-white rounded-lg p-3 border border-gray-200">
+                        <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Gastos</p>
+                        <p className="text-sm font-bold text-red-900">${dia.totalGastos.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-gray-200">
+                        <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Saldo</p>
+                        <p className={`text-sm font-bold ${(dia.totalVentas - dia.totalGastos) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                          ${(dia.totalVentas - dia.totalGastos).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Efectivo:</span>
+                        <span className="font-medium">${dia.totalEfectivo.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Crédito:</span>
+                        <span className="font-medium">${dia.totalCredito.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Abonos:</span>
+                        <span className="font-medium">${dia.totalAbonosCredito.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Recargas:</span>
+                        <span className="font-medium">${dia.totalRecargas.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Tarjeta:</span>
+                        <span className="font-medium">${dia.totalPagoTarjeta.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Transf.:</span>
+                        <span className="font-medium">${dia.totalTransferencias.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Vista de tabla para desktop */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full divide-y divide-gray-200 table-fixed">
                   <thead className="bg-gray-50">
                     <tr>

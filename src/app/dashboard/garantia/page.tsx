@@ -430,70 +430,120 @@ export default function GarantiaPage() {
               {searchTerm ? 'No se encontraron registros que coincidan con la búsqueda' : 'No hay registros de garantías'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quien Cobró
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Monto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Usuario Registro
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Foto
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {getCurrentPageGarantias().map((garantia) => (
-                    <tr key={garantia.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(garantia.fechaRegistro).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {garantia.quienCobro}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                        ${garantia.monto.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          garantia.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
-                          garantia.estado === 'devuelto' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {garantia.estado}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {garantia.usuarioRegistro}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {garantia.foto ? (
-                          <img
-                            src={garantia.foto}
-                            alt="Foto de garantía"
-                            className="h-8 w-8 object-cover rounded"
-                          />
-                        ) : (
-                          <span className="text-gray-400">Sin foto</span>
+            <>
+              {/* Vista de tarjetas para móvil */}
+              <div className="block lg:hidden space-y-4 p-4">
+                {getCurrentPageGarantias().map((garantia) => (
+                  <div 
+                    key={garantia.id} 
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            garantia.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
+                            garantia.estado === 'devuelto' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {garantia.estado}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {new Date(garantia.fechaRegistro).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-medium text-gray-900 mb-1">
+                          {garantia.quienCobro}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          Registrado por: {garantia.usuarioRegistro}
+                        </p>
+                      </div>
+                      <div className="text-right ml-4">
+                        <p className="text-lg font-bold text-blue-600">
+                          ${garantia.monto.toLocaleString()}
+                        </p>
+                        {garantia.foto && (
+                          <div className="mt-2">
+                            <img
+                              src={garantia.foto}
+                              alt="Foto de garantía"
+                              className="h-12 w-12 object-cover rounded border border-gray-300"
+                            />
+                          </div>
                         )}
-                      </td>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Vista de tabla para desktop */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quien Cobró
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Monto
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usuario Registro
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Foto
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getCurrentPageGarantias().map((garantia) => (
+                      <tr key={garantia.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(garantia.fechaRegistro).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {garantia.quienCobro}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                          ${garantia.monto.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            garantia.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
+                            garantia.estado === 'devuelto' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {garantia.estado}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {garantia.usuarioRegistro}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {garantia.foto ? (
+                            <img
+                              src={garantia.foto}
+                              alt="Foto de garantía"
+                              className="h-8 w-8 object-cover rounded"
+                            />
+                          ) : (
+                            <span className="text-gray-400">Sin foto</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Paginación */}

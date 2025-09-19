@@ -436,73 +436,128 @@ export default function TpvPage() {
               {searchTerm ? 'No se encontraron registros que coincidan con la búsqueda' : 'No hay registros de cobros TPV'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quien Cobró
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Monto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Usuario Registro
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Foto
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {getCurrentPageTpvs().map((tpv) => (
-                    <tr 
-                      key={tpv.id} 
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleRowClick(tpv)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(tpv.fecha).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {tpv.quienCobro}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                        ${tpv.monto.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          tpv.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {tpv.estado === 'en_proceso' ? 'En Proceso' : 'Exitoso'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {tpv.usuarioRegistro}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {tpv.foto ? (
-                          <img
-                            src={tpv.foto}
-                            alt="Foto de cobro TPV"
-                            className="h-8 w-8 object-cover rounded"
-                          />
-                        ) : (
-                          <span className="text-gray-400">Sin foto</span>
+            <>
+              {/* Vista de tarjetas para móvil */}
+              <div className="block lg:hidden space-y-4 p-4">
+                {getCurrentPageTpvs().map((tpv) => (
+                  <div 
+                    key={tpv.id} 
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleRowClick(tpv)}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            tpv.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {tpv.estado === 'en_proceso' ? 'En Proceso' : 'Exitoso'}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {new Date(tpv.fecha).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-medium text-gray-900 mb-1">
+                          {tpv.quienCobro}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          Registrado por: {tpv.usuarioRegistro}
+                        </p>
+                      </div>
+                      <div className="text-right ml-4">
+                        <p className="text-lg font-bold text-blue-600">
+                          ${tpv.monto.toLocaleString()}
+                        </p>
+                        {tpv.foto && (
+                          <div className="mt-2">
+                            <img
+                              src={tpv.foto}
+                              alt="Foto de cobro TPV"
+                              className="h-12 w-12 object-cover rounded border border-gray-300"
+                            />
+                          </div>
                         )}
-                      </td>
+                      </div>
+                    </div>
+                    <div className="text-center pt-3 border-t border-gray-200">
+                      <p className="text-xs text-gray-400">
+                        Toca para ver detalles
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Vista de tabla para desktop */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quien Cobró
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Monto
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usuario Registro
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Foto
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getCurrentPageTpvs().map((tpv) => (
+                      <tr 
+                        key={tpv.id} 
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => handleRowClick(tpv)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(tpv.fecha).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {tpv.quienCobro}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                          ${tpv.monto.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            tpv.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {tpv.estado === 'en_proceso' ? 'En Proceso' : 'Exitoso'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {tpv.usuarioRegistro}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {tpv.foto ? (
+                            <img
+                              src={tpv.foto}
+                              alt="Foto de cobro TPV"
+                              className="h-8 w-8 object-cover rounded"
+                            />
+                          ) : (
+                            <span className="text-gray-400">Sin foto</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Paginación */}
