@@ -33,6 +33,15 @@ export default function MercaderiasPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editFormData, setEditFormData] = useState<MercaderiaData>({
+    fecha: '',
+    tipo: 'entrada',
+    referencia: '',
+    entrega: '',
+    recibe: '',
+    monto: ''
+  })
   const router = useRouter()
 
   const fetchUser = async () => {
@@ -179,6 +188,103 @@ export default function MercaderiasPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleEdit = (mercaderia: any) => {
+    setEditingId(mercaderia.id)
+    setEditFormData({
+      fecha: new Date(mercaderia.fecha).toISOString().split('T')[0],
+      tipo: mercaderia.tipo,
+      referencia: mercaderia.referencia,
+      entrega: mercaderia.entrega,
+      recibe: mercaderia.recibe,
+      monto: mercaderia.monto.toString()
+    })
+  }
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    
+    if (name === 'monto') {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: validValue === '' ? '' : validValue
+      }))
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch('/api/mercaderias', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          id: editingId,
+          ...editFormData,
+          monto: typeof editFormData.monto === 'string' ? (parseFloat(editFormData.monto) || 0) : editFormData.monto
+        })
+      })
+
+      if (response.ok) {
+        setEditingId(null)
+        setEditFormData({
+          fecha: '',
+          tipo: 'entrada',
+          referencia: '',
+          entrega: '',
+          recibe: '',
+          monto: ''
+        })
+        fetchMercaderias()
+        setModalMessage('Mercadería actualizada exitosamente')
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setModalMessage(`Error: ${error.message || 'Error al actualizar mercadería'}`)
+        setShowErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setModalMessage('Error al actualizar mercadería')
+      setShowErrorModal(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setEditFormData({
+      fecha: '',
+      tipo: 'entrada',
+      referencia: '',
+      entrega: '',
+      recibe: '',
+      monto: ''
+    })
   }
 
   const handleLogout = async () => {
@@ -513,43 +619,154 @@ export default function MercaderiasPage() {
                     key={mercaderia.id} 
                     className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
                   >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            mercaderia.tipo === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {mercaderia.tipo === 'entrada' ? 'Entrada' : 'Salida'}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {new Date(mercaderia.fecha).toLocaleDateString()}
-                          </span>
+                    {editingId === mercaderia.id ? (
+                      // Formulario de edición
+                      <form onSubmit={handleEditSubmit} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Fecha</label>
+                            <input
+                              type="date"
+                              name="fecha"
+                              value={editFormData.fecha}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+                            <select
+                              name="tipo"
+                              value={editFormData.tipo}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                              required
+                            >
+                              <option value="entrada">Entrada</option>
+                              <option value="salida">Salida</option>
+                            </select>
+                          </div>
                         </div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-1">
-                          Ref: {mercaderia.referencia}
-                        </h3>
-                      </div>
-                      <div className="text-right ml-4">
-                        <p className="text-lg font-bold text-blue-600">
-                          ${mercaderia.monto.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Entrega</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {mercaderia.entrega}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Recibe</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {mercaderia.recibe}
-                        </p>
-                      </div>
-                    </div>
+                        
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Referencia</label>
+                          <input
+                            type="text"
+                            name="referencia"
+                            value={editFormData.referencia}
+                            onChange={handleEditChange}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Entrega</label>
+                            <input
+                              type="text"
+                              name="entrega"
+                              value={editFormData.entrega}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Recibe</label>
+                            <input
+                              type="text"
+                              name="recibe"
+                              value={editFormData.recibe}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                              required
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Monto</label>
+                          <input
+                            type="text"
+                            name="monto"
+                            value={editFormData.monto}
+                            onChange={handleEditChange}
+                            onKeyPress={handleKeyPress}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={submitting}
+                            className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                          >
+                            {submitting ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      // Vista normal
+                      <>
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                mercaderia.tipo === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {mercaderia.tipo === 'entrada' ? 'Entrada' : 'Salida'}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {new Date(mercaderia.fecha).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <h3 className="text-sm font-medium text-gray-900 mb-1">
+                              Ref: {mercaderia.referencia}
+                            </h3>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-lg font-bold text-blue-600">
+                              ${mercaderia.monto.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Entrega</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {mercaderia.entrega}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Recibe</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {mercaderia.recibe}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-end mt-3 pt-3 border-t border-gray-200">
+                          <button
+                            onClick={() => handleEdit(mercaderia)}
+                            className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -577,33 +794,133 @@ export default function MercaderiasPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Monto
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {getCurrentPageMercaderias().map((mercaderia) => (
                       <tr key={mercaderia.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(mercaderia.fecha).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            mercaderia.tipo === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {mercaderia.tipo === 'entrada' ? 'Entrada' : 'Salida'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {mercaderia.referencia}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {mercaderia.entrega}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {mercaderia.recibe}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${mercaderia.monto.toLocaleString()}
-                        </td>
+                        {editingId === mercaderia.id ? (
+                          // Fila de edición
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="date"
+                                name="fecha"
+                                value={editFormData.fecha}
+                                onChange={handleEditChange}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                required
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <select
+                                name="tipo"
+                                value={editFormData.tipo}
+                                onChange={handleEditChange}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                required
+                              >
+                                <option value="entrada">Entrada</option>
+                                <option value="salida">Salida</option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                name="referencia"
+                                value={editFormData.referencia}
+                                onChange={handleEditChange}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                required
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                name="entrega"
+                                value={editFormData.entrega}
+                                onChange={handleEditChange}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                required
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                name="recibe"
+                                value={editFormData.recibe}
+                                onChange={handleEditChange}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                required
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                name="monto"
+                                value={editFormData.monto}
+                                onChange={handleEditChange}
+                                onKeyPress={handleKeyPress}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                required
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={handleEditSubmit}
+                                  disabled={submitting}
+                                  className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                >
+                                  {submitting ? 'Guardando...' : 'Guardar'}
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="text-gray-600 hover:text-gray-900"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          // Fila normal
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(mercaderia.fecha).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                mercaderia.tipo === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {mercaderia.tipo === 'entrada' ? 'Entrada' : 'Salida'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {mercaderia.referencia}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {mercaderia.entrega}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {mercaderia.recibe}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                              ${mercaderia.monto.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button
+                                onClick={() => handleEdit(mercaderia)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Editar
+                              </button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     ))}
                   </tbody>
