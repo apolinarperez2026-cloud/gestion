@@ -45,19 +45,32 @@ export async function GET(request: NextRequest) {
     // Buscar la sucursal correcta basada en el token
     let sucursalActual = null
     if (decoded.sucursalId) {
-      // Buscar en las sucursales asignadas
-      const sucursalEncontrada = usuario.sucursales.find(us => us.sucursalId === decoded.sucursalId)
-      if (sucursalEncontrada) {
-        sucursalActual = {
-          id: sucursalEncontrada.sucursal.id,
-          nombre: sucursalEncontrada.sucursal.nombre
+      // Para administradores, buscar directamente en la tabla de sucursales
+      if (decoded.rol === 'Administrador') {
+        const sucursal = await prisma.sucursal.findUnique({
+          where: { id: decoded.sucursalId }
+        })
+        if (sucursal) {
+          sucursalActual = {
+            id: sucursal.id,
+            nombre: sucursal.nombre
+          }
         }
       } else {
-        // Fallback a la sucursal principal si no se encuentra en las asignadas
-        sucursalActual = usuario.sucursal ? {
-          id: usuario.sucursal.id,
-          nombre: usuario.sucursal.nombre
-        } : null
+        // Para otros usuarios, buscar en las sucursales asignadas
+        const sucursalEncontrada = usuario.sucursales.find(us => us.sucursalId === decoded.sucursalId)
+        if (sucursalEncontrada) {
+          sucursalActual = {
+            id: sucursalEncontrada.sucursal.id,
+            nombre: sucursalEncontrada.sucursal.nombre
+          }
+        } else {
+          // Fallback a la sucursal principal si no se encuentra en las asignadas
+          sucursalActual = usuario.sucursal ? {
+            id: usuario.sucursal.id,
+            nombre: usuario.sucursal.nombre
+          } : null
+        }
       }
     }
 
