@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import jwt from 'jsonwebtoken'
 
 const prisma = new PrismaClient()
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Obtener el token del header Authorization
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+
+    // Si es administrador sin sucursal específica, mostrar todos los movimientos diarios
+    // Si tiene sucursal específica, filtrar por esa sucursal
+    const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
+      ? {} 
+      : { sucursalId: decoded.sucursalId }
+
     const movimientosDiarios = await prisma.movimientoDiario.findMany({
+      where: whereClause,
       include: {
         sucursal: true,
         usuario: {

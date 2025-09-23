@@ -209,6 +209,11 @@ export interface AuthUser {
     nombre: string
   } | null
   sucursalId: number | null
+  sucursalesAsignadas?: {
+    id: number
+    nombre: string
+    direccion: string
+  }[]
 }
 
 // Nuevos modelos para el sistema de movimientos unificados

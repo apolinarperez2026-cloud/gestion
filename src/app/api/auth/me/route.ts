@@ -26,7 +26,12 @@ export async function GET(request: NextRequest) {
       where: { id: decoded.userId },
       include: {
         rol: true,
-        sucursal: true
+        sucursal: true,
+        sucursales: {
+          include: {
+            sucursal: true
+          }
+        }
       }
     })
 
@@ -35,6 +40,25 @@ export async function GET(request: NextRequest) {
         { message: 'Usuario no encontrado' },
         { status: 404 }
       )
+    }
+
+    // Buscar la sucursal correcta basada en el token
+    let sucursalActual = null
+    if (decoded.sucursalId) {
+      // Buscar en las sucursales asignadas
+      const sucursalEncontrada = usuario.sucursales.find(us => us.sucursalId === decoded.sucursalId)
+      if (sucursalEncontrada) {
+        sucursalActual = {
+          id: sucursalEncontrada.sucursal.id,
+          nombre: sucursalEncontrada.sucursal.nombre
+        }
+      } else {
+        // Fallback a la sucursal principal si no se encuentra en las asignadas
+        sucursalActual = usuario.sucursal ? {
+          id: usuario.sucursal.id,
+          nombre: usuario.sucursal.nombre
+        } : null
+      }
     }
 
     // Usar la información del token JWT para la sucursal (si está disponible)
@@ -46,11 +70,13 @@ export async function GET(request: NextRequest) {
         id: usuario.rol.id,
         nombre: usuario.rol.nombre
       },
-      sucursal: decoded.sucursalId ? {
-        id: decoded.sucursalId,
-        nombre: usuario.sucursal?.nombre || 'Sucursal'
-      } : null,
-      sucursalId: decoded.sucursalId || null
+      sucursal: sucursalActual,
+      sucursalId: decoded.sucursalId || null,
+      sucursalesAsignadas: usuario.sucursales.map(us => ({
+        id: us.sucursal.id,
+        nombre: us.sucursal.nombre,
+        direccion: us.sucursal.direccion
+      }))
     }
 
     return NextResponse.json({ user: authUser })

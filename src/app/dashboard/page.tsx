@@ -85,6 +85,81 @@ export default function DashboardPage() {
     }
   }
 
+  const handleSwitchSucursal = async (sucursalId: number) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch('/api/auth/switch-sucursal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ sucursalId })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Actualizar el token en localStorage
+        if (data.token) {
+          localStorage.setItem('token', data.token)
+        }
+        
+        // Recargar los datos del usuario
+        await fetchUser()
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.message || 'Error al cambiar sucursal'}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al cambiar sucursal')
+    }
+  }
+
+  const handleShowSucursalSelector = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      // Crear un token temporal sin sucursal específica para mostrar el selector
+      const response = await fetch('/api/auth/switch-sucursal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ sucursalId: null })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Actualizar el token en localStorage
+        if (data.token) {
+          localStorage.setItem('token', data.token)
+        }
+        
+        // Recargar los datos del usuario
+        await fetchUser()
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.message || 'Error al mostrar selector de sucursales'}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al mostrar selector de sucursales')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -100,6 +175,85 @@ export default function DashboardPage() {
     return null
   }
 
+  // Si el usuario tiene múltiples sucursales asignadas pero no ha seleccionado una específica,
+  // mostrar el selector de sucursales
+  const tieneMultiplesSucursales = user.sucursalesAsignadas && user.sucursalesAsignadas.length > 1
+  const noTieneSucursalSeleccionada = !user.sucursalId || user.sucursalId === null
+
+  if (tieneMultiplesSucursales && noTieneSucursalSeleccionada) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Libro Diario
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Selecciona una sucursal para continuar
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">{user.nombre}</p>
+                  <p className="text-xs text-gray-500">{user.rol.nombre}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="btn-secondary text-sm"
+                >
+                  Cerrar Sesión
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Selector de Sucursales */}
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Bienvenido, {user.nombre}
+            </h2>
+            <p className="text-lg text-gray-600">
+              Tienes acceso a {user.sucursalesAsignadas?.length} sucursales. Selecciona una para continuar:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {user.sucursalesAsignadas?.map((sucursal) => (
+              <div key={sucursal.id} className="card hover:shadow-lg transition-shadow cursor-pointer">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900">{sucursal.nombre}</h3>
+                    <p className="text-sm text-gray-500">{sucursal.direccion}</p>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <button 
+                    onClick={() => handleSwitchSucursal(sucursal.id)}
+                    className="btn-primary w-full"
+                  >
+                    Trabajar en {sucursal.nombre}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -108,10 +262,10 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Libro Diario
+                {user.sucursal ? user.sucursal.nombre : 'Libro Diario'}
               </h1>
               <p className="text-sm text-gray-600">
-                {user.sucursal ? user.sucursal.nombre : 'Administración General'}
+                {user.sucursal ? 'Sistema de Gestión' : 'Administración General'}
               </p>
             </div>
             <div className="flex items-center space-x-4">
@@ -130,6 +284,14 @@ export default function DashboardPage() {
                   className="btn-secondary text-sm"
                 >
                   Volver a Sucursales
+                </button>
+              )}
+              {user.sucursalesAsignadas && user.sucursalesAsignadas.length > 1 && user.sucursal && (
+                <button
+                  onClick={handleShowSucursalSelector}
+                  className="btn-secondary text-sm"
+                >
+                  Cambiar Sucursal
                 </button>
               )}
               <button
@@ -452,31 +614,33 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Card de Configuración */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+            {/* Card de Configuración - Solo para Administradores */}
+            {user.rol.nombre === 'Administrador' && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Configuración</h3>
+                    <p className="text-sm text-gray-500">Administrar tipos de gastos y formas de pago</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Configuración</h3>
-                  <p className="text-sm text-gray-500">Administrar tipos de gastos y formas de pago</p>
+                <div className="mt-4">
+                  <button 
+                    onClick={() => router.push('/dashboard/configuracion')}
+                    className="btn-primary w-full"
+                  >
+                    Ver Configuración
+                  </button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/configuracion')}
-                  className="btn-primary w-full"
-                >
-                  Ver Configuración
-                </button>
-              </div>
-            </div>
+            )}
 
           </div>
         )}

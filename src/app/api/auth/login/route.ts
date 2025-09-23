@@ -14,7 +14,12 @@ export async function POST(request: NextRequest) {
       where: { email },
       include: {
         rol: true,
-        sucursal: true
+        sucursal: true,
+        sucursales: {
+          include: {
+            sucursal: true
+          }
+        }
       }
     })
 
@@ -34,13 +39,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determinar si el usuario tiene múltiples sucursales
+    const tieneMultiplesSucursales = usuario.sucursales && usuario.sucursales.length > 1
+    
+    // Si tiene múltiples sucursales, no asignar sucursal específica en el token
+    // Si tiene una sola sucursal o es administrador, asignar la sucursal principal
+    const sucursalIdParaToken = (tieneMultiplesSucursales && usuario.rol.nombre !== 'Administrador') 
+      ? null 
+      : usuario.sucursalId
+
     // Crear token JWT
     const token = jwt.sign(
       { 
         userId: usuario.id,
         email: usuario.email,
         rol: usuario.rol.nombre,
-        sucursalId: usuario.sucursalId
+        sucursalId: sucursalIdParaToken
       },
       process.env.JWT_SECRET!,
       { expiresIn: '7d' }
@@ -55,11 +69,16 @@ export async function POST(request: NextRequest) {
         id: usuario.rol.id,
         nombre: usuario.rol.nombre
       },
-      sucursal: usuario.sucursal ? {
-        id: usuario.sucursal.id,
-        nombre: usuario.sucursal.nombre
+      sucursal: sucursalIdParaToken ? {
+        id: usuario.sucursal!.id,
+        nombre: usuario.sucursal!.nombre
       } : null,
-      sucursalId: usuario.sucursalId || null
+      sucursalId: sucursalIdParaToken,
+      sucursalesAsignadas: usuario.sucursales.map(us => ({
+        id: us.sucursal.id,
+        nombre: us.sucursal.nombre,
+        direccion: us.sucursal.direccion
+      }))
     }
 
     const response = NextResponse.json({
