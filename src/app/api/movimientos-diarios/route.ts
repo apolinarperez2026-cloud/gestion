@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { parseDateOnly, createDateRange } from '@/lib/dateUtils'
 
 const prisma = new PrismaClient()
 
@@ -90,15 +91,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Crear fecha específica para evitar problemas de zona horaria
-    const fechaEspecifica = new Date(fecha + 'T12:00:00.000Z') // Mediodía UTC para evitar cambios de día
+    // Crear fecha específica sin horario
+    const fechaEspecifica = parseDateOnly(fecha)
     
-    // Calcular gastos del día desde la tabla movimientos usando la misma fecha específica
-    const fechaInicio = new Date(fechaEspecifica)
-    fechaInicio.setHours(0, 0, 0, 0)
-    
-    const fechaFin = new Date(fechaEspecifica)
-    fechaFin.setHours(23, 59, 59, 999)
+    // Crear rango de fechas para el día
+    const { fechaInicio, fechaFin } = createDateRange(fecha)
 
     const gastosDelDia = await prisma.movimiento.findMany({
       where: {

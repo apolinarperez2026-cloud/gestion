@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { parseDateOnly } from '@/lib/dateUtils'
 
 const prisma = new PrismaClient()
 
@@ -103,8 +104,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Crear fecha específica para evitar problemas de zona horaria
-    const fechaEspecifica = fecha ? new Date(fecha + 'T12:00:00.000Z') : new Date()
+    // Crear fecha específica sin horario
+    const fechaEspecifica = fecha ? parseDateOnly(fecha) : new Date()
     
     const movimiento = await prisma.movimiento.create({
       data: {

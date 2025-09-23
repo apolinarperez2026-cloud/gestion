@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
+import { parseDateOnly } from '@/lib/dateUtils'
 
 // GET - Obtener todos los cobros TPV
 export async function GET(request: NextRequest) {
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear fecha específica para evitar problemas de zona horaria
-    const fechaEspecifica = new Date(fecha + 'T12:00:00.000Z') // Mediodía UTC para evitar cambios de día
+    const fechaEspecifica = parseDateOnly(fecha)
     
     const tpv = await prisma.tpv.create({
       data: {

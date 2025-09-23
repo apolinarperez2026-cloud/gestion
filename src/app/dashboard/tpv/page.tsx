@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AuthUser } from '@/types/database'
 import UploadThingComponent from '@/components/UploadThing'
+import { displayDateOnly } from '@/lib/dateUtils'
 
 interface TpvData {
   fecha: string
@@ -489,7 +490,7 @@ export default function TpvPage() {
                             {tpv.estado === 'en_proceso' ? 'En Proceso' : 'Exitoso'}
                           </span>
                           <span className="text-sm text-gray-500">
-                            {new Date(tpv.fecha).toLocaleDateString()}
+                            {displayDateOnly(tpv.fecha)}
                           </span>
                         </div>
                         <h3 className="text-sm font-medium text-gray-900 mb-1">
@@ -556,7 +557,7 @@ export default function TpvPage() {
                         onClick={() => handleRowClick(tpv)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(tpv.fecha).toLocaleDateString()}
+                          {displayDateOnly(tpv.fecha)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {tpv.quienCobro}
@@ -698,7 +699,7 @@ export default function TpvPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedTpv.fecha).toLocaleDateString()}
+                      {displayDateOnly(selectedTpv.fecha)}
                     </p>
                   </div>
                   

@@ -6,6 +6,7 @@ import { AuthUser } from '@/types/database'
 import UploadThing from '@/components/UploadThing'
 import SuccessModal from '@/components/SuccessModal'
 import NotificationModal from '@/components/NotificationModal'
+import { displayDateOnly } from '@/lib/dateUtils'
 
 interface FondoCaja {
   id: number
@@ -330,11 +331,7 @@ export default function FondoCajaPage() {
                   {fondosCaja.map((fondo) => (
                     <tr key={fondo.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(fondo.fecha).toLocaleDateString('es-ES', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit'
-                        })}
+                        {displayDateOnly(fondo.fecha)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                         ${fondo.monto.toLocaleString()}
@@ -362,11 +359,7 @@ export default function FondoCajaPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(fondo.createdAt).toLocaleDateString('es-ES', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit'
-                        })}
+                        {displayDateOnly(fondo.createdAt)}
                       </td>
                     </tr>
                   ))}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { createMonthRange } from '@/lib/dateUtils'
 
 const prisma = new PrismaClient()
 
@@ -19,8 +20,7 @@ export async function GET(request: NextRequest) {
     const month = parseInt(searchParams.get('month') || (new Date().getMonth() + 1).toString())
 
     // Crear fechas de inicio y fin del mes
-    const fechaInicio = new Date(year, month - 1, 1)
-    const fechaFin = new Date(year, month, 0, 23, 59, 59, 999)
+    const { fechaInicio, fechaFin } = createMonthRange(year, month)
 
     const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
       ? {} 

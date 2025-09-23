@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AuthUser, FormaDePago, TipoGasto, Movimiento, MovimientoTipo } from '@/types/database'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
+import { displayDateOnly } from '@/lib/dateUtils'
 import UploadThingComponent from '@/components/UploadThing'
 
 interface MovimientoForm {
@@ -118,7 +119,14 @@ export default function MovimientosIndividualesPage() {
 
   const fetchMovimientos = async () => {
     try {
-      const response = await fetch('/api/movimientos')
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch('/api/movimientos', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setMovimientos(data.movimientos || [])
@@ -569,7 +577,7 @@ export default function MovimientosIndividualesPage() {
   // Filtrar movimientos por término de búsqueda y solo mostrar gastos
   const movimientosFiltrados = movimientos.filter(movimiento => {
     // Solo mostrar gastos
-    if (movimiento.tipo !== 'GASTO') return false
+    if (movimiento.tipo !== MovimientoTipo.GASTO) return false
     
     if (!searchTerm) return true
     
@@ -580,7 +588,7 @@ export default function MovimientosIndividualesPage() {
       (movimiento.formaDePago?.nombre.toLowerCase().includes(termino)) ||
       (movimiento.tipoGasto?.nombre.toLowerCase().includes(termino)) ||
       movimiento.monto.toString().includes(termino) ||
-      new Date(movimiento.fecha).toLocaleDateString().includes(termino)
+      displayDateOnly(movimiento.fecha).includes(termino)
     )
   })
 
@@ -913,7 +921,7 @@ export default function MovimientosIndividualesPage() {
                                 {movimiento.tipo === MovimientoTipo.FONDO_CAJA ? 'FONDO CAJA' : movimiento.tipo}
                               </span>
                               <span className="text-sm text-gray-500">
-                                {new Date(movimiento.fecha).toLocaleDateString()}
+                                {displayDateOnly(movimiento.fecha)}
                               </span>
                             </div>
                             <h3 className="text-sm font-medium text-gray-900 mb-1">
@@ -1047,7 +1055,7 @@ export default function MovimientosIndividualesPage() {
                           onClick={() => handleRowClick(movimiento)}
                         >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(movimiento.fecha).toLocaleDateString()}
+                            {displayDateOnly(movimiento.fecha)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1292,7 +1300,7 @@ export default function MovimientosIndividualesPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedMovimiento.fecha).toLocaleDateString()}
+                      {displayDateOnly(selectedMovimiento.fecha)}
                     </p>
                   </div>
                   

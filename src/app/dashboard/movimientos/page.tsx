@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AuthUser, MovimientoDiario, MovimientoDiarioForm } from '@/types/database'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
+import { displayDateOnly } from '@/lib/dateUtils'
 
 export default function MovimientosPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -351,7 +352,7 @@ export default function MovimientosPage() {
 
     showConfirm({
       title: 'Eliminar Movimiento',
-      message: `¿Estás seguro de que quieres eliminar el movimiento del ${new Date(movimiento.fecha).toLocaleDateString()}?`,
+      message: `¿Estás seguro de que quieres eliminar el movimiento del ${displayDateOnly(movimiento.fecha)}?`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       type: 'warning',
@@ -554,7 +555,7 @@ export default function MovimientosPage() {
     if (!searchTerm) return true
     
     const termino = searchTerm.toLowerCase()
-    const fechaStr = new Date(movimiento.fecha).toLocaleDateString()
+    const fechaStr = displayDateOnly(movimiento.fecha)
     const observacionesStr = movimiento.observaciones?.toLowerCase() || ''
     
     return (
@@ -645,10 +646,7 @@ export default function MovimientosPage() {
         {/* Totales del Mes */}
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            📊 Totales del Mes - {new Date().toLocaleDateString('es-ES', { 
-              year: 'numeric', 
-              month: 'long'
-            })}
+            📊 Totales del Mes - {displayDateOnly(new Date()).split('/').slice(1).join('/')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Ventas Brutas */}
@@ -1098,7 +1096,7 @@ export default function MovimientosPage() {
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900">
-                              {new Date(movimiento.fecha).toLocaleDateString()}
+                              {displayDateOnly(movimiento.fecha)}
                             </h3>
                             <p className="text-sm text-gray-500">
                               {movimiento.usuario ? (
@@ -1243,7 +1241,7 @@ export default function MovimientosPage() {
                         {movimientosPaginados.map((movimiento) => (
                         <tr key={movimiento.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(movimiento.fecha).toLocaleDateString()}
+                            {displayDateOnly(movimiento.fecha)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                             ${movimiento.ventasBrutas.toLocaleString()}
@@ -1284,7 +1282,7 @@ export default function MovimientosPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col">
                               <span className="text-xs text-gray-500">
-                                {movimiento.updatedAt ? new Date(movimiento.updatedAt).toLocaleDateString() : 'N/A'}
+                                {movimiento.updatedAt ? displayDateOnly(movimiento.updatedAt) : 'N/A'}
                               </span>
                               <span className="text-xs text-gray-400">
                                 {movimiento.updatedAt ? new Date(movimiento.updatedAt).toLocaleTimeString() : ''}

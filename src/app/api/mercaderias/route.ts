@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
+import { parseDateOnly } from '@/lib/dateUtils'
 
 // GET - Obtener todas las mercaderías
 export async function GET(request: NextRequest) {
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const mercaderia = await prisma.mercaderia.create({
       data: {
-        fecha: new Date(fecha + 'T12:00:00.000Z'),
+        fecha: parseDateOnly(fecha),
         tipo,
         referencia,
         entrega,
@@ -149,7 +150,7 @@ export async function PUT(request: NextRequest) {
     const mercaderia = await prisma.mercaderia.update({
       where: { id: parseInt(id) },
       data: {
-        fecha: new Date(fecha + 'T12:00:00.000Z'),
+        fecha: parseDateOnly(fecha),
         tipo,
         referencia,
         entrega,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import { parseDateOnly } from '@/lib/dateUtils'
 
 const prisma = new PrismaClient()
 
@@ -53,7 +54,7 @@ export async function PUT(
     }
 
     // Crear fecha específica para evitar problemas de zona horaria
-    const fechaEspecifica = fecha ? new Date(fecha + 'T12:00:00.000Z') : undefined
+    const fechaEspecifica = fecha ? parseDateOnly(fecha) : undefined
     
     const movimiento = await prisma.movimiento.update({
       where: { id: parseInt(id) },
