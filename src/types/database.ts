@@ -262,6 +262,7 @@ export interface MovimientoDiario {
   pagoTarjeta: number
   transferencias: number
   gastos: number
+  fondoCaja: number
   saldoDia: number
   observaciones?: string
   sucursal: Sucursal

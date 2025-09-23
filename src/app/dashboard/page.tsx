@@ -36,6 +36,7 @@ export default function DashboardPage() {
     }
   }
 
+
   useEffect(() => {
     fetchUser()
   }, [router])

@@ -32,6 +32,18 @@ export default function MovimientosPage() {
     movimientoId: null
   })
   const [historial, setHistorial] = useState<any[]>([])
+  const [monthlyTotals, setMonthlyTotals] = useState({
+    ventasBrutas: 0,
+    efectivo: 0,
+    credito: 0,
+    abonosCredito: 0,
+    recargas: 0,
+    pagoTarjeta: 0,
+    transferencias: 0,
+    gastos: 0,
+    fondoCaja: 0,
+    saldo: 0
+  })
   const router = useRouter()
 
   useEffect(() => {
@@ -52,6 +64,7 @@ export default function MovimientosPage() {
           const userData = await response.json()
           setUser(userData.user)
           fetchMovimientosDiarios()
+          fetchMonthlyTotals()
         } else {
           router.push('/auth/login')
         }
@@ -86,6 +99,31 @@ export default function MovimientosPage() {
       console.error('Error al cargar movimientos diarios:', error)
     }
   }
+
+  const fetchMonthlyTotals = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const currentDate = new Date()
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      
+      const response = await fetch(`/api/movimientos-diarios/monthly-totals?year=${year}&month=${month}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setMonthlyTotals(data.totals)
+      }
+    } catch (error) {
+      console.error('Error al obtener totales del mes:', error)
+    }
+  }
+
 
   const fetchHistorial = async (movimientoId: number) => {
     try {
@@ -179,6 +217,9 @@ export default function MovimientosPage() {
         const data = await response.json()
         setMovimientosDiarios([data.movimientoDiario, ...movimientosDiarios])
         
+        // Actualizar totales del mes
+        fetchMonthlyTotals()
+        
         // Limpiar formulario
         setFormData({
           fecha: new Date().toISOString().split('T')[0],
@@ -244,6 +285,7 @@ export default function MovimientosPage() {
         ...prev,
         [name]: value
       }))
+      
     }
   }
 
@@ -600,41 +642,202 @@ export default function MovimientosPage() {
 
       {/* Main Content */}
       <main className=" 2xl:mx-20  mx-auto xl:px-4 sm:px-6 lg:px-8 py-8">
-        {/* Resumen del mes */}
+        {/* Totales del Mes */}
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Resumen del Mes - {new Date().toLocaleDateString('es-ES', { 
+            📊 Totales del Mes - {new Date().toLocaleDateString('es-ES', { 
               year: 'numeric', 
               month: 'long'
             })}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="text-center">
-                <p className="text-sm font-medium text-green-600">Ventas Brutas</p>
-                <p className="text-xl font-bold text-green-900">${totalVentasBrutas.toLocaleString()}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Ventas Brutas */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Ventas Brutas</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.ventasBrutas.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="bg-red-50 rounded-lg p-4">
-              <div className="text-center">
-                <p className="text-sm font-medium text-red-600">Gastos</p>
-                <p className="text-xl font-bold text-red-900">${totalGastos.toLocaleString()}</p>
+
+            {/* Efectivo */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-emerald-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Efectivo</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.efectivo.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
               </div>
             </div>
-            <div className={`rounded-lg p-4 ${saldoTotal >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
-              <div className="text-center">
-                <p className={`text-sm font-medium ${saldoTotal >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                  Saldo Total
-                </p>
-                <p className={`text-xl font-bold ${saldoTotal >= 0 ? 'text-blue-900' : 'text-orange-900'}`}>
-                  ${saldoTotal.toLocaleString()}
-                </p>
+
+            {/* Crédito */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Crédito</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.credito.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Días Registrados</p>
-                <p className="text-xl font-bold text-gray-900">{movimientosDelMes.length}</p>
+
+            {/* Abonos Crédito */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Abonos Crédito</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.abonosCredito.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Recargas */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-cyan-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Recargas</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.recargas.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Pago con Tarjeta */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Pago con Tarjeta</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.pagoTarjeta.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Transferencias */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-teal-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Transferencias</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.transferencias.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Gastos */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Gastos</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.gastos.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fondos de Caja */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Fondos de Caja</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${monthlyTotals.fondoCaja.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Saldo Total */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-indigo-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Saldo Total</p>
+                  <p className={`text-lg font-semibold ${monthlyTotals.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${monthlyTotals.saldo.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
