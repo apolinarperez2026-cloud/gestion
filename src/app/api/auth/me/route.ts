@@ -72,6 +72,12 @@ export async function GET(request: NextRequest) {
           } : null
         }
       }
+    } else if (decoded.rol !== 'Administrador') {
+      // Si no hay sucursalId en el token y no es admin, usar la sucursal principal
+      sucursalActual = usuario.sucursal ? {
+        id: usuario.sucursal.id,
+        nombre: usuario.sucursal.nombre
+      } : null
     }
 
     // Usar la información del token JWT para la sucursal (si está disponible)

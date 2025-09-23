@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     // Si tiene sucursal específica, filtrar por esa sucursal
     const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
       ? {} 
-      : { sucursalId: decoded.sucursalId }
+      : decoded.sucursalId 
+        ? { sucursalId: decoded.sucursalId }
+        : {}
 
     const movimientosDiarios = await prisma.movimientoDiario.findMany({
       where: whereClause,

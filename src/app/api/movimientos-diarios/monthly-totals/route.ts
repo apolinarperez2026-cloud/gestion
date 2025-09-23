@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
 
     const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
       ? {} 
-      : { sucursalId: decoded.sucursalId }
+      : decoded.sucursalId 
+        ? { sucursalId: decoded.sucursalId }
+        : {}
 
     // Obtener todos los movimientos diarios del mes
     const movimientosDelMes = await prisma.movimientoDiario.findMany({

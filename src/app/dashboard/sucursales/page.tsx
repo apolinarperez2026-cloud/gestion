@@ -46,7 +46,6 @@ export default function SucursalesPage() {
         return
       }
 
-      console.log('Token actual:', token)
       const response = await fetch('/api/auth/me', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -54,13 +53,11 @@ export default function SucursalesPage() {
       })
 
       if (!response.ok) {
-        console.log('Error en fetchUser:', response.status, response.statusText)
         router.push('/auth/login')
         return
       }
 
       const userData = await response.json()
-      console.log('Datos del usuario recibidos:', userData.user)
       setUser(userData.user)
     } catch (error) {
       console.error('Error al obtener usuario:', error)
@@ -165,24 +162,18 @@ export default function SucursalesPage() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Respuesta del switch-sucursal:', data)
         
         // Actualizar el token en localStorage
         if (data.token) {
           localStorage.setItem('token', data.token)
-          console.log('Token actualizado en localStorage')
         }
         
         // Actualizar el estado del usuario con la nueva sucursal
         if (data.sucursal) {
-          setUser(prev => {
-            const newUser = prev ? {
-              ...prev,
-              sucursal: data.sucursal
-            } : null
-            console.log('Usuario actualizado:', newUser)
-            return newUser
-          })
+          setUser(prev => prev ? {
+            ...prev,
+            sucursal: data.sucursal
+          } : null)
         }
         
         showNotification(
@@ -195,9 +186,7 @@ export default function SucursalesPage() {
         
         // Refrescar la información del usuario y redirigir
         setTimeout(async () => {
-          console.log('Refrescando información del usuario...')
           await fetchUser() // Refrescar la información del usuario
-          console.log('Redirigiendo al dashboard...')
           router.push('/dashboard')
         }, 1500)
       } else {
