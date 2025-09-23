@@ -19,11 +19,23 @@ export function parseDateOnly(dateString: string): Date {
 
 /**
  * Convierte una fecha a string en formato YYYY-MM-DD
- * @param date - Date object
- * @returns String en formato YYYY-MM-DD
+ * @param date - Date object, string o null/undefined
+ * @returns String en formato YYYY-MM-DD o string vacío
  */
-export function formatDateOnly(date: Date): string {
-  return date.toISOString().split('T')[0]
+export function formatDateOnly(date: Date | string | null | undefined): string {
+  if (!date) return ''
+  
+  // Si ya es un string en formato YYYY-MM-DD, devolverlo tal como está
+  if (typeof date === 'string') {
+    return date
+  }
+  
+  // Si es un objeto Date, convertirlo
+  if (date instanceof Date) {
+    return date.toISOString().split('T')[0]
+  }
+  
+  return ''
 }
 
 /**

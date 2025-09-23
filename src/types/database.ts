@@ -299,3 +299,25 @@ export interface PedidoEspecialHistorial {
   usuario?: Usuario
   fechaAccion: Date
 }
+
+export interface Garantia {
+  id: number
+  fechaRegistro: Date
+  cliente: string
+  marca: string
+  sku: string
+  cantidad: number
+  descripcion: string
+  estado: string
+  comentarios?: string
+  fechaEntregaFabricante?: Date
+  fechaRegresoFabricante?: Date
+  fechaEntregaCliente?: Date
+  fotoReciboEntrega?: string
+  sucursal: Sucursal
+  sucursalId: number
+  usuario: Usuario
+  usuarioId: number
+  createdAt: Date
+  updatedAt: Date
+}

@@ -2,16 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AuthUser } from '@/types/database'
+import { AuthUser, Garantia } from '@/types/database'
 import UploadThingComponent from '@/components/UploadThing'
+import { displayDateOnly, formatDateOnly } from '@/lib/dateUtils'
 
 interface GarantiaData {
   fechaRegistro: string
-  quienCobro: string
-  monto: number | string
-  estado: 'exitoso' | 'devuelto' | 'cancelado'
-  foto: string
-  usuarioRegistro: string
+  cliente: string
+  marca: string
+  sku: string
+  cantidad: number | string
+  descripcion: string
+  estado: 'en_reparacion' | 'cancelada' | 'proceso_reembolso' | 'proceso_reemplazo' | 'completada'
+  comentarios: string
+  fechaEntregaFabricante: string
+  fechaRegresoFabricante: string
+  fechaEntregaCliente: string
+  fotoReciboEntrega: string
 }
 
 export default function GarantiaPage() {
@@ -20,18 +27,37 @@ export default function GarantiaPage() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<GarantiaData>({
     fechaRegistro: new Date().toISOString().split('T')[0],
-    quienCobro: '',
-    monto: '',
-    estado: 'exitoso',
-    foto: '',
-    usuarioRegistro: ''
+    cliente: '',
+    marca: '',
+    sku: '',
+    cantidad: '',
+    descripcion: '',
+    estado: 'en_reparacion',
+    comentarios: '',
+    fechaEntregaFabricante: '',
+    fechaRegresoFabricante: '',
+    fechaEntregaCliente: '',
+    fotoReciboEntrega: ''
   })
-  const [garantias, setGarantias] = useState<any[]>([])
+  const [garantias, setGarantias] = useState<Garantia[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [modalMessage, setModalMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editFormData, setEditFormData] = useState<Partial<GarantiaData>>({})
+  const [selectedGarantia, setSelectedGarantia] = useState<Garantia | null>(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [stats, setStats] = useState({
+    total: 0,
+    completadas: 0,
+    enProgreso: 0,
+    canceladas: 0,
+    enReparacion: 0,
+    procesoReembolso: 0,
+    procesoReemplazo: 0
+  })
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const router = useRouter()
@@ -82,6 +108,7 @@ export default function GarantiaPage() {
       if (response.ok) {
         const data = await response.json()
         setGarantias(data.garantias || [])
+        calculateStats(data.garantias || [])
       }
     } catch (error) {
       console.error('Error al cargar garantías:', error)
@@ -135,7 +162,7 @@ export default function GarantiaPage() {
   const handleImageUploadComplete = (url: string) => {
     setFormData(prev => ({
       ...prev,
-      foto: url
+      fotoReciboEntrega: url
     }))
   }
 
@@ -143,6 +170,145 @@ export default function GarantiaPage() {
     console.error('Error al subir imagen:', error)
     setModalMessage('Error al subir la imagen')
     setShowErrorModal(true)
+  }
+
+  // Funciones para edición
+  const handleEdit = (garantia: Garantia) => {
+    setEditingId(garantia.id.toString())
+    setEditFormData({
+      fechaEntregaFabricante: garantia.fechaEntregaFabricante ? formatDateOnly(garantia.fechaEntregaFabricante) : '',
+      fechaRegresoFabricante: garantia.fechaRegresoFabricante ? formatDateOnly(garantia.fechaRegresoFabricante) : '',
+      fechaEntregaCliente: garantia.fechaEntregaCliente ? formatDateOnly(garantia.fechaEntregaCliente) : '',
+      fotoReciboEntrega: garantia.fotoReciboEntrega || '',
+      estado: garantia.estado as 'en_reparacion' | 'cancelada' | 'proceso_reembolso' | 'proceso_reemplazo' | 'completada',
+      comentarios: garantia.comentarios || ''
+    })
+  }
+
+  // Función para determinar qué acción mostrar según el estado
+  const getActionButton = (garantia: Garantia) => {
+    if (!garantia.fechaEntregaFabricante) {
+      return { text: "Enviar a Proveedor", action: "enviar_proveedor" }
+    } else if (!garantia.fechaRegresoFabricante) {
+      return { text: "Recibido de Proveedor", action: "recibido_proveedor" }
+    } else if (!garantia.fechaEntregaCliente) {
+      return { text: "Entregar al Cliente", action: "entregar_cliente" }
+    } else {
+      return { text: "Completado", action: "completado" }
+    }
+  }
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleEditSubmit = async (garantiaId: string) => {
+    setSubmitting(true)
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      // Determinar qué datos enviar según el estado actual
+      const garantia = garantias.find(g => g.id.toString() === garantiaId)
+      if (!garantia) return
+
+      const actionButton = getActionButton(garantia)
+      let updateData: any = {}
+
+      switch (actionButton.action) {
+        case 'enviar_proveedor':
+          updateData = {
+            fechaEntregaFabricante: editFormData.fechaEntregaFabricante,
+            estado: 'en_reparacion'
+          }
+          break
+        case 'recibido_proveedor':
+          updateData = {
+            fechaRegresoFabricante: editFormData.fechaRegresoFabricante,
+            estado: editFormData.estado || 'en_reparacion',
+            comentarios: editFormData.comentarios || null
+          }
+          break
+        case 'entregar_cliente':
+          updateData = {
+            fechaEntregaCliente: editFormData.fechaEntregaCliente,
+            fotoReciboEntrega: editFormData.fotoReciboEntrega,
+            estado: 'completada'
+          }
+          break
+      }
+
+      const response = await fetch(`/api/garantias/${garantiaId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      })
+
+      if (response.ok) {
+        setEditingId(null)
+        setEditFormData({})
+        fetchGarantias()
+        setModalMessage(`${actionButton.text} exitosamente`)
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setModalMessage(`Error: ${error.message || 'Error al actualizar garantía'}`)
+        setShowErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Error al actualizar garantía:', error)
+      setModalMessage('Error al actualizar garantía')
+      setShowErrorModal(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setEditFormData({})
+  }
+
+  const handleEditImageUpload = (url: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      fotoReciboEntrega: url
+    }))
+  }
+
+  // Función para abrir modal de detalles
+  const handleShowDetails = (garantia: Garantia) => {
+    setSelectedGarantia(garantia)
+    setShowDetailsModal(true)
+  }
+
+  const handleCloseDetails = () => {
+    setSelectedGarantia(null)
+    setShowDetailsModal(false)
+  }
+
+  // Función para calcular estadísticas
+  const calculateStats = (garantias: Garantia[]) => {
+    const newStats = {
+      total: garantias.length,
+      completadas: garantias.filter(g => g.estado === 'completada').length,
+      enProgreso: garantias.filter(g => g.estado === 'en_reparacion').length,
+      canceladas: garantias.filter(g => g.estado === 'cancelada').length,
+      enReparacion: garantias.filter(g => g.estado === 'en_reparacion').length,
+      procesoReembolso: garantias.filter(g => g.estado === 'proceso_reembolso').length,
+      procesoReemplazo: garantias.filter(g => g.estado === 'proceso_reemplazo').length
+    }
+    setStats(newStats)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,18 +330,24 @@ export default function GarantiaPage() {
         },
         body: JSON.stringify({
           ...formData,
-          monto: typeof formData.monto === 'string' ? (parseFloat(formData.monto) || 0) : formData.monto
+          cantidad: typeof formData.cantidad === 'string' ? (parseInt(formData.cantidad) || 0) : formData.cantidad
         })
       })
 
       if (response.ok) {
         setFormData({
           fechaRegistro: new Date().toISOString().split('T')[0],
-          quienCobro: '',
-          monto: '',
-          estado: 'exitoso',
-          foto: '',
-          usuarioRegistro: user?.nombre || ''
+          cliente: '',
+          marca: '',
+          sku: '',
+          cantidad: '',
+          descripcion: '',
+          estado: 'en_reparacion',
+          comentarios: '',
+          fechaEntregaFabricante: '',
+          fechaRegresoFabricante: '',
+          fechaEntregaCliente: '',
+          fotoReciboEntrega: ''
         })
         setShowForm(false)
         fetchGarantias()
@@ -206,8 +378,10 @@ export default function GarantiaPage() {
 
   // Función para filtrar garantías
   const filteredGarantias = garantias.filter(garantia =>
-    garantia.quienCobro.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    garantia.usuarioRegistro.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    garantia.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    garantia.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    garantia.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    garantia.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
     garantia.estado.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -316,7 +490,7 @@ export default function GarantiaPage() {
               value={searchTerm}
               onChange={handleSearch}
               className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Buscar por quien cobró, usuario o estado..."
+              placeholder="Buscar por cliente, marca, SKU, descripción o estado..."
             />
             {searchTerm && (
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
@@ -330,6 +504,121 @@ export default function GarantiaPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Estadísticas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Completadas</p>
+                <p className="text-2xl font-semibold text-green-600">{stats.completadas}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">En Progreso</p>
+                <p className="text-2xl font-semibold text-blue-600">{stats.enProgreso}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Reembolso</p>
+                <p className="text-2xl font-semibold text-yellow-600">{stats.procesoReembolso}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Reemplazo</p>
+                <p className="text-2xl font-semibold text-orange-600">{stats.procesoReemplazo}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Canceladas</p>
+                <p className="text-2xl font-semibold text-red-600">{stats.canceladas}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">En Reparación</p>
+                <p className="text-2xl font-semibold text-purple-600">{stats.enReparacion}</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -357,31 +646,30 @@ export default function GarantiaPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quien Cobró *
+                    Cliente *
                   </label>
                   <input
                     type="text"
-                    name="quienCobro"
-                    value={formData.quienCobro}
+                    name="cliente"
+                    value={formData.cliente}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Nombre de quien cobró"
+                    placeholder="Nombre del cliente"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monto *
+                    Marca *
                   </label>
                   <input
                     type="text"
-                    name="monto"
-                    value={formData.monto === '' ? '' : formData.monto}
+                    name="marca"
+                    value={formData.marca}
                     onChange={handleChange}
-                    onKeyPress={handleKeyPress}
                     className="input-field"
-                    placeholder="0.00"
+                    placeholder="Marca del producto"
                     required
                   />
                 </div>
@@ -397,34 +685,58 @@ export default function GarantiaPage() {
                     className="input-field"
                     required
                   >
-                    <option value="exitoso">Exitoso</option>
-                    <option value="devuelto">Devuelto</option>
-                    <option value="cancelado">Cancelado</option>
+                    <option value="en_reparacion">En Reparación</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    SKU *
+                  </label>
+                  <input
+                    type="text"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Código SKU"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cantidad *
+                  </label>
+                  <input
+                    type="number"
+                    name="cantidad"
+                    value={formData.cantidad}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="1"
+                    min="1"
+                    required
+                  />
                 </div>
               </div>
 
-              {/* Campo de imagen */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Foto (Opcional)
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción *
                 </label>
-                <div className="space-y-3">
-                  <UploadThingComponent
-                    onUploadComplete={handleImageUploadComplete}
-                    onUploadError={handleImageUploadError}
-                  />
-                  {formData.foto && (
-                    <div className="mt-2">
-                      <img
-                        src={formData.foto}
-                        alt="Foto de garantía"
-                        className="h-32 w-32 object-cover rounded-lg border"
-                      />
-                    </div>
-                  )}
-                </div>
+                <textarea
+                  name="descripcion"
+                  value={formData.descripcion}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="Descripción del problema o garantía"
+                  rows={3}
+                  required
+                />
               </div>
+
+
 
               <div className="flex justify-end space-x-4">
                 <button
@@ -469,43 +781,68 @@ export default function GarantiaPage() {
                 {getCurrentPageGarantias().map((garantia) => (
                   <div 
                     key={garantia.id} 
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleShowDetails(garantia)}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            garantia.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
-                            garantia.estado === 'devuelto' ? 'bg-yellow-100 text-yellow-800' :
+                            garantia.estado === 'completada' ? 'bg-green-100 text-green-800' :
+                            garantia.estado === 'en_reparacion' ? 'bg-blue-100 text-blue-800' :
+                            garantia.estado === 'proceso_reembolso' ? 'bg-yellow-100 text-yellow-800' :
+                            garantia.estado === 'proceso_reemplazo' ? 'bg-orange-100 text-orange-800' :
                             'bg-red-100 text-red-800'
                           }`}>
-                            {garantia.estado}
+                            {garantia.estado.replace('_', ' ')}
                           </span>
                           <span className="text-sm text-gray-500">
-                            {new Date(garantia.fechaRegistro).toLocaleDateString()}
+                            {displayDateOnly(garantia.fechaRegistro)}
                           </span>
                         </div>
                         <h3 className="text-sm font-medium text-gray-900 mb-1">
-                          {garantia.quienCobro}
+                          {garantia.cliente}
                         </h3>
                         <p className="text-xs text-gray-500">
-                          Registrado por: {garantia.usuarioRegistro}
+                          {garantia.marca} - {garantia.sku} (Cant: {garantia.cantidad})
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Registrado por: {garantia.usuario?.nombre}
                         </p>
                       </div>
                       <div className="text-right ml-4">
-                        <p className="text-lg font-bold text-blue-600">
-                          ${garantia.monto.toLocaleString()}
+                        <p className="text-sm text-gray-600">
+                          {garantia.descripcion}
                         </p>
-                        {garantia.foto && (
+                        {garantia.fotoReciboEntrega && (
                           <div className="mt-2">
                             <img
-                              src={garantia.foto}
-                              alt="Foto de garantía"
+                              src={garantia.fotoReciboEntrega}
+                              alt="Recibo de entrega"
                               className="h-12 w-12 object-cover rounded border border-gray-300"
                             />
                           </div>
                         )}
                       </div>
+                    </div>
+                    
+                    {/* Botón de acción */}
+                    <div className="mt-3 flex justify-end">
+                      {getActionButton(garantia).action !== 'completado' ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEdit(garantia)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          {getActionButton(garantia).text}
+                        </button>
+                      ) : (
+                        <span className="text-green-600 text-sm font-medium">
+                          ✓ Completado
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -520,55 +857,87 @@ export default function GarantiaPage() {
                         Fecha
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quien Cobró
+                        Cliente
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Monto
+                        Marca/SKU
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cantidad
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Usuario Registro
+                        Usuario
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Foto
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {getCurrentPageGarantias().map((garantia) => (
-                      <tr key={garantia.id}>
+                      <tr 
+                        key={garantia.id}
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleShowDetails(garantia)}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(garantia.fechaRegistro).toLocaleDateString()}
+                          {displayDateOnly(garantia.fechaRegistro)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {garantia.quienCobro}
+                          {garantia.cliente}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${garantia.monto.toLocaleString()}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {garantia.marca} - {garantia.sku}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {garantia.cantidad}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            garantia.estado === 'exitoso' ? 'bg-green-100 text-green-800' :
-                            garantia.estado === 'devuelto' ? 'bg-yellow-100 text-yellow-800' :
+                            garantia.estado === 'completada' ? 'bg-green-100 text-green-800' :
+                            garantia.estado === 'en_reparacion' ? 'bg-blue-100 text-blue-800' :
+                            garantia.estado === 'proceso_reembolso' ? 'bg-yellow-100 text-yellow-800' :
+                            garantia.estado === 'proceso_reemplazo' ? 'bg-orange-100 text-orange-800' :
                             'bg-red-100 text-red-800'
                           }`}>
-                            {garantia.estado}
+                            {garantia.estado.replace('_', ' ')}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {garantia.usuarioRegistro}
+                          {garantia.usuario?.nombre}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {garantia.foto ? (
+                          {garantia.fotoReciboEntrega ? (
                             <img
-                              src={garantia.foto}
-                              alt="Foto de garantía"
+                              src={garantia.fotoReciboEntrega}
+                              alt="Recibo de entrega"
                               className="h-8 w-8 object-cover rounded"
                             />
                           ) : (
                             <span className="text-gray-400">Sin foto</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {getActionButton(garantia).action !== 'completado' ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEdit(garantia)
+                              }}
+                              className="text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              {getActionButton(garantia).text}
+                            </button>
+                          ) : (
+                            <span className="text-green-600 font-medium">
+                              ✓ Completado
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -708,6 +1077,306 @@ export default function GarantiaPage() {
                 >
                   Aceptar
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edición */}
+      {editingId && (() => {
+        const garantia = garantias.find(g => g.id.toString() === editingId)
+        if (!garantia) return null
+        const actionButton = getActionButton(garantia)
+        
+        return (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  {actionButton.text}
+                </h3>
+                <form onSubmit={(e) => { e.preventDefault(); handleEditSubmit(editingId); }} className="space-y-4">
+                  
+                  {/* Enviar a Proveedor */}
+                  {actionButton.action === 'enviar_proveedor' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fecha de Envío a Proveedor *
+                      </label>
+                      <input
+                        type="date"
+                        name="fechaEntregaFabricante"
+                        value={editFormData.fechaEntregaFabricante || ''}
+                        onChange={handleEditChange}
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Recibido de Proveedor */}
+                  {actionButton.action === 'recibido_proveedor' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Fecha de Recibo de Proveedor *
+                        </label>
+                        <input
+                          type="date"
+                          name="fechaRegresoFabricante"
+                          value={editFormData.fechaRegresoFabricante || ''}
+                          onChange={handleEditChange}
+                          className="input-field"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Estado Actual
+                        </label>
+                        <select
+                          name="estado"
+                          value={editFormData.estado || garantia.estado}
+                          onChange={handleEditChange}
+                          className="input-field"
+                        >
+                          <option value="en_reparacion">En Reparación</option>
+                          <option value="proceso_reembolso">Proceso de Reembolso</option>
+                          <option value="proceso_reemplazo">Proceso de Reemplazo</option>
+                          <option value="cancelada">Cancelada</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Comentarios
+                        </label>
+                        <textarea
+                          name="comentarios"
+                          value={editFormData.comentarios || garantia.comentarios || ''}
+                          onChange={handleEditChange}
+                          className="input-field"
+                          placeholder="Comentarios sobre el estado del producto..."
+                          rows={3}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Entregar al Cliente */}
+                  {actionButton.action === 'entregar_cliente' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Fecha de Entrega a Cliente *
+                        </label>
+                        <input
+                          type="date"
+                          name="fechaEntregaCliente"
+                          value={editFormData.fechaEntregaCliente || ''}
+                          onChange={handleEditChange}
+                          className="input-field"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Foto del Recibo de Entrega a Cliente *
+                        </label>
+                        <div className="space-y-3">
+                          <UploadThingComponent
+                            onUploadComplete={handleEditImageUpload}
+                            onUploadError={handleImageUploadError}
+                          />
+                          {editFormData.fotoReciboEntrega && (
+                            <div className="mt-2">
+                              <img
+                                src={editFormData.fotoReciboEntrega}
+                                alt="Recibo de entrega"
+                                className="h-32 w-32 object-cover rounded-lg border"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex justify-end space-x-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="btn-secondary"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Guardando...' : actionButton.text}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Modal de Detalles */}
+      {showDetailsModal && selectedGarantia && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-medium text-gray-900">
+                  Detalles de la Garantía
+                </h3>
+                <button
+                  onClick={handleCloseDetails}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Información Básica */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Información Básica</h4>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha de Registro</label>
+                    <p className="mt-1 text-sm text-gray-900">{displayDateOnly(selectedGarantia.fechaRegistro)}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Cliente</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGarantia.cliente}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Marca</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGarantia.marca}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">SKU</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGarantia.sku}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Cantidad</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGarantia.cantidad}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Estado</label>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                      selectedGarantia.estado === 'completada' ? 'bg-green-100 text-green-800' :
+                      selectedGarantia.estado === 'en_reparacion' ? 'bg-blue-100 text-blue-800' :
+                      selectedGarantia.estado === 'proceso_reembolso' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedGarantia.estado === 'proceso_reemplazo' ? 'bg-orange-100 text-orange-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedGarantia.estado.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Información del Proceso */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Proceso de Garantía</h4>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha de Envío a Proveedor</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedGarantia.fechaEntregaFabricante ? displayDateOnly(selectedGarantia.fechaEntregaFabricante) : 'No enviado'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha de Recibo de Proveedor</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedGarantia.fechaRegresoFabricante ? displayDateOnly(selectedGarantia.fechaRegresoFabricante) : 'No recibido'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha de Entrega a Cliente</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedGarantia.fechaEntregaCliente ? displayDateOnly(selectedGarantia.fechaEntregaCliente) : 'No entregado'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Registrado por</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGarantia.usuario?.nombre}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Sucursal</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGarantia.sucursal?.nombre}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Descripción y Comentarios */}
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Descripción</label>
+                  <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded-md">
+                    {selectedGarantia.descripcion}
+                  </p>
+                </div>
+
+                {selectedGarantia.comentarios && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Comentarios</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded-md">
+                      {selectedGarantia.comentarios}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Foto del Recibo */}
+              {selectedGarantia.fotoReciboEntrega && (
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Foto del Recibo de Entrega</label>
+                  <div className="flex justify-center">
+                    <img
+                      src={selectedGarantia.fotoReciboEntrega}
+                      alt="Recibo de entrega"
+                      className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Botones de Acción */}
+              <div className="mt-6 flex justify-end space-x-4">
+                <button
+                  onClick={handleCloseDetails}
+                  className="btn-secondary"
+                >
+                  Cerrar
+                </button>
+                {getActionButton(selectedGarantia).action !== 'completado' && (
+                  <button
+                    onClick={() => {
+                      handleCloseDetails()
+                      handleEdit(selectedGarantia)
+                    }}
+                    className="btn-primary"
+                  >
+                    {getActionButton(selectedGarantia).text}
+                  </button>
+                )}
               </div>
             </div>
           </div>

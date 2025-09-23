@@ -248,20 +248,26 @@ model Mercaderia {
 }
 
 model Garantia {
-  id              Int      @id @default(autoincrement())
-  fechaRegistro   DateTime
-  quienCobro      String
-  monto           Float
-  estado          String   // "exitoso", "devuelto", "cancelado"
-  foto            String?  // URL de la foto (opcional)
-  usuarioRegistro String   // Nombre del usuario que registró
-  sucursalId      Int
-  usuarioId       Int      // Usuario que registró la garantía
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                      Int      @id @default(autoincrement())
+  fechaRegistro           DateTime
+  cliente                 String
+  marca                   String
+  sku                     String
+  cantidad                Int
+  descripcion             String
+  estado                  String   // "en_reparacion", "cancelada", "proceso_reembolso", "proceso_reemplazo", "completada"
+  comentarios             String?
+  fechaEntregaFabricante  DateTime?
+  fechaRegresoFabricante  DateTime?
+  fechaEntregaCliente     DateTime?
+  fotoReciboEntrega       String?  // URL de la foto del recibo de entrega al cliente
+  sucursalId              Int
+  usuarioId               Int      // Usuario que registró la garantía
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  sucursal        Sucursal @relation(fields: [sucursalId], references: [id])
-  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  sucursal                Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario                 Usuario  @relation(fields: [usuarioId], references: [id])
 
   @@map("garantias")
 }
