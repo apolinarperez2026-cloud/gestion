@@ -47,6 +47,9 @@ model Usuario {
   // Relación con TPV
   tpvs               Tpv[]
   
+  // Relación con FondoCaja
+  fondosCaja         FondoCaja[]
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -120,6 +123,7 @@ model MovimientoDiario {
   pagoTarjeta       Float    @default(0)
   transferencias    Float    @default(0)
   gastos            Float    @default(0)
+  fondoCaja         Float    @default(0)
   saldoDia          Float    @default(0)
   observaciones     String?
   sucursalId        Int
@@ -150,8 +154,11 @@ model FondoCaja {
   id         Int      @id @default(autoincrement())
   monto      Float
   fecha      DateTime @default(now())
+  imagen     String?  // URL o path de la imagen del comprobante
   sucursalId Int
   sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  usuarioId  Int?     // Usuario que registró el depósito
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

@@ -117,6 +117,26 @@ export async function POST(request: NextRequest) {
       totalGastos
     })
 
+    // Calcular total de fondos de caja del día desde movimientos
+    const fondosCajaDelDia = await prisma.movimiento.findMany({
+      where: {
+        tipo: 'FONDO_CAJA',
+        sucursalId: sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+
+    const totalFondosCaja = fondosCajaDelDia.reduce((sum, fondo) => sum + fondo.monto, 0)
+    
+    console.log('Fondos de caja encontrados:', {
+      cantidad: fondosCajaDelDia.length,
+      fondos: fondosCajaDelDia.map(f => ({ id: f.id, fecha: f.fecha, monto: f.monto, descripcion: f.descripcion })),
+      totalFondosCaja
+    })
+
     // Calcular total de cobros TPV del día
     const cobrosTpvDelDia = await prisma.tpv.findMany({
       where: {
@@ -131,8 +151,8 @@ export async function POST(request: NextRequest) {
 
     const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
 
-    // Calcular el saldo del día
-    const saldoDia = parseFloat(ventasBrutas) - totalGastos
+    // Calcular el saldo del día (incluyendo fondos de caja como ingreso)
+    const saldoDia = parseFloat(ventasBrutas) - totalGastos + totalFondosCaja
     
     const movimientoDiario = await prisma.movimientoDiario.create({
       data: {
@@ -145,6 +165,7 @@ export async function POST(request: NextRequest) {
         pagoTarjeta: totalTpvDelDia, // Cargado automáticamente desde cobros TPV
         transferencias: parseFloat(transferencias) || 0,
         gastos: totalGastos, // Cargado automáticamente desde movimientos
+        fondoCaja: totalFondosCaja, // Cargado automáticamente desde movimientos
         saldoDia,
         observaciones: observaciones || null,
         sucursalId,

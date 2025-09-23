@@ -815,7 +815,8 @@ export default function MovimientosPage() {
                   <div className="mt-2 text-sm text-blue-700">
                     <p>• Los gastos se cargarán automáticamente desde la tabla de movimientos (tipo GASTO) del día seleccionado.</p>
                     <p>• El pago con tarjeta se cargará automáticamente desde la suma de cobros TPV exitosos del día.</p>
-                    <p className="mt-1 font-medium">El saldo del día se calculará como: Ventas Brutas - Gastos del día</p>
+                    <p>• Los fondos de caja se cargarán automáticamente desde la tabla de movimientos (tipo FONDO_CAJA) del día seleccionado.</p>
+                    <p className="mt-1 font-medium">El saldo del día se calculará como: Ventas Brutas - Gastos del día + Fondos de Caja</p>
                   </div>
                 </div>
               </div>

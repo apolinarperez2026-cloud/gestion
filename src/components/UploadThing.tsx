@@ -15,6 +15,7 @@ export default function UploadThingComponent({
   disabled = false 
 }: UploadThingProps) {
   const [uploading, setUploading] = useState(false)
+  const [uploaded, setUploaded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { startUpload } = useUploadThing('imageUploader')
 
@@ -40,11 +41,13 @@ export default function UploadThingComponent({
       const res = await startUpload([file])
       
       if (res && res[0]?.url) {
+        setUploaded(true)
         onUploadComplete?.(res[0].url)
       } else {
         throw new Error('No se recibió la URL de la imagen')
       }
     } catch (error) {
+      setUploaded(false)
       onUploadError?.(error as Error)
     } finally {
       setUploading(false)
@@ -65,11 +68,19 @@ export default function UploadThingComponent({
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={disabled || uploading}
-        className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200"
+        className={`w-full px-4 py-2 font-medium rounded-lg transition-colors duration-200 ${
+          uploaded 
+            ? 'bg-green-600 hover:bg-green-700 text-white' 
+            : uploading 
+            ? 'bg-yellow-600 text-white' 
+            : 'bg-blue-600 hover:bg-blue-700 text-white'
+        } disabled:bg-gray-400`}
       >
-        {uploading ? 'Subiendo...' : 'Seleccionar Imagen'}
+        {uploading ? 'Subiendo...' : uploaded ? 'Cambiar Imagen' : 'Seleccionar Imagen'}
       </button>
-      <p className="text-xs text-gray-500 mt-1">Imagen (máx. 4MB)</p>
+      <p className="text-xs text-gray-500 mt-1">
+        {uploaded ? '✓ Imagen subida correctamente' : 'Imagen (máx. 4MB)'}
+      </p>
     </div>
   )
 }
