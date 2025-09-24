@@ -529,7 +529,7 @@ export default function MercaderiasPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Referencia/ODO *
+                    Referencia/ODOO *
                   </label>
                   <input
                     type="text"
@@ -537,7 +537,7 @@ export default function MercaderiasPage() {
                     value={formData.referencia}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Número de referencia o ODO"
+                    placeholder="Número de referencia o ODOO"
                     required
                   />
                 </div>

@@ -414,7 +414,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Card de Gastos Individuales */}
+            {/* Card de Gastos */}
             <div className="card">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -425,7 +425,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Gastos Individuales</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Gastos</h3>
                   <p className="text-sm text-gray-500">Registrar gastos individuales</p>
                 </div>
               </div>
@@ -434,7 +434,7 @@ export default function DashboardPage() {
                   onClick={() => router.push('/dashboard/movimientos-individuales')}
                   className="btn-primary w-full"
                 >
-                  Ver Gastos Individuales
+                  Ver Gastos
                 </button>
               </div>
             </div>
@@ -442,6 +442,8 @@ export default function DashboardPage() {
         ) : (
           // Dashboard para Gerentes (todas las opciones)
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Fila 1: Resumen | Control | Gastos | Pedidos Especiales */}
+            
             {/* Card de Resumen */}
             <div className="card">
               <div className="flex items-center">
@@ -467,6 +469,55 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Card de Control */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Control</h3>
+                  <p className="text-sm text-gray-500">Ingresar movimientos diarios</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/movimientos')}
+                  className="btn-primary w-full"
+                >
+                  Ver Control
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Gastos */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Gastos</h3>
+                  <p className="text-sm text-gray-500">Registrar gastos con imágenes</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button 
+                  onClick={() => router.push('/dashboard/movimientos-individuales')}
+                  className="btn-primary w-full"
+                >
+                  Ver Gastos
+                </button>
+              </div>
+            </div>
 
             {/* Card de Pedidos Especiales */}
             <div className="card">
@@ -493,52 +544,54 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Card de Movimientos */}
+            {/* Fila 2: Depósitos | Cobros TPV | Entradas | Garantías */}
+            
+            {/* Card de Depósito de Caja */}
             <div className="card">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Movimientos</h3>
-                  <p className="text-sm text-gray-500">Ingresar movimientos diarios</p>
+                  <h3 className="text-lg font-medium text-gray-900">Depósito de Caja</h3>
+                  <p className="text-sm text-gray-500">Registrar depósitos con comprobante</p>
                 </div>
               </div>
               <div className="mt-4">
                 <button 
-                  onClick={() => router.push('/dashboard/movimientos')}
+                  onClick={() => router.push('/dashboard/fondo-caja')}
                   className="btn-primary w-full"
                 >
-                  Ver Movimientos
+                  Ver Depósitos
                 </button>
               </div>
             </div>
 
-            {/* Card de Movimientos Individuales */}
+            {/* Card de Cobro TPV */}
             <div className="card">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Gastos Individuales</h3>
-                  <p className="text-sm text-gray-500">Registrar gastos con imágenes</p>
+                  <h3 className="text-lg font-medium text-gray-900">Cobro TPV</h3>
+                  <p className="text-sm text-gray-500">Registrar cobros con terminal punto de venta</p>
                 </div>
               </div>
               <div className="mt-4">
                 <button 
-                  onClick={() => router.push('/dashboard/movimientos-individuales')}
+                  onClick={() => router.push('/dashboard/tpv')}
                   className="btn-primary w-full"
                 >
-                  Ver Gastos Individuales
+                  Ver Cobros TPV
                 </button>
               </div>
             </div>
@@ -589,56 +642,6 @@ export default function DashboardPage() {
                   className="btn-primary w-full"
                 >
                   Ver Garantías
-                </button>
-              </div>
-            </div>
-
-            {/* Card de Cobro TPV */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Cobro TPV</h3>
-                  <p className="text-sm text-gray-500">Registrar cobros con terminal punto de venta</p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/tpv')}
-                  className="btn-primary w-full"
-                >
-                  Ver Cobros TPV
-                </button>
-              </div>
-            </div>
-
-            {/* Card de Depósito de Caja */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Depósito de Caja</h3>
-                  <p className="text-sm text-gray-500">Registrar depósitos con comprobante</p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/fondo-caja')}
-                  className="btn-primary w-full"
-                >
-                  Ver Depósitos
                 </button>
               </div>
             </div>
