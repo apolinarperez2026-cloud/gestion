@@ -116,9 +116,13 @@ export async function POST(request: NextRequest) {
       totalGastos
     })
 
-    // Calcular total de depósitos bancarios del día desde la tabla Deposito
-    const depositosDelDia = await prisma.deposito.findMany({
+    // Calcular total de depósitos bancarios del día desde movimientos de tipo DEPOSITO
+    // Temporalmente incluir también FONDO_CAJA para depósitos creados antes del cambio
+    const depositosDelDia = await prisma.movimiento.findMany({
       where: {
+        tipo: {
+          in: ['DEPOSITO', 'FONDO_CAJA'] // Incluir ambos tipos temporalmente
+        },
         sucursalId: sucursalId,
         fecha: {
           gte: fechaInicio,
@@ -127,12 +131,37 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Debug: Verificar todos los movimientos del día para ver qué tipos hay
+    const todosLosMovimientosDelDia = await prisma.movimiento.findMany({
+      where: {
+        sucursalId: sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+    
+    console.log('Todos los movimientos del día:', {
+      cantidad: todosLosMovimientosDelDia.length,
+      movimientos: todosLosMovimientosDelDia.map(m => ({ 
+        id: m.id, 
+        tipo: m.tipo, 
+        monto: m.monto, 
+        descripcion: m.descripcion,
+        fecha: m.fecha 
+      }))
+    })
+
     const totalDepositos = depositosDelDia.reduce((sum, deposito) => sum + deposito.monto, 0)
     
     console.log('Depósitos bancarios encontrados:', {
       cantidad: depositosDelDia.length,
-      depositos: depositosDelDia.map(d => ({ id: d.id, fecha: d.fecha, monto: d.monto })),
-      totalDepositos
+      depositos: depositosDelDia.map(d => ({ id: d.id, fecha: d.fecha, monto: d.monto, descripcion: d.descripcion })),
+      totalDepositos,
+      fechaInicio,
+      fechaFin,
+      sucursalId
     })
 
     // Calcular fondo inicial de caja del día

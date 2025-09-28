@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Calcular totales
+    // Calcular totales de movimientos diarios
     const totals = movimientosDelMes.reduce((acc, movimiento) => {
       acc.ventasBrutas += movimiento.ventasBrutas
       acc.efectivo += movimiento.efectivo
@@ -49,8 +49,6 @@ export async function GET(request: NextRequest) {
       acc.pagoTarjeta += movimiento.pagoTarjeta
       acc.transferencias += movimiento.transferencias
       acc.gastos += movimiento.gastos
-      acc.depositos += (movimiento.depositos || 0)
-      acc.fondoInicial += (movimiento.fondoInicial || 0)
       acc.saldo += movimiento.saldoDia
       return acc
     }, {
@@ -66,6 +64,40 @@ export async function GET(request: NextRequest) {
       fondoInicial: 0,
       saldo: 0
     })
+
+    // Calcular total de depósitos bancarios del mes desde movimientos de tipo DEPOSITO
+    // Temporalmente incluir también FONDO_CAJA para depósitos creados antes del cambio
+    const depositosDelMes = await prisma.movimiento.findMany({
+      where: {
+        tipo: {
+          in: ['DEPOSITO', 'FONDO_CAJA'] // Incluir ambos tipos temporalmente
+        },
+        ...whereClause,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+
+    const totalDepositos = depositosDelMes.reduce((sum, deposito) => sum + deposito.monto, 0)
+
+    // Calcular total de fondos iniciales del mes
+    const fondosInicialesDelMes = await prisma.fondoCajaInicial.findMany({
+      where: {
+        ...whereClause,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+
+    const totalFondosIniciales = fondosInicialesDelMes.reduce((sum, fondo) => sum + fondo.monto, 0)
+
+    // Asignar los totales calculados
+    totals.depositos = totalDepositos
+    totals.fondoInicial = totalFondosIniciales
 
     return NextResponse.json({ totals })
   } catch (error) {

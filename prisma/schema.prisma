@@ -95,6 +95,7 @@ enum MovimientoTipo {
   VENTA
   GASTO
   FONDO_CAJA
+  DEPOSITO
 }
 
 model Movimiento {

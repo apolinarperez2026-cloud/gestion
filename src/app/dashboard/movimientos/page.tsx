@@ -327,7 +327,7 @@ export default function MovimientosPage() {
     setFormData({
       fecha: new Date(movimiento.fecha).toISOString().split('T')[0],
       ventasBrutas: movimiento.ventasBrutas.toString(),
-      efectivo: movimiento.efectivo.toString(),
+      efectivo: (movimiento.efectivo - (movimiento.fondoInicial || 0)).toString(),
       credito: movimiento.credito.toString(),
       abonosCredito: movimiento.abonosCredito.toString(),
       recargas: movimiento.recargas.toString(),
@@ -682,7 +682,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Efectivo</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.efectivo || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${((monthlyTotals.efectivo || 0) - (monthlyTotals.depositos || 0)).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -813,7 +813,7 @@ export default function MovimientosPage() {
                   </div>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Fondo de Caja Inicial</p>
+                  <p className="text-sm font-medium text-gray-500">Depósitos</p>
                   <p className="text-lg font-semibold text-gray-900">
                     ${(monthlyTotals.depositos || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
@@ -832,7 +832,7 @@ export default function MovimientosPage() {
                   </div>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Depósitos</p>
+                  <p className="text-sm font-medium text-gray-500">Fondo de Caja Inicial</p>
                   <p className="text-lg font-semibold text-gray-900">
                     ${(monthlyTotals.fondoInicial || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
@@ -1173,7 +1173,7 @@ export default function MovimientosPage() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Efectivo:</span>
-                            <span className="font-medium">${movimiento.efectivo.toLocaleString()}</span>
+                            <span className="font-medium">${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Crédito:</span>
@@ -1196,12 +1196,12 @@ export default function MovimientosPage() {
                             <span className="font-medium">${movimiento.transferencias.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Fondo de Caja:</span>
-                            <span className="font-medium text-blue-600">${(movimiento.depositos || 0).toLocaleString()}</span>
+                            <span className="text-gray-500">Depósitos:</span>
+                            <span className="font-medium text-teal-600">${(movimiento.depositos || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Depósitos:</span>
-                            <span className="font-medium text-teal-600">${(movimiento.fondoInicial || 0).toLocaleString()}</span>
+                            <span className="text-gray-500">Fondo de Caja:</span>
+                            <span className="font-medium text-blue-600">${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString()}</span>
                           </div>
                         </div>
                         
@@ -1255,10 +1255,10 @@ export default function MovimientosPage() {
                             Gastos
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Fondo de Caja
+                            Depósitos
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Depósitos
+                            Fondo de Caja
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Registrado por
@@ -1281,7 +1281,7 @@ export default function MovimientosPage() {
                             ${movimiento.ventasBrutas.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.efectivo.toLocaleString()}
+                            ${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             ${movimiento.credito.toLocaleString()}
@@ -1301,11 +1301,11 @@ export default function MovimientosPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
                             ${movimiento.gastos.toLocaleString()}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-teal-600">
                             ${(movimiento.depositos || 0).toLocaleString()}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-teal-600">
-                            ${(movimiento.fondoInicial || 0).toLocaleString()}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                            ${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.usuario ? (

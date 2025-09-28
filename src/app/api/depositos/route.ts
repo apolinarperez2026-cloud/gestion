@@ -102,13 +102,13 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Crear automáticamente un movimiento de tipo FONDO_CAJA
+      // Crear automáticamente un movimiento de tipo DEPOSITO
       await tx.movimiento.create({
         data: {
           fecha: fechaEspecifica,
           descripcion: `Depósito bancario - ${deposito.sucursal.nombre}`,
           monto: parseFloat(monto),
-          tipo: 'FONDO_CAJA',
+          tipo: 'DEPOSITO',
           imagen: imagen || null,
           sucursalId: decoded.sucursalId,
           usuarioId: decoded.userId

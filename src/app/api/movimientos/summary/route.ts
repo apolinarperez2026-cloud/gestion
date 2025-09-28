@@ -67,10 +67,8 @@ export async function GET(request: NextRequest) {
         }
       } else if (movimiento.tipo === 'GASTO') {
         gastos += movimiento.monto
-      } else if (movimiento.tipo === 'FONDO_CAJA') {
+      } else if (movimiento.tipo === 'DEPOSITO') {
         deposito += movimiento.monto
-      } else if (movimiento.tipo === 'ABONO_CREDITO') {
-        abonosCredito += movimiento.monto
       }
     })
 
