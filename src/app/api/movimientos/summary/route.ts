@@ -43,35 +43,59 @@ export async function GET(request: NextRequest) {
     })
 
     // Calcular totales por tipo de movimiento
-    const summary = {
-      totalVentas: 0,
-      totalGastos: 0,
-      totalFondoCaja: 0,
-      saldo: 0,
-      ventasPorFormaPago: {} as Record<string, number>,
-      gastosPorTipo: {} as Record<string, number>
-    }
+    let saldoAcumulado = 0
+    let ventasBrutas = 0
+    let credito = 0
+    let abonosCredito = 0
+    let recargas = 0
+    let pagoTarjeta = 0
+    let gastos = 0
+    let deposito = 0
 
     movimientos.forEach(movimiento => {
       if (movimiento.tipo === 'VENTA') {
-        summary.totalVentas += movimiento.monto
+        ventasBrutas += movimiento.monto
         if (movimiento.formaDePago) {
-          const formaPago = movimiento.formaDePago.nombre
-          summary.ventasPorFormaPago[formaPago] = (summary.ventasPorFormaPago[formaPago] || 0) + movimiento.monto
+          const formaPago = movimiento.formaDePago.nombre.toLowerCase()
+          if (formaPago.includes('credito')) {
+            credito += movimiento.monto
+          } else if (formaPago.includes('recarga')) {
+            recargas += movimiento.monto
+          } else if (formaPago.includes('tarjeta')) {
+            pagoTarjeta += movimiento.monto
+          }
         }
       } else if (movimiento.tipo === 'GASTO') {
-        summary.totalGastos += movimiento.monto
-        if (movimiento.tipoGasto) {
-          const tipoGasto = movimiento.tipoGasto.nombre
-          summary.gastosPorTipo[tipoGasto] = (summary.gastosPorTipo[tipoGasto] || 0) + movimiento.monto
-        }
+        gastos += movimiento.monto
       } else if (movimiento.tipo === 'FONDO_CAJA') {
-        summary.totalFondoCaja += movimiento.monto
+        deposito += movimiento.monto
+      } else if (movimiento.tipo === 'ABONO_CREDITO') {
+        abonosCredito += movimiento.monto
       }
     })
 
-    // Calcular saldo
-    summary.saldo = summary.totalVentas - summary.totalGastos
+    // Calcular saldo acumulado (ventas - gastos + depósitos)
+    saldoAcumulado = ventasBrutas - gastos + deposito
+
+    // Obtener el último movimiento diario para el saldo del día
+    const ultimoMovimientoDiario = await prisma.movimientoDiario.findFirst({
+      where: { sucursalId: sucursalId },
+      orderBy: { fecha: 'desc' }
+    })
+
+    const saldoDia = ultimoMovimientoDiario?.saldoDia || 0
+
+    const summary = {
+      saldoAcumulado,
+      ventasBrutas,
+      credito,
+      abonosCredito,
+      recargas,
+      pagoTarjeta,
+      gastos,
+      saldoDia,
+      deposito
+    }
 
     return NextResponse.json(summary)
 

@@ -103,7 +103,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       include: {
         usuarios: true,
         movimientos: true,
-        fondoCajas: true,
+        depositos: true,
+        fondosCajaInicial: true,
         pedidosEspeciales: true
       }
     })
@@ -125,9 +126,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       }, { status: 400 })
     }
 
-    if (sucursalExistente.fondoCajas.length > 0) {
+    if (sucursalExistente.depositos.length > 0 || sucursalExistente.fondosCajaInicial.length > 0) {
       return NextResponse.json({ 
-        message: 'No se puede eliminar la sucursal porque tiene fondos de caja registrados' 
+        message: 'No se puede eliminar la sucursal porque tiene depósitos o fondos de caja registrados' 
       }, { status: 400 })
     }
 

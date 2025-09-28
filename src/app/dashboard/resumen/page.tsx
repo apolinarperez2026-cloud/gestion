@@ -236,7 +236,7 @@ export default function ResumenPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className=" mx-auto px-4 2xl:px-28 sm:px-6 lg:px-8 py-8">
         {/* Selector de Mes con Calendario */}
         <div className="mb-8">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

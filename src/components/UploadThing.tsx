@@ -1,23 +1,34 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useUploadThing } from '@/lib/uploadthing-provider'
 
 interface UploadThingProps {
   onUploadComplete?: (url: string) => void;
   onUploadError?: (error: Error) => void;
   disabled?: boolean;
+  resetKey?: number; // Para resetear el estado del componente
 }
 
 export default function UploadThingComponent({ 
   onUploadComplete, 
   onUploadError, 
-  disabled = false 
+  disabled = false,
+  resetKey = 0
 }: UploadThingProps) {
   const [uploading, setUploading] = useState(false)
   const [uploaded, setUploaded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { startUpload } = useUploadThing('imageUploader')
+
+  // Resetear estado cuando cambie el resetKey
+  useEffect(() => {
+    setUploaded(false)
+    setUploading(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [resetKey])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

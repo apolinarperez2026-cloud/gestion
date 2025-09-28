@@ -3,16 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AuthUser } from '@/types/database'
-import UploadThing from '@/components/UploadThing'
 import SuccessModal from '@/components/SuccessModal'
 import NotificationModal from '@/components/NotificationModal'
 import { displayDateOnly } from '@/lib/dateUtils'
 
-interface FondoCaja {
+interface FondoCajaInicial {
   id: number
   monto: number
   fecha: string
-  imagen?: string
   sucursal: {
     id: number
     nombre: string
@@ -27,15 +25,14 @@ interface FondoCaja {
   createdAt: string
 }
 
-export default function FondoCajaPage() {
+export default function FondoCajaInicialPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [fondosCaja, setFondosCaja] = useState<FondoCaja[]>([])
+  const [fondosCajaInicial, setFondosCajaInicial] = useState<FondoCajaInicial[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     monto: '',
-    fecha: new Date().toISOString().split('T')[0],
-    imagen: ''
+    fecha: new Date().toISOString().split('T')[0]
   })
   const [submitting, setSubmitting] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -68,12 +65,12 @@ export default function FondoCajaPage() {
     }
   }
 
-  const fetchFondosCaja = async () => {
+  const fetchFondosCajaInicial = async () => {
     try {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/fondo-caja', {
+      const response = await fetch('/api/fondo-caja-inicial', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -81,10 +78,12 @@ export default function FondoCajaPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setFondosCaja(data.fondosCaja)
+        setFondosCajaInicial(data.fondosCajaInicial || [])
+      } else if (response.status === 401) {
+        router.push('/auth/login')
       }
     } catch (error) {
-      console.error('Error al obtener depósitos de caja:', error)
+      console.error('Error al obtener fondos de caja iniciales:', error)
     } finally {
       setLoading(false)
     }
@@ -92,7 +91,7 @@ export default function FondoCajaPage() {
 
   useEffect(() => {
     fetchUser()
-    fetchFondosCaja()
+    fetchFondosCajaInicial()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,7 +102,7 @@ export default function FondoCajaPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/fondo-caja', {
+      const response = await fetch('/api/fondo-caja-inicial', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,23 +114,61 @@ export default function FondoCajaPage() {
       if (response.ok) {
         setFormData({
           monto: '',
-          fecha: new Date().toISOString().split('T')[0],
-          imagen: ''
+          fecha: new Date().toISOString().split('T')[0]
         })
         setShowForm(false)
-        fetchFondosCaja()
+        fetchFondosCajaInicial()
         setShowSuccessModal(true)
       } else {
         const error = await response.json()
-        setErrorMessage(error.error || 'Error al crear depósito de caja')
+        setErrorMessage(error.error || 'Error al crear fondo de caja inicial')
         setShowErrorModal(true)
       }
     } catch (error) {
-      console.error('Error al crear depósito:', error)
-      setErrorMessage('Error al crear depósito de caja')
+      console.error('Error al crear fondo de caja inicial:', error)
+      setErrorMessage('Error al crear fondo de caja inicial')
       setShowErrorModal(true)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    
+    if (name === 'monto') {
+      // Solo permitir números, punto decimal y cadena vacía
+      const numericValue = value.replace(/[^0-9.]/g, '')
+      // Evitar múltiples puntos decimales
+      const parts = numericValue.split('.')
+      const validValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: validValue === '' ? '' : validValue
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Solo permitir números, punto decimal, backspace, delete, tab, escape, enter
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+    const isNumber = /[0-9]/.test(e.key)
+    const isDecimal = e.key === '.'
+    const isAllowedKey = allowedKeys.includes(e.key)
+    
+    if (!isNumber && !isDecimal && !isAllowedKey) {
+      e.preventDefault()
+    }
+    
+    // Evitar múltiples puntos decimales
+    if (isDecimal && (e.target as HTMLInputElement).value.includes('.')) {
+      e.preventDefault()
     }
   }
 
@@ -165,28 +202,25 @@ export default function FondoCajaPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {user.sucursal ? user.sucursal.nombre : 'Libro Diario'}
-              </h1>
-              <p className="text-sm text-gray-600">Depósitos de Caja</p>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                ← Volver al Dashboard
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {user.sucursal ? user.sucursal.nombre : 'Libro Diario'}
+                </h1>
+                <p className="text-sm text-gray-600">Fondo de Caja Inicial</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{user.nombre}</p>
                 <p className="text-xs text-gray-500">{user.rol.nombre}</p>
-                {user.sucursal && (
-                  <p className="text-xs text-blue-600 font-medium">
-                    📍 {user.sucursal.nombre}
-                  </p>
-                )}
               </div>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="btn-secondary text-sm"
-              >
-                Volver al Dashboard
-              </button>
               <button
                 onClick={handleLogout}
                 className="btn-secondary text-sm"
@@ -200,89 +234,56 @@ export default function FondoCajaPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Botón para agregar nuevo depósito */}
+        {/* Botón para agregar nuevo fondo inicial */}
         <div className="mb-6">
           <button
             onClick={() => setShowForm(!showForm)}
             className="btn-primary"
           >
-            {showForm ? 'Cancelar' : 'Nuevo Depósito de Caja'}
+            {showForm ? 'Cancelar' : 'Nuevo Fondo de Caja Inicial'}
           </button>
         </div>
 
-        {/* Formulario para nuevo depósito */}
+        {/* Formulario para nuevo fondo inicial */}
         {showForm && (
           <div className="card mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Nuevo Depósito de Caja
+              Nuevo Fondo de Caja Inicial
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monto *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.monto}
-                    onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-                    className="input"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Fecha *
                   </label>
                   <input
                     type="date"
+                    name="fecha"
                     value={formData.fecha}
-                    onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                    className="input"
+                    onChange={handleChange}
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monto Inicial *
+                  </label>
+                  <input
+                    type="text"
+                    name="monto"
+                    value={formData.monto === '' ? '' : formData.monto}
+                    onChange={handleChange}
+                    onKeyPress={handleKeyPress}
+                    className="input-field"
+                    placeholder="0.00"
                     required
                   />
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Comprobante (Opcional)
-                </label>
-                <UploadThing
-                  onUploadComplete={(url) => {
-                    setFormData({ ...formData, imagen: url })
-                  }}
-                  onUploadError={(error: Error) => {
-                    console.error('Error al subir imagen:', error)
-                    setErrorMessage('Error al subir la imagen: ' + error.message)
-                    setShowErrorModal(true)
-                  }}
-                />
-                {formData.imagen && (
-                  <div className="mt-2">
-                    <p className="text-sm text-green-600 mb-2">✓ Imagen subida correctamente</p>
-                    <img 
-                      src={formData.imagen} 
-                      alt="Comprobante" 
-                      className="w-32 h-32 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(formData.imagen, '_blank')}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Haz clic para ver en tamaño completo</p>
-                  </div>
-                )}
-              </div>
 
-              <div className="flex space-x-4">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn-primary"
-                >
-                  {submitting ? 'Guardando...' : 'Guardar Depósito'}
-                </button>
+              <div className="flex justify-end space-x-4">
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
@@ -290,20 +291,27 @@ export default function FondoCajaPage() {
                 >
                   Cancelar
                 </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Guardando...' : 'Guardar Fondo Inicial'}
+                </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* Lista de depósitos */}
+        {/* Lista de fondos iniciales */}
         <div className="card">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Depósitos de Caja Registrados
+            Fondos de Caja Iniciales Registrados
           </h2>
           
-          {fondosCaja.length === 0 ? (
+          {fondosCajaInicial.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
-              No hay depósitos de caja registrados
+              No hay fondos de caja iniciales registrados
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -317,23 +325,20 @@ export default function FondoCajaPage() {
                       Monto
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Usuario
+                      Registrado por
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Comprobante
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Registrado
+                      Fecha de Registro
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {fondosCaja.map((fondo) => (
+                  {fondosCajaInicial.map((fondo) => (
                     <tr key={fondo.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {displayDateOnly(fondo.fecha)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                         ${fondo.monto.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -344,18 +349,6 @@ export default function FondoCajaPage() {
                           </div>
                         ) : (
                           'N/A'
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {fondo.imagen ? (
-                          <img 
-                            src={fondo.imagen} 
-                            alt="Comprobante" 
-                            className="w-16 h-16 object-cover rounded border cursor-pointer"
-                            onClick={() => window.open(fondo.imagen, '_blank')}
-                          />
-                        ) : (
-                          <span className="text-gray-400">Sin comprobante</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -374,18 +367,17 @@ export default function FondoCajaPage() {
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="¡Depósito Creado!"
-        message="El depósito de caja se ha registrado exitosamente con todos los datos y el comprobante."
-        buttonText="Continuar"
+        title="¡Fondo Inicial Creado!"
+        message="El fondo de caja inicial se ha registrado exitosamente."
       />
 
       {/* Modal de error */}
       <NotificationModal
         isOpen={showErrorModal}
         onClose={() => setShowErrorModal(false)}
+        type="error"
         title="Error"
         message={errorMessage}
-        type="error"
       />
     </div>
   )

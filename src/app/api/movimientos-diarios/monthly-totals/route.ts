@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
       acc.pagoTarjeta += movimiento.pagoTarjeta
       acc.transferencias += movimiento.transferencias
       acc.gastos += movimiento.gastos
-      acc.fondoCaja += movimiento.fondoCaja
+      acc.depositos += (movimiento.depositos || 0)
+      acc.fondoInicial += (movimiento.fondoInicial || 0)
       acc.saldo += movimiento.saldoDia
       return acc
     }, {
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest) {
       pagoTarjeta: 0,
       transferencias: 0,
       gastos: 0,
-      fondoCaja: 0,
+      depositos: 0,
+      fondoInicial: 0,
       saldo: 0
     })
 

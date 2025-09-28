@@ -47,8 +47,11 @@ model Usuario {
   // Relación con TPV
   tpvs               Tpv[]
   
-  // Relación con FondoCaja
-  fondosCaja         FondoCaja[]
+  // Relación con Depósitos
+  depositos          Deposito[]
+  
+  // Relación con FondoCajaInicial
+  fondosCajaInicial  FondoCajaInicial[]
   
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -62,7 +65,8 @@ model Sucursal {
   usuariosAsignados UsuarioSucursal[]  // Relación muchos-a-muchos con usuarios
   movimientos       Movimiento[]
   movimientosDiarios MovimientoDiario[]
-  fondoCajas        FondoCaja[]
+  depositos         Deposito[]
+  fondosCajaInicial FondoCajaInicial[]
   pedidosEspeciales PedidoEspecial[]
   mercaderias       Mercaderia[]
   garantias         Garantia[]
@@ -123,7 +127,8 @@ model MovimientoDiario {
   pagoTarjeta       Float    @default(0)
   transferencias    Float    @default(0)
   gastos            Float    @default(0)
-  fondoCaja         Float    @default(0)
+  depositos         Float    @default(0)  // Suma de depósitos del día
+  fondoInicial      Float    @default(0)  // Fondo inicial de caja del día
   saldoDia          Float    @default(0)
   observaciones     String?
   sucursalId        Int
@@ -150,7 +155,7 @@ model MovimientoDiarioHistorial {
   observaciones         String?  // Comentario opcional del usuario
 }
 
-model FondoCaja {
+model Deposito {
   id         Int      @id @default(autoincrement())
   monto      Float
   fecha      DateTime @default(now())
@@ -161,6 +166,20 @@ model FondoCaja {
   usuario    Usuario? @relation(fields: [usuarioId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model FondoCajaInicial {
+  id         Int      @id @default(autoincrement())
+  monto      Float
+  fecha      DateTime @default(now())
+  sucursalId Int
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  usuarioId  Int?     // Usuario que registró el fondo inicial
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([fecha, sucursalId]) // Solo un fondo inicial por día por sucursal
 }
 
 model PedidoEspecial {

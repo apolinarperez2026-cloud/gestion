@@ -42,7 +42,8 @@ export default function MovimientosPage() {
     pagoTarjeta: 0,
     transferencias: 0,
     gastos: 0,
-    fondoCaja: 0,
+    depositos: 0,
+    fondoInicial: 0,
     saldo: 0
   })
   const router = useRouter()
@@ -662,7 +663,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Ventas Brutas</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.ventasBrutas.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.ventasBrutas || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -681,7 +682,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Efectivo</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.efectivo.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.efectivo || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -700,7 +701,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Crédito</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.credito.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.credito || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -719,7 +720,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Abonos Crédito</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.abonosCredito.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.abonosCredito || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -738,7 +739,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Recargas</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.recargas.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.recargas || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -757,7 +758,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Pago con Tarjeta</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.pagoTarjeta.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.pagoTarjeta || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -776,7 +777,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Transferencias</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.transferencias.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.transferencias || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -795,26 +796,45 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Gastos</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.gastos.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.gastos || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Fondos de Caja */}
+            {/* Depósitos */}
+            <div className="bg-white rounded-lg shadow p-4 border-l-4 border-teal-500">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Fondo de Caja Inicial</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${(monthlyTotals.depositos || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fondo de Caja Inicial */}
             <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                     <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Fondos de Caja</p>
+                  <p className="text-sm font-medium text-gray-500">Depósitos</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${monthlyTotals.fondoCaja.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(monthlyTotals.fondoInicial || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -832,8 +852,8 @@ export default function MovimientosPage() {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Saldo Total</p>
-                  <p className={`text-lg font-semibold ${monthlyTotals.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${monthlyTotals.saldo.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  <p className={`text-lg font-semibold ${(monthlyTotals.saldo || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${(monthlyTotals.saldo || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
@@ -1175,6 +1195,14 @@ export default function MovimientosPage() {
                             <span className="text-gray-500">Transferencias:</span>
                             <span className="font-medium">${movimiento.transferencias.toLocaleString()}</span>
                           </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Fondo de Caja:</span>
+                            <span className="font-medium text-blue-600">${(movimiento.depositos || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Depósitos:</span>
+                            <span className="font-medium text-teal-600">${(movimiento.fondoInicial || 0).toLocaleString()}</span>
+                          </div>
                         </div>
                         
                         {movimiento.observaciones && (
@@ -1227,6 +1255,12 @@ export default function MovimientosPage() {
                             Gastos
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fondo de Caja
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Depósitos
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Registrado por
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1266,6 +1300,12 @@ export default function MovimientosPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
                             ${movimiento.gastos.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                            ${(movimiento.depositos || 0).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-teal-600">
+                            ${(movimiento.fondoInicial || 0).toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.usuario ? (

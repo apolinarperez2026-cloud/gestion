@@ -25,6 +25,7 @@ export default function MovimientosIndividualesPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadResetKey, setUploadResetKey] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
@@ -245,6 +246,9 @@ export default function MovimientosIndividualesPage() {
           formaDePagoId: '',
           tipoGastoId: ''
         })
+        
+        // Resetear el componente de upload
+        setUploadResetKey(prev => prev + 1)
         
         showConfirm({
           title: 'Movimiento Guardado',
@@ -496,6 +500,8 @@ export default function MovimientosIndividualesPage() {
               formaDePagoId: '',
               tipoGastoId: ''
             })
+            // Resetear el componente de upload
+            setUploadResetKey(prev => prev + 1)
             hideConfirm()
           }
         })
@@ -534,6 +540,8 @@ export default function MovimientosIndividualesPage() {
       formaDePagoId: '',
       tipoGastoId: ''
     })
+    // Resetear el componente de upload
+    setUploadResetKey(prev => prev + 1)
   }
 
   const handleRowClick = (movimiento: Movimiento) => {
@@ -813,6 +821,7 @@ export default function MovimientosIndividualesPage() {
                   onUploadComplete={handleImageUploadComplete}
                   onUploadError={handleImageUploadError}
                   disabled={!user?.sucursalId}
+                  resetKey={uploadResetKey}
                 />
                 
                 {formData.imagen && (

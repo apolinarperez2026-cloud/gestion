@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { parseDateOnly } from '@/lib/dateUtils'
 
-// GET - Obtener todos los depósitos de caja
+// GET - Obtener todos los fondos de caja iniciales
 export async function GET(request: NextRequest) {
   try {
     // Obtener el token del header Authorization
@@ -15,13 +15,13 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
-    // Si es administrador sin sucursal específica, mostrar todos los depósitos
+    // Si es administrador sin sucursal específica, mostrar todos los fondos
     // Si tiene sucursal específica, filtrar por esa sucursal
     const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
       ? {} 
       : { sucursalId: decoded.sucursalId }
 
-    const fondosCaja = await prisma.fondoCaja.findMany({
+    const fondosCajaInicial = await prisma.fondoCajaInicial.findMany({
       where: whereClause,
       include: {
         sucursal: true,
@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
       orderBy: { fecha: 'desc' }
     })
 
-    return NextResponse.json({ fondosCaja })
+    return NextResponse.json({ fondosCajaInicial })
   } catch (error) {
-    console.error('Error al obtener depósitos de caja:', error)
+    console.error('Error al obtener fondos de caja iniciales:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Crear nuevo depósito de caja
+// POST - Crear nuevo fondo de caja inicial
 export async function POST(request: NextRequest) {
   try {
     // Obtener el token del header Authorization
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
     const body = await request.json()
-    const { monto, fecha, imagen } = body
+    const { monto, fecha } = body
 
     // Validar datos requeridos
     if (!monto || monto <= 0) {
@@ -79,51 +79,41 @@ export async function POST(request: NextRequest) {
     // Crear fecha específica sin horario
     const fechaEspecifica = fecha ? parseDateOnly(fecha) : new Date()
 
-    // Usar transacción para crear el depósito de caja y el movimiento automáticamente
-    const result = await prisma.$transaction(async (tx) => {
-      // Crear el depósito de caja
-      const fondoCaja = await tx.fondoCaja.create({
-        data: {
-          monto: parseFloat(monto),
-          fecha: fechaEspecifica,
-          imagen: imagen || null,
-          sucursalId: decoded.sucursalId,
-          usuarioId: decoded.userId
-        },
-        include: {
-          sucursal: true,
-          usuario: {
-            select: {
-              id: true,
-              nombre: true,
-              rol: true
-            }
+    // Crear el fondo de caja inicial
+    const result = await prisma.fondoCajaInicial.create({
+      data: {
+        monto: parseFloat(monto),
+        fecha: fechaEspecifica,
+        sucursalId: decoded.sucursalId,
+        usuarioId: decoded.userId
+      },
+      include: {
+        sucursal: true,
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            rol: true
           }
         }
-      })
-
-      // Crear automáticamente un movimiento de tipo FONDO_CAJA
-      await tx.movimiento.create({
-        data: {
-          fecha: fechaEspecifica,
-          descripcion: `Depósito de caja - ${fondoCaja.sucursal.nombre}`,
-          monto: parseFloat(monto),
-          tipo: 'FONDO_CAJA',
-          imagen: imagen || null,
-          sucursalId: decoded.sucursalId,
-          usuarioId: decoded.userId
-        }
-      })
-
-      return fondoCaja
+      }
     })
 
     return NextResponse.json({ 
-      message: 'Depósito de caja creado exitosamente',
-      fondoCaja: result 
+      message: 'Fondo de caja inicial creado exitosamente',
+      fondoCajaInicial: result 
     }, { status: 201 })
-  } catch (error) {
-    console.error('Error al crear depósito de caja:', error)
+  } catch (error: any) {
+    // Si es un error de constraint único (fecha + sucursal)
+    if (error.code === 'P2002') {
+      console.log('Fondo de caja inicial ya existe para esta fecha y sucursal')
+      return NextResponse.json(
+        { error: 'Ya existe un fondo de caja inicial para esta fecha y sucursal' },
+        { status: 409 }
+      )
+    }
+    
+    console.error('Error al crear fondo de caja inicial:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

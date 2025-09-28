@@ -116,10 +116,9 @@ export async function POST(request: NextRequest) {
       totalGastos
     })
 
-    // Calcular total de fondos de caja del día desde movimientos
-    const fondosCajaDelDia = await prisma.movimiento.findMany({
+    // Calcular total de depósitos bancarios del día desde la tabla Deposito
+    const depositosDelDia = await prisma.deposito.findMany({
       where: {
-        tipo: 'FONDO_CAJA',
         sucursalId: sucursalId,
         fecha: {
           gte: fechaInicio,
@@ -128,12 +127,31 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const totalFondosCaja = fondosCajaDelDia.reduce((sum, fondo) => sum + fondo.monto, 0)
+    const totalDepositos = depositosDelDia.reduce((sum, deposito) => sum + deposito.monto, 0)
     
-    console.log('Fondos de caja encontrados:', {
-      cantidad: fondosCajaDelDia.length,
-      fondos: fondosCajaDelDia.map(f => ({ id: f.id, fecha: f.fecha, monto: f.monto, descripcion: f.descripcion })),
-      totalFondosCaja
+    console.log('Depósitos bancarios encontrados:', {
+      cantidad: depositosDelDia.length,
+      depositos: depositosDelDia.map(d => ({ id: d.id, fecha: d.fecha, monto: d.monto })),
+      totalDepositos
+    })
+
+    // Calcular fondo inicial de caja del día
+    const fondoInicialDelDia = await prisma.fondoCajaInicial.findFirst({
+      where: {
+        sucursalId: sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+
+    const totalFondoInicial = fondoInicialDelDia ? fondoInicialDelDia.monto : 0
+    
+    console.log('Fondo inicial encontrado:', {
+      existe: !!fondoInicialDelDia,
+      fondo: fondoInicialDelDia ? { id: fondoInicialDelDia.id, fecha: fondoInicialDelDia.fecha, monto: fondoInicialDelDia.monto } : null,
+      totalFondoInicial
     })
 
     // Calcular total de cobros TPV del día
@@ -150,8 +168,8 @@ export async function POST(request: NextRequest) {
 
     const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
 
-    // Calcular el saldo del día (incluyendo fondos de caja como ingreso)
-    const saldoDia = parseFloat(ventasBrutas) - totalGastos + totalFondosCaja
+    // Calcular el saldo del día (incluyendo depósitos como ingreso y fondo inicial)
+    const saldoDia = parseFloat(ventasBrutas) - totalGastos + totalDepositos + totalFondoInicial
     
     const movimientoDiario = await prisma.movimientoDiario.create({
       data: {
@@ -164,7 +182,8 @@ export async function POST(request: NextRequest) {
         pagoTarjeta: totalTpvDelDia, // Cargado automáticamente desde cobros TPV
         transferencias: parseFloat(transferencias) || 0,
         gastos: totalGastos, // Cargado automáticamente desde movimientos
-        fondoCaja: totalFondosCaja, // Cargado automáticamente desde movimientos
+        depositos: totalDepositos, // Suma de depósitos del día
+        fondoInicial: totalFondoInicial, // Fondo inicial de caja del día
         saldoDia,
         observaciones: observaciones || null,
         sucursalId,
@@ -184,6 +203,10 @@ export async function POST(request: NextRequest) {
       movimientoDiario,
       gastosEncontrados: gastosDelDia.length,
       totalGastosCalculado: totalGastos,
+      depositosEncontrados: depositosDelDia.length,
+      totalDepositosCalculado: totalDepositos,
+      fondoInicialEncontrado: !!fondoInicialDelDia,
+      totalFondoInicialCalculado: totalFondoInicial,
       cobrosTpvEncontrados: cobrosTpvDelDia.length,
       totalTpvCalculado: totalTpvDelDia
     }, { status: 201 })

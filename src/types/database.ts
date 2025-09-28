@@ -5,7 +5,8 @@ export interface Sucursal {
   usuarios?: Usuario[]
   movimientos?: Movimiento[]
   movimientosDiarios?: MovimientoDiario[]
-  fondoCajas?: FondoCaja[]
+  depositos?: Deposito[]
+  fondosCajaInicial?: FondoCajaInicial[]
   pedidosEspeciales?: PedidoEspecial[]
   createdAt: Date
   updatedAt: Date
@@ -48,6 +49,10 @@ export interface Usuario {
   pedidosCreados?: PedidoEspecial[]
   pedidosActualizados?: PedidoEspecial[]
   historialPedidos?: PedidoEspecialHistorial[]
+  
+  // Nuevas relaciones
+  depositos?: Deposito[]
+  fondosCajaInicial?: FondoCajaInicial[]
   
   createdAt: Date
   updatedAt: Date
@@ -251,6 +256,32 @@ export interface Movimiento {
   updatedAt: Date
 }
 
+export interface Deposito {
+  id: number
+  monto: number
+  fecha: Date
+  sucursalId: number
+  sucursal?: Sucursal
+  usuarioId?: number
+  usuario?: Usuario
+  imagen?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface FondoCajaInicial {
+  id: number
+  monto: number
+  fecha: Date
+  sucursalId: number
+  sucursal?: Sucursal
+  usuarioId?: number
+  usuario?: Usuario
+  imagen?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface MovimientoDiario {
   id: number
   fecha: Date
@@ -262,7 +293,8 @@ export interface MovimientoDiario {
   pagoTarjeta: number
   transferencias: number
   gastos: number
-  fondoCaja: number
+  depositos: number
+  fondoInicial: number
   saldoDia: number
   observaciones?: string
   sucursal: Sucursal
