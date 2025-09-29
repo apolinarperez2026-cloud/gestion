@@ -39,6 +39,35 @@ export default function TpvPage() {
   const [selectedTpv, setSelectedTpv] = useState<any>(null)
   const router = useRouter()
 
+  // Calcular resúmenes de cobros TPV
+  const calculateSummary = () => {
+    const today = new Date()
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    const tpvsDelDia = tpvs.filter(tpv => {
+      const tpvDate = new Date(tpv.fecha)
+      return tpvDate >= startOfDay
+    })
+
+    const tpvsDelMes = tpvs.filter(tpv => {
+      const tpvDate = new Date(tpv.fecha)
+      return tpvDate >= startOfMonth
+    })
+
+    const totalDelDia = tpvsDelDia.reduce((sum, tpv) => sum + (typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0), 0)
+    const totalDelMes = tpvsDelMes.reduce((sum, tpv) => sum + (typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0), 0)
+
+    return {
+      totalDelDia,
+      totalDelMes,
+      cantidadDelDia: tpvsDelDia.length,
+      cantidadDelMes: tpvsDelMes.length
+    }
+  }
+
+  const summary = calculateSummary()
+
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -301,6 +330,43 @@ export default function TpvPage() {
 
       {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Resumen de cobros TPV */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Cobros TPV del Día</h3>
+                <p className="text-3xl font-bold text-green-600 mt-2">
+                  ${summary.totalDelDia.toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {summary.cantidadDelDia} cobro{summary.cantidadDelDia !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="text-green-500 text-4xl">
+                💳
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Cobros TPV del Mes</h3>
+                <p className="text-3xl font-bold text-blue-600 mt-2">
+                  ${summary.totalDelMes.toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {summary.cantidadDelMes} cobro{summary.cantidadDelMes !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="text-blue-500 text-4xl">
+                📊
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Botón para agregar cobro TPV */}
         <div className="mb-6">
           <button

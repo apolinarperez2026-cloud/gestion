@@ -176,6 +176,7 @@ export interface MovimientoDiarioForm {
   pagoTarjeta: string
   transferencias: string
   observaciones: string
+  fondoInicial: string
 }
 
 export interface CreateSucursalData {

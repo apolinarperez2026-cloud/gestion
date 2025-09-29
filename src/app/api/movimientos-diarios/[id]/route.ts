@@ -71,6 +71,7 @@ export async function PUT(
       pagoTarjeta,
       transferencias,
       observaciones,
+      fondoInicial,
       usuarioId
     } = await request.json()
 
@@ -133,6 +134,42 @@ export async function PUT(
 
     const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
 
+    // Buscar depósitos del día
+    const depositosDelDia = await prisma.deposito.findMany({
+      where: {
+        sucursalId: movimientoActual.sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+
+    const totalDepositosDelDia = depositosDelDia.reduce((sum, deposito) => sum + deposito.monto, 0)
+
+    console.log('Depósitos encontrados:', {
+      cantidad: depositosDelDia.length,
+      depositos: depositosDelDia.map(d => ({ id: d.id, fecha: d.fecha, monto: d.monto })),
+      totalDepositos: totalDepositosDelDia
+    })
+
+    // Buscar fondo de caja inicial del día
+    const fondoInicialDelDia = await prisma.fondoCajaInicial.findFirst({
+      where: {
+        sucursalId: movimientoActual.sucursalId,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      }
+    })
+
+    console.log('Fondo inicial encontrado:', {
+      existe: !!fondoInicialDelDia,
+      monto: fondoInicialDelDia?.monto || 0,
+      fecha: fondoInicialDelDia?.fecha
+    })
+
     // Calcular el saldo del día
     const ventasBrutasFinal = ventasBrutas !== undefined ? parseFloat(ventasBrutas) : movimientoActual.ventasBrutas
     const saldoDia = ventasBrutasFinal - totalGastos
@@ -147,8 +184,10 @@ export async function PUT(
       pagoTarjeta: totalTpvDelDia, // Siempre recalculado desde cobros TPV
       transferencias: transferencias !== undefined ? parseFloat(transferencias) : movimientoActual.transferencias,
       gastos: totalGastos, // Siempre recalculado desde movimientos
+      depositos: totalDepositosDelDia, // Siempre recalculado desde depósitos
       saldoDia,
-      observaciones: observaciones !== undefined ? observaciones : movimientoActual.observaciones
+      observaciones: observaciones !== undefined ? observaciones : movimientoActual.observaciones,
+      fondoInicial: fondoInicialDelDia ? fondoInicialDelDia.monto : (fondoInicial !== undefined ? parseFloat(fondoInicial) : movimientoActual.fondoInicial)
     }
 
     // Detectar cambios y crear registros de historial
@@ -161,7 +200,10 @@ export async function PUT(
       { nombre: 'recargas', etiqueta: 'Recargas' },
       { nombre: 'pagoTarjeta', etiqueta: 'Pago con Tarjeta' },
       { nombre: 'transferencias', etiqueta: 'Transferencias' },
-      { nombre: 'observaciones', etiqueta: 'Observaciones' }
+      { nombre: 'gastos', etiqueta: 'Gastos' },
+      { nombre: 'depositos', etiqueta: 'Depósitos' },
+      { nombre: 'observaciones', etiqueta: 'Observaciones' },
+      { nombre: 'fondoInicial', etiqueta: 'Fondo Inicial' }
     ]
 
     for (const campo of campos) {
@@ -206,7 +248,17 @@ export async function PUT(
       totalGastosCalculado: totalGastos,
       cobrosTpvEncontrados: cobrosTpvDelDia.length,
       totalTpvCalculado: totalTpvDelDia,
-      cambiosRegistrados: cambios.length
+      depositosEncontrados: depositosDelDia.length,
+      totalDepositosCalculado: totalDepositosDelDia,
+      cambiosRegistrados: cambios.length,
+      fondoInicialAplicado: fondoInicialDelDia ? {
+        existe: true,
+        monto: fondoInicialDelDia.monto,
+        fecha: fondoInicialDelDia.fecha
+      } : {
+        existe: false,
+        monto: 0
+      }
     })
   } catch (error) {
     console.error('Error al actualizar movimiento diario:', error)

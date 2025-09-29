@@ -24,7 +24,8 @@ export default function MovimientosPage() {
     recargas: '',
     pagoTarjeta: '',
     transferencias: '',
-    observaciones: ''
+    observaciones: '',
+    fondoInicial: ''
   })
   const [editingMovimiento, setEditingMovimiento] = useState<MovimientoDiario | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -217,9 +218,9 @@ export default function MovimientosPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setMovimientosDiarios([data.movimientoDiario, ...movimientosDiarios])
         
-        // Actualizar totales del mes
+        // Actualizar la tabla y totales del mes
+        fetchMovimientosDiarios()
         fetchMonthlyTotals()
         
         // Limpiar formulario
@@ -232,7 +233,8 @@ export default function MovimientosPage() {
           recargas: '',
           pagoTarjeta: '',
           transferencias: '',
-          observaciones: ''
+          observaciones: '',
+          fondoInicial: ''
         })
         
         showConfirm({
@@ -333,7 +335,8 @@ export default function MovimientosPage() {
       recargas: movimiento.recargas.toString(),
       pagoTarjeta: movimiento.pagoTarjeta.toString(),
       transferencias: movimiento.transferencias.toString(),
-      observaciones: movimiento.observaciones || ''
+      observaciones: movimiento.observaciones || '',
+      fondoInicial: (movimiento.fondoInicial || 0).toString()
     })
   }
 
@@ -435,6 +438,7 @@ export default function MovimientosPage() {
           // pagoTarjeta se calcula automáticamente en el backend desde cobros TPV
           transferencias: parseFloat(formData.transferencias) || 0,
           observaciones: formData.observaciones,
+          fondoInicial: parseFloat(formData.fondoInicial) || 0,
           usuarioId: user?.id
         })
       })
@@ -448,6 +452,7 @@ export default function MovimientosPage() {
           type: 'success',
           onConfirm: () => {
             fetchMovimientosDiarios()
+            fetchMonthlyTotals()
             setIsEditing(false)
             setEditingMovimiento(null)
             setFormData({
@@ -459,7 +464,8 @@ export default function MovimientosPage() {
               recargas: '',
               pagoTarjeta: '',
               transferencias: '',
-              observaciones: ''
+              observaciones: '',
+              fondoInicial: ''
             })
             hideConfirm()
           }
@@ -499,7 +505,8 @@ export default function MovimientosPage() {
       recargas: '',
       pagoTarjeta: '',
       transferencias: '',
-      observaciones: ''
+      observaciones: '',
+      fondoInicial: ''
     })
   }
 
