@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MovimientoDiario, AuthUser } from '@/types/database'
 import SummaryCards from '@/components/SummaryCards'
+import * as XLSX from 'xlsx'
 
 export default function ResumenPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -90,13 +91,50 @@ export default function ResumenPage() {
     }
   }
 
-  // Filtrar movimientos diarios por mes seleccionado
-  const movimientosDelMes = movimientosDiarios.filter(movimiento => {
-    const fechaMovimiento = new Date(movimiento.fecha)
+  const exportarAExcel = () => {
+    // Ordenar por fecha ascendente para exportar (del más antiguo al más reciente)
+    const diasOrdenadosParaExport = [...movimientosPorDia].sort((a: any, b: any) => 
+      new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+    )
+    
+    // Preparar datos para exportar
+    const datosExcel = diasOrdenadosParaExport.map((dia: any) => ({
+      'Fecha': dia.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      'Ventas Brutas': dia.totalVentas,
+      'Crédito': dia.totalCredito,
+      'Recargas': dia.totalRecargas,
+      'Pago con Tarjeta': dia.totalPagoTarjeta,
+      'Transferencias': dia.totalTransferencias,
+      'Gastos': dia.totalGastos,
+      'Saldo del Día': dia.saldoDelDiaCalculado,
+      'Depósitos': dia.totalDepositos || 0,
+      'Saldo Acumulado': dia.saldoAcumulado
+    }))
+
+    // Crear hoja de trabajo
+    const ws = XLSX.utils.json_to_sheet(datosExcel)
+
+    // Crear libro de trabajo
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Resumen Mensual')
+
+    // Generar nombre de archivo con mes y año
     const [año, mes] = mesSeleccionado.split('-')
-    return fechaMovimiento.getFullYear() === parseInt(año) && 
-           fechaMovimiento.getMonth() === parseInt(mes) - 1
-  })
+    const nombreArchivo = `Resumen_${obtenerNombreMes(mesSeleccionado)}_${año}.xlsx`
+
+    // Descargar archivo
+    XLSX.writeFile(wb, nombreArchivo)
+  }
+
+  // Filtrar movimientos diarios por mes seleccionado y ordenar por fecha ascendente
+  const movimientosDelMes = movimientosDiarios
+    .filter(movimiento => {
+      const fechaMovimiento = new Date(movimiento.fecha)
+      const [año, mes] = mesSeleccionado.split('-')
+      return fechaMovimiento.getFullYear() === parseInt(año) && 
+             fechaMovimiento.getMonth() === parseInt(mes) - 1
+    })
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
 
   // Calcular resumen del mes
   const calcularResumen = () => {
@@ -121,6 +159,16 @@ export default function ResumenPage() {
     })
 
     const totalSaldo = totalVentas - totalGastos
+    
+    // Calcular depósitos
+    let totalDepositos = 0
+    movimientosDelMes.forEach(movimiento => {
+      totalDepositos += movimiento.depositos || 0
+    })
+    
+    // Calcular Saldo del Día y Saldo Acumulado
+    const saldoDelDia = totalVentas - totalCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
+    const saldoAcumulado = saldoDelDia - totalDepositos
 
     return {
       totalVentas,
@@ -131,6 +179,9 @@ export default function ResumenPage() {
       totalRecargas,
       totalPagoTarjeta,
       totalTransferencias,
+      totalDepositos,
+      saldoDelDia,
+      saldoAcumulado,
       totalSaldo,
       cantidadMovimientos: movimientosDelMes.length
     }
@@ -139,19 +190,46 @@ export default function ResumenPage() {
   const resumen = calcularResumen()
 
   // Los movimientos diarios ya están agrupados por día, solo necesitamos mapearlos
-  const movimientosPorDia = movimientosDelMes.map(movimiento => ({
-    fecha: new Date(movimiento.fecha),
-    movimientos: [movimiento],
-    totalVentas: movimiento.ventasBrutas,
-    totalGastos: movimiento.gastos,
-    totalEfectivo: movimiento.efectivo,
-    totalCredito: movimiento.credito,
-    totalAbonosCredito: movimiento.abonosCredito,
-    totalRecargas: movimiento.recargas,
-    totalPagoTarjeta: movimiento.pagoTarjeta,
-    totalTransferencias: movimiento.transferencias,
-    saldoDia: movimiento.saldoDia
-  }))
+  const movimientosPorDia = movimientosDelMes.map((movimiento, index) => {
+    // Calcular saldo del día
+    const saldoDelDia = movimiento.ventasBrutas - movimiento.credito - movimiento.recargas - movimiento.pagoTarjeta - movimiento.transferencias - movimiento.gastos
+    
+    // Calcular saldo acumulado (arrastrando del día anterior)
+    let saldoAcumulado = saldoDelDia - (movimiento.depositos || 0)
+    
+    // Si no es el primer día, sumar el saldo acumulado del día anterior
+    if (index > 0) {
+      const diaAnterior = movimientosDelMes[index - 1]
+      const saldoDelDiaAnterior = diaAnterior.ventasBrutas - diaAnterior.credito - diaAnterior.recargas - diaAnterior.pagoTarjeta - diaAnterior.transferencias - diaAnterior.gastos
+      
+      // Buscar el saldo acumulado del día anterior en el array ya procesado
+      let saldoAcumuladoAnterior = 0
+      for (let i = 0; i < index; i++) {
+        const mov = movimientosDelMes[i]
+        const saldoDia = mov.ventasBrutas - mov.credito - mov.recargas - mov.pagoTarjeta - mov.transferencias - mov.gastos
+        saldoAcumuladoAnterior += saldoDia - (mov.depositos || 0)
+      }
+      
+      saldoAcumulado = saldoAcumuladoAnterior + saldoDelDia - (movimiento.depositos || 0)
+    }
+    
+    return {
+      fecha: new Date(movimiento.fecha),
+      movimientos: [movimiento],
+      totalVentas: movimiento.ventasBrutas,
+      totalGastos: movimiento.gastos,
+      totalEfectivo: movimiento.efectivo,
+      totalCredito: movimiento.credito,
+      totalAbonosCredito: movimiento.abonosCredito,
+      totalRecargas: movimiento.recargas,
+      totalPagoTarjeta: movimiento.pagoTarjeta,
+      totalTransferencias: movimiento.transferencias,
+      totalDepositos: movimiento.depositos || 0,
+      saldoDia: movimiento.saldoDia,
+      saldoDelDiaCalculado: saldoDelDia,
+      saldoAcumulado: saldoAcumulado
+    }
+  })
 
   // Ordenar por fecha
   const diasOrdenados = movimientosPorDia.sort((a: any, b: any) => 
@@ -304,6 +382,22 @@ export default function ResumenPage() {
                   </p>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Exportar
+                </label>
+                <button
+                  onClick={exportarAExcel}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                  title="Exportar a Excel"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Excel</span>
+                </button>
+              </div>
             </div>
             
             {/* Totales del Mes Seleccionado */}
@@ -342,21 +436,6 @@ export default function ResumenPage() {
         {/* Desglose Detallado */}
         <div className="mb-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-            {/* Efectivo */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Efectivo</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalEfectivo.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
             {/* Crédito */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="text-center">
@@ -368,21 +447,6 @@ export default function ResumenPage() {
                 <p className="text-xs font-medium text-gray-500 mb-1">Crédito</p>
                 <p className="text-sm font-bold text-gray-900">
                   ${resumen.totalCredito.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Abonos de Crédito */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Abonos</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalAbonosCredito.toLocaleString()}
                 </p>
               </div>
             </div>
@@ -428,6 +492,51 @@ export default function ResumenPage() {
                 <p className="text-xs font-medium text-gray-500 mb-1">Transf.</p>
                 <p className="text-sm font-bold text-gray-900">
                   ${resumen.totalTransferencias.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Saldo del Día */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="text-center">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Saldo Día</p>
+                <p className="text-sm font-bold text-blue-600">
+                  ${resumen.saldoDelDia.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Depósitos */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="text-center">
+                <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-3 h-3 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                </div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Depósitos</p>
+                <p className="text-sm font-bold text-teal-600">
+                  ${resumen.totalDepositos.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Saldo Acumulado */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="text-center">
+                <div className={`w-6 h-6 ${resumen.saldoAcumulado >= 0 ? 'bg-green-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-2`}>
+                  <svg className={`w-3 h-3 ${resumen.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Saldo Acum.</p>
+                <p className={`text-sm font-bold ${resumen.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ${resumen.saldoAcumulado.toLocaleString()}
                 </p>
               </div>
             </div>
@@ -583,22 +692,16 @@ export default function ResumenPage() {
                         Fecha
                       </th>
                       <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ventas
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Efectivo
+                        Ventas Brutas
                       </th>
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Crédito
                       </th>
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Abonos
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Recargas
                       </th>
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tarjeta
+                        Pago Tarjeta
                       </th>
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Transf.
@@ -606,8 +709,14 @@ export default function ResumenPage() {
                       <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Gastos
                       </th>
-                      <th className="w-16 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        #
+                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Saldo Día
+                      </th>
+                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Depósitos
+                      </th>
+                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Saldo Acum.
                       </th>
                     </tr>
                   </thead>
@@ -624,13 +733,7 @@ export default function ResumenPage() {
                           ${dia.totalVentas.toLocaleString()}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalEfectivo.toLocaleString()}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
                           ${dia.totalCredito.toLocaleString()}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalAbonosCredito.toLocaleString()}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
                           ${dia.totalRecargas.toLocaleString()}
@@ -644,10 +747,14 @@ export default function ResumenPage() {
                         <td className="px-2 py-3 text-xs text-red-600 font-medium">
                           ${dia.totalGastos.toLocaleString()}
                         </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          <span className="inline-flex px-1 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800">
-                            {dia.movimientos.length}
-                          </span>
+                        <td className="px-2 py-3 text-xs text-blue-600 font-medium">
+                          ${(dia.totalVentas - dia.totalCredito - dia.totalRecargas - dia.totalPagoTarjeta - dia.totalTransferencias - dia.totalGastos).toLocaleString()}
+                        </td>
+                        <td className="px-2 py-3 text-xs text-teal-600 font-medium">
+                          ${(dia.totalDepositos || 0).toLocaleString()}
+                        </td>
+                        <td className={`px-2 py-3 text-xs font-medium ${dia.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ${dia.saldoAcumulado.toLocaleString()}
                         </td>
                       </tr>
                     ))}

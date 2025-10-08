@@ -38,6 +38,8 @@ export default function FondoCajaInicialPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [editingFondo, setEditingFondo] = useState<FondoCajaInicial | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const router = useRouter()
 
   const fetchUser = async () => {
@@ -172,6 +174,72 @@ export default function FondoCajaInicialPage() {
     }
   }
 
+  const handleEdit = (fondo: FondoCajaInicial) => {
+    setEditingFondo(fondo)
+    setIsEditing(true)
+    setFormData({
+      monto: fondo.monto.toString(),
+      fecha: new Date(fondo.fecha).toISOString().split('T')[0]
+    })
+    setShowForm(true)
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingFondo) return
+
+    setSubmitting(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`/api/fondo-caja-inicial/${editingFondo.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          monto: parseFloat(formData.monto),
+          fecha: formData.fecha
+        })
+      })
+
+      if (response.ok) {
+        setFormData({
+          monto: '',
+          fecha: new Date().toISOString().split('T')[0]
+        })
+        setShowForm(false)
+        setIsEditing(false)
+        setEditingFondo(null)
+        fetchFondosCajaInicial()
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setErrorMessage(error.error || 'Error al actualizar fondo de caja inicial')
+        setShowErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Error al actualizar fondo:', error)
+      setErrorMessage('Error al actualizar fondo de caja inicial')
+      setShowErrorModal(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditingFondo(null)
+    setFormData({
+      monto: '',
+      fecha: new Date().toISOString().split('T')[0]
+    })
+    setShowForm(false)
+  }
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
@@ -248,9 +316,9 @@ export default function FondoCajaInicialPage() {
         {showForm && (
           <div className="card mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Nuevo Fondo de Caja Inicial
+              {isEditing ? 'Editar Fondo de Caja Inicial' : 'Nuevo Fondo de Caja Inicial'}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={isEditing ? handleUpdate : handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -286,7 +354,7 @@ export default function FondoCajaInicialPage() {
               <div className="flex justify-end space-x-4">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={isEditing ? handleCancelEdit : () => setShowForm(false)}
                   className="btn-secondary"
                 >
                   Cancelar
@@ -296,7 +364,7 @@ export default function FondoCajaInicialPage() {
                   className="btn-primary"
                   disabled={submitting}
                 >
-                  {submitting ? 'Guardando...' : 'Guardar Fondo Inicial'}
+                  {submitting ? (isEditing ? 'Actualizando...' : 'Guardando...') : (isEditing ? 'Actualizar Fondo' : 'Guardar Fondo Inicial')}
                 </button>
               </div>
             </form>
@@ -330,6 +398,9 @@ export default function FondoCajaInicialPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fecha de Registro
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -353,6 +424,14 @@ export default function FondoCajaInicialPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {displayDateOnly(fondo.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button
+                          onClick={() => handleEdit(fondo)}
+                          className="text-blue-600 hover:text-blue-900 font-medium"
+                        >
+                          Editar
+                        </button>
                       </td>
                     </tr>
                   ))}
