@@ -310,7 +310,7 @@ export async function DELETE(
 
     // Obtener el usuario de la base de datos
     const user = await prisma.usuario.findUnique({
-      where: { id: decoded.id },
+      where: { id: decoded.userId },
       include: {
         rol: true
       }
