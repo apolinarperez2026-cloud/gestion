@@ -75,34 +75,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Datos de prueba */}
-          <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center mb-3">
-              <div className="w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center mr-2">
-                <span className="text-xs">🧪</span>
-              </div>
-              <h3 className="text-sm font-medium text-slate-200">Datos de Prueba</h3>
-            </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Admin:</span>
-                <span className="font-mono text-slate-200">admin@librodiario.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Gerente:</span>
-                <span className="font-mono text-slate-200">gerente.norte@librodiario.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Empleado:</span>
-                <span className="font-mono text-slate-200">empleado1@librodiario.com</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-slate-600/30">
-                <span className="text-amber-400 font-medium">Contraseña:</span>
-                <span className="font-mono text-amber-400">123456</span>
-              </div>
-            </div>
-          </div>
-
           {/* Formulario */}
           <form className="space-y-5" onSubmit={handleSubmit}>
             {error && (
