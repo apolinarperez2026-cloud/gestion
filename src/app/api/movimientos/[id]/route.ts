@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { parseDateOnly } from '@/lib/dateUtils'
+import jwt from 'jsonwebtoken'
 
 const prisma = new PrismaClient()
 
@@ -107,22 +108,31 @@ export async function DELETE(
 
     const token = authHeader.split(' ')[1]
     
-    // Verificar el token y obtener el usuario
-    const userResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/me`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
-    if (!userResponse.ok) {
+    // Verificar el token directamente sin fetch interno
+    let decoded: any
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || '')
+    } catch (error) {
       return NextResponse.json(
         { error: 'Token inválido' },
         { status: 401 }
       )
     }
 
-    const userData = await userResponse.json()
-    const user = userData.user
+    // Obtener el usuario de la base de datos
+    const user = await prisma.usuario.findUnique({
+      where: { id: decoded.id },
+      include: {
+        rol: true
+      }
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Usuario no encontrado' },
+        { status: 404 }
+      )
+    }
 
     // Verificar que el usuario sea administrador
     if (user.rol.nombre !== 'Administrador') {
