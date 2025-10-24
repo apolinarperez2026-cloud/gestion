@@ -441,7 +441,7 @@ export default function TpvPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Cobros TPV del Día</h3>
                 <p className="text-3xl font-bold text-green-600 mt-2">
-                  ${summary.totalDelDia.toLocaleString()}
+                  ${summary.totalDelDia.toLocaleString('en-US')}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {summary.cantidadDelDia} cobro{summary.cantidadDelDia !== 1 ? 's' : ''}
@@ -458,7 +458,7 @@ export default function TpvPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Cobros TPV del Mes</h3>
                 <p className="text-3xl font-bold text-blue-600 mt-2">
-                  ${summary.totalDelMes.toLocaleString()}
+                  ${summary.totalDelMes.toLocaleString('en-US')}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {summary.cantidadDelMes} cobro{summary.cantidadDelMes !== 1 ? 's' : ''}
@@ -787,7 +787,7 @@ export default function TpvPage() {
                       </div>
                       <div className="text-right ml-4">
                         <p className="text-lg font-bold text-blue-600">
-                          ${tpv.monto.toLocaleString()}
+                          ${tpv.monto.toLocaleString('en-US')}
                         </p>
                         {tpv.foto && (
                           <div className="mt-2">
@@ -869,7 +869,7 @@ export default function TpvPage() {
                           {tpv.quienCobro}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${tpv.monto.toLocaleString()}
+                          ${tpv.monto.toLocaleString('en-US')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1025,7 +1025,7 @@ export default function TpvPage() {
                     <strong>Quien Cobró:</strong> {tpvToDelete.quienCobro}
                   </p>
                   <p className="text-sm text-gray-700">
-                    <strong>Monto:</strong> ${tpvToDelete.monto.toLocaleString()}
+                    <strong>Monto:</strong> ${tpvToDelete.monto.toLocaleString('en-US')}
                   </p>
                 </div>
                 <p className="text-xs text-red-600 mt-2">
@@ -1082,7 +1082,7 @@ export default function TpvPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Monto</label>
                     <p className="mt-1 text-sm font-bold text-blue-600">
-                      ${selectedTpv.monto.toLocaleString()}
+                      ${selectedTpv.monto.toLocaleString('en-US')}
                     </p>
                   </div>
                   
@@ -1132,14 +1132,14 @@ export default function TpvPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha de Creación</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedTpv.createdAt).toLocaleString()}
+                      {new Date(selectedTpv.createdAt).toLocaleString('en-US')}
                     </p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Última Actualización</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedTpv.updatedAt).toLocaleString()}
+                      {new Date(selectedTpv.updatedAt).toLocaleString('en-US')}
                     </p>
                   </div>
                 </div>

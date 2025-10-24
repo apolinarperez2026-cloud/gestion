@@ -410,7 +410,7 @@ export default function FondoCajaInicialPage() {
                         {displayDateOnly(fondo.fecha)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                        ${fondo.monto.toLocaleString()}
+                        ${fondo.monto.toLocaleString('en-US')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {fondo.usuario ? (

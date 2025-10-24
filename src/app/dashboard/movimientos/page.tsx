@@ -239,7 +239,7 @@ export default function MovimientosPage() {
         
         showConfirm({
           title: 'Movimiento Guardado',
-          message: `El movimiento diario se ha registrado exitosamente. Se encontraron ${data.gastosEncontrados} gastos del día por un total de $${data.totalGastosCalculado.toLocaleString()}`,
+          message: `El movimiento diario se ha registrado exitosamente. Se encontraron ${data.gastosEncontrados} gastos del día por un total de $${data.totalGastosCalculado.toLocaleString('en-US')}`,
           confirmText: 'Entendido',
           cancelText: '',
           type: 'success'
@@ -1169,46 +1169,46 @@ export default function MovimientosPage() {
                         <div className="grid grid-cols-2 gap-3 mb-3">
                           <div className="bg-green-50 rounded-lg p-3">
                             <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Ventas Brutas</p>
-                            <p className="text-lg font-bold text-green-900">${movimiento.ventasBrutas.toLocaleString()}</p>
+                            <p className="text-lg font-bold text-green-900">${movimiento.ventasBrutas.toLocaleString('en-US')}</p>
                           </div>
                           <div className="bg-red-50 rounded-lg p-3">
                             <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Gastos</p>
-                            <p className="text-lg font-bold text-red-900">${movimiento.gastos.toLocaleString()}</p>
+                            <p className="text-lg font-bold text-red-900">${movimiento.gastos.toLocaleString('en-US')}</p>
                           </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Efectivo:</span>
-                            <span className="font-medium">${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString()}</span>
+                            <span className="font-medium">${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Crédito:</span>
-                            <span className="font-medium">${movimiento.credito.toLocaleString()}</span>
+                            <span className="font-medium">${movimiento.credito.toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Abonos:</span>
-                            <span className="font-medium">${movimiento.abonosCredito.toLocaleString()}</span>
+                            <span className="font-medium">${movimiento.abonosCredito.toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Recargas:</span>
-                            <span className="font-medium">${movimiento.recargas.toLocaleString()}</span>
+                            <span className="font-medium">${movimiento.recargas.toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Tarjeta:</span>
-                            <span className="font-medium">${movimiento.pagoTarjeta.toLocaleString()}</span>
+                            <span className="font-medium">${movimiento.pagoTarjeta.toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Transferencias:</span>
-                            <span className="font-medium">${movimiento.transferencias.toLocaleString()}</span>
+                            <span className="font-medium">${movimiento.transferencias.toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Depósitos:</span>
-                            <span className="font-medium text-teal-600">${(movimiento.depositos || 0).toLocaleString()}</span>
+                            <span className="font-medium text-teal-600">${(movimiento.depositos || 0).toLocaleString('en-US')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Fondo de Caja:</span>
-                            <span className="font-medium text-blue-600">${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString()}</span>
+                            <span className="font-medium text-blue-600">${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString('en-US')}</span>
                           </div>
                         </div>
                         
@@ -1222,7 +1222,7 @@ export default function MovimientosPage() {
                         
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <p className="text-xs text-gray-400">
-                            Última edición: {movimiento.updatedAt ? new Date(movimiento.updatedAt).toLocaleString() : 'N/A'}
+                            Última edición: {movimiento.updatedAt ? new Date(movimiento.updatedAt).toLocaleString('en-US') : 'N/A'}
                           </p>
                         </div>
                       </div>
@@ -1285,34 +1285,34 @@ export default function MovimientosPage() {
                             {displayDateOnly(movimiento.fecha)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                            ${movimiento.ventasBrutas.toLocaleString()}
+                            ${movimiento.ventasBrutas.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString()}
+                            ${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.credito.toLocaleString()}
+                            ${movimiento.credito.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.abonosCredito.toLocaleString()}
+                            ${movimiento.abonosCredito.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.recargas.toLocaleString()}
+                            ${movimiento.recargas.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.pagoTarjeta.toLocaleString()}
+                            ${movimiento.pagoTarjeta.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.transferencias.toLocaleString()}
+                            ${movimiento.transferencias.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                            ${movimiento.gastos.toLocaleString()}
+                            ${movimiento.gastos.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-teal-600">
-                            ${(movimiento.depositos || 0).toLocaleString()}
+                            ${(movimiento.depositos || 0).toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                            ${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString()}
+                            ${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.usuario ? (
@@ -1541,7 +1541,7 @@ export default function MovimientosPage() {
                             </span>
                           </div>
                           <span className="text-sm text-gray-500">
-                            {new Date(cambio.fechaCambio).toLocaleString()}
+                            {new Date(cambio.fechaCambio).toLocaleString('en-US')}
                           </span>
                         </div>
                         <div className="text-sm text-gray-700">

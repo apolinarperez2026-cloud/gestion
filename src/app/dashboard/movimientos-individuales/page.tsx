@@ -671,7 +671,7 @@ export default function MovimientosIndividualesPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900">Resumen de Gastos por Categoría</h2>
             <div className="text-right">
-              <p className="text-2xl font-bold text-gray-800">${getTotalGastos().toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-800">${getTotalGastos().toLocaleString('en-US')}</p>
               <p className="text-xs text-gray-500">
                 {movimientos.filter(m => m.tipo === MovimientoTipo.GASTO).length} gastos totales
               </p>
@@ -686,7 +686,7 @@ export default function MovimientosIndividualesPage() {
                     {categoria.nombre}
                   </h3>
                   <p className={`text-lg font-bold ${categoria.total === 0 ? 'text-gray-400' : 'text-red-600'}`}>
-                    ${categoria.total.toLocaleString()}
+                    ${categoria.total.toLocaleString('en-US')}
                   </p>
                   <p className="text-xs text-gray-500">
                     {categoria.cantidad} {categoria.cantidad === 1 ? 'gasto' : 'gastos'}
@@ -958,7 +958,7 @@ export default function MovimientosIndividualesPage() {
                                 : movimiento.tipo === MovimientoTipo.GASTO
                                 ? '-'
                                 : ''
-                              }${movimiento.monto.toLocaleString()}
+                              }${movimiento.monto.toLocaleString('en-US')}
                             </p>
                             <div className="flex space-x-2 mt-2">
                               <button
@@ -1100,7 +1100,7 @@ export default function MovimientosIndividualesPage() {
                               : movimiento.tipo === MovimientoTipo.GASTO
                               ? '-'
                               : ''
-                            }${movimiento.monto.toLocaleString()}
+                            }${movimiento.monto.toLocaleString('en-US')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.imagen ? (
@@ -1316,7 +1316,7 @@ export default function MovimientosIndividualesPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Monto</label>
                     <p className="mt-1 text-sm font-bold text-red-600">
-                      -${selectedMovimiento.monto.toLocaleString()}
+                      -${selectedMovimiento.monto.toLocaleString('en-US')}
                     </p>
                   </div>
                   
@@ -1362,14 +1362,14 @@ export default function MovimientosIndividualesPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha de Creación</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedMovimiento.createdAt).toLocaleString()}
+                      {new Date(selectedMovimiento.createdAt).toLocaleString('en-US')}
                     </p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Última Actualización</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedMovimiento.updatedAt).toLocaleString()}
+                      {new Date(selectedMovimiento.updatedAt).toLocaleString('en-US')}
                     </p>
                   </div>
                 </div>

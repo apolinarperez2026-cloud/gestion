@@ -409,19 +409,19 @@ export default function ResumenPage() {
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-500">Total Ventas</p>
                   <p className="text-lg font-bold text-green-600">
-                    ${resumen.totalVentas.toLocaleString()}
+                    ${resumen.totalVentas.toLocaleString('en-US')}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-500">Total Gastos</p>
                   <p className="text-lg font-bold text-red-600">
-                    ${resumen.totalGastos.toLocaleString()}
+                    ${resumen.totalGastos.toLocaleString('en-US')}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-500">Saldo</p>
                   <p className={`text-lg font-bold ${resumen.totalSaldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${resumen.totalSaldo.toLocaleString()}
+                    ${resumen.totalSaldo.toLocaleString('en-US')}
                   </p>
                 </div>
                 <div className="text-center">
@@ -449,7 +449,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Crédito</p>
                 <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalCredito.toLocaleString()}
+                  ${resumen.totalCredito.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -464,7 +464,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Recargas</p>
                 <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalRecargas.toLocaleString()}
+                  ${resumen.totalRecargas.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -479,7 +479,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Tarjeta</p>
                 <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalPagoTarjeta.toLocaleString()}
+                  ${resumen.totalPagoTarjeta.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -494,7 +494,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Transf.</p>
                 <p className="text-sm font-bold text-gray-900">
-                  ${resumen.totalTransferencias.toLocaleString()}
+                  ${resumen.totalTransferencias.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -509,7 +509,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Saldo Día</p>
                 <p className="text-sm font-bold text-blue-600">
-                  ${resumen.saldoDelDia.toLocaleString()}
+                  ${resumen.saldoDelDia.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -524,7 +524,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Depósitos</p>
                 <p className="text-sm font-bold text-teal-600">
-                  ${resumen.totalDepositos.toLocaleString()}
+                  ${resumen.totalDepositos.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -539,7 +539,7 @@ export default function ResumenPage() {
                 </div>
                 <p className="text-xs font-medium text-gray-500 mb-1">Saldo Acum.</p>
                 <p className={`text-sm font-bold ${resumen.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${resumen.saldoAcumulado.toLocaleString()}
+                  ${resumen.saldoAcumulado.toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -637,7 +637,7 @@ export default function ResumenPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-green-600">
-                          ${dia.totalVentas.toLocaleString()}
+                          ${dia.totalVentas.toLocaleString('en-US')}
                         </p>
                         <p className="text-xs text-gray-500">Ventas</p>
                       </div>
@@ -646,12 +646,12 @@ export default function ResumenPage() {
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div className="bg-white rounded-lg p-3 border border-gray-200">
                         <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Gastos</p>
-                        <p className="text-sm font-bold text-red-900">${dia.totalGastos.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-red-900">${dia.totalGastos.toLocaleString('en-US')}</p>
                       </div>
                       <div className="bg-white rounded-lg p-3 border border-gray-200">
                         <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Saldo</p>
                         <p className={`text-sm font-bold ${(dia.totalVentas - dia.totalGastos) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
-                          ${(dia.totalVentas - dia.totalGastos).toLocaleString()}
+                          ${(dia.totalVentas - dia.totalGastos).toLocaleString('en-US')}
                         </p>
                       </div>
                     </div>
@@ -659,27 +659,27 @@ export default function ResumenPage() {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Efectivo:</span>
-                        <span className="font-medium">${dia.totalEfectivo.toLocaleString()}</span>
+                        <span className="font-medium">${dia.totalEfectivo.toLocaleString('en-US')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Crédito:</span>
-                        <span className="font-medium">${dia.totalCredito.toLocaleString()}</span>
+                        <span className="font-medium">${dia.totalCredito.toLocaleString('en-US')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Abonos:</span>
-                        <span className="font-medium">${dia.totalAbonosCredito.toLocaleString()}</span>
+                        <span className="font-medium">${dia.totalAbonosCredito.toLocaleString('en-US')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Recargas:</span>
-                        <span className="font-medium">${dia.totalRecargas.toLocaleString()}</span>
+                        <span className="font-medium">${dia.totalRecargas.toLocaleString('en-US')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Tarjeta:</span>
-                        <span className="font-medium">${dia.totalPagoTarjeta.toLocaleString()}</span>
+                        <span className="font-medium">${dia.totalPagoTarjeta.toLocaleString('en-US')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Transf.:</span>
-                        <span className="font-medium">${dia.totalTransferencias.toLocaleString()}</span>
+                        <span className="font-medium">${dia.totalTransferencias.toLocaleString('en-US')}</span>
                       </div>
                     </div>
                   </div>
@@ -736,34 +736,34 @@ export default function ResumenPage() {
                           })}
                         </td>
                         <td className="px-2 py-3 text-xs text-green-600 font-medium">
-                          ${dia.totalVentas.toLocaleString()}
+                          ${dia.totalVentas.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalCredito.toLocaleString()}
+                          ${dia.totalCredito.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalAbonosCredito.toLocaleString()}
+                          ${dia.totalAbonosCredito.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalRecargas.toLocaleString()}
+                          ${dia.totalRecargas.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalPagoTarjeta.toLocaleString()}
+                          ${dia.totalPagoTarjeta.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
-                          ${dia.totalTransferencias.toLocaleString()}
+                          ${dia.totalTransferencias.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-red-600 font-medium">
-                          ${dia.totalGastos.toLocaleString()}
+                          ${dia.totalGastos.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-blue-600 font-medium">
-                          ${(dia.totalVentas - dia.totalCredito - dia.totalRecargas - dia.totalPagoTarjeta - dia.totalTransferencias - dia.totalGastos).toLocaleString()}
+                          ${(dia.totalVentas - dia.totalCredito - dia.totalRecargas - dia.totalPagoTarjeta - dia.totalTransferencias - dia.totalGastos).toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-teal-600 font-medium">
-                          ${(dia.totalDepositos || 0).toLocaleString()}
+                          ${(dia.totalDepositos || 0).toLocaleString('en-US')}
                         </td>
                         <td className={`px-2 py-3 text-xs font-medium ${dia.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ${dia.saldoAcumulado.toLocaleString()}
+                          ${dia.saldoAcumulado.toLocaleString('en-US')}
                         </td>
                       </tr>
                     ))}

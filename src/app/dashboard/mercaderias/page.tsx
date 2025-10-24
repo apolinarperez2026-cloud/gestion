@@ -401,7 +401,7 @@ export default function MercaderiasPage() {
               <div className="ml-4">
                 <h3 className="text-lg font-medium text-gray-900">Total Entradas</h3>
                 <p className="text-2xl font-bold text-green-600">
-                  ${filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0).toLocaleString()}
+                  ${filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0).toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -419,7 +419,7 @@ export default function MercaderiasPage() {
               <div className="ml-4">
                 <h3 className="text-lg font-medium text-gray-900">Total Salidas</h3>
                 <p className="text-2xl font-bold text-red-600">
-                  ${filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0).toLocaleString()}
+                  ${filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0).toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -442,7 +442,7 @@ export default function MercaderiasPage() {
                     ? 'text-green-600' : 'text-red-600'
                 }`}>
                   ${(filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0) - 
-                     filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0)).toLocaleString()}
+                     filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0)).toLocaleString('en-US')}
                 </p>
               </div>
             </div>
@@ -738,7 +738,7 @@ export default function MercaderiasPage() {
                           </div>
                           <div className="text-right ml-4">
                             <p className="text-lg font-bold text-blue-600">
-                              ${mercaderia.monto.toLocaleString()}
+                              ${mercaderia.monto.toLocaleString('en-US')}
                             </p>
                           </div>
                         </div>
@@ -910,7 +910,7 @@ export default function MercaderiasPage() {
                               {mercaderia.recibe}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                              ${mercaderia.monto.toLocaleString()}
+                              ${mercaderia.monto.toLocaleString('en-US')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <button

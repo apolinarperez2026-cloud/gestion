@@ -847,7 +847,7 @@ export default function PedidosEspecialesPage() {
                           {pedido.cantidad}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${pedido.total.toLocaleString()}
+                          ${pedido.total.toLocaleString('en-US')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1020,7 +1020,7 @@ export default function PedidosEspecialesPage() {
                       </div>
                       <div>
                         <span className="text-gray-500">Total:</span>
-                        <span className="ml-1 font-medium text-blue-600">${pedido.total.toLocaleString()}</span>
+                        <span className="ml-1 font-medium text-blue-600">${pedido.total.toLocaleString('en-US')}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Creado por:</span>
@@ -1449,15 +1449,15 @@ export default function PedidosEspecialesPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">Precio de Venta</label>
-                      <p className="text-sm text-gray-900">${selectedPedido.precioVenta.toLocaleString()}</p>
+                      <p className="text-sm text-gray-900">${selectedPedido.precioVenta.toLocaleString('en-US')}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">Total</label>
-                      <p className="text-sm font-bold text-blue-600">${selectedPedido.total.toLocaleString()}</p>
+                      <p className="text-sm font-bold text-blue-600">${selectedPedido.total.toLocaleString('en-US')}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">Anticipo</label>
-                      <p className="text-sm text-gray-900">${selectedPedido.anticipo.toLocaleString()}</p>
+                      <p className="text-sm text-gray-900">${selectedPedido.anticipo.toLocaleString('en-US')}</p>
                     </div>
                   </div>
                   

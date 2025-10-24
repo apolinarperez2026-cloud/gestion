@@ -236,7 +236,7 @@ export default function DepositosPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Depósitos del Día</h3>
                 <p className="text-3xl font-bold text-green-600 mt-2">
-                  ${summary.totalDelDia.toLocaleString()}
+                  ${summary.totalDelDia.toLocaleString('en-US')}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {summary.cantidadDelDia} depósito{summary.cantidadDelDia !== 1 ? 's' : ''}
@@ -253,7 +253,7 @@ export default function DepositosPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Depósitos del Mes</h3>
                 <p className="text-3xl font-bold text-blue-600 mt-2">
-                  ${summary.totalDelMes.toLocaleString()}
+                  ${summary.totalDelMes.toLocaleString('en-US')}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {summary.cantidadDelMes} depósito{summary.cantidadDelMes !== 1 ? 's' : ''}
@@ -400,7 +400,7 @@ export default function DepositosPage() {
                         {displayDateOnly(deposito.fecha)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        ${deposito.monto.toLocaleString()}
+                        ${deposito.monto.toLocaleString('en-US')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {deposito.usuario ? (
