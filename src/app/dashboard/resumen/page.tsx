@@ -100,15 +100,16 @@ export default function ResumenPage() {
     // Preparar datos para exportar
     const datosExcel = diasOrdenadosParaExport.map((dia: any) => ({
       'Fecha': dia.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      'Ventas Brutas': dia.totalVentas,
-      'Crédito': dia.totalCredito,
-      'Recargas': dia.totalRecargas,
-      'Pago con Tarjeta': dia.totalPagoTarjeta,
-      'Transferencias': dia.totalTransferencias,
-      'Gastos': dia.totalGastos,
-      'Saldo del Día': dia.saldoDelDiaCalculado,
-      'Depósitos': dia.totalDepositos || 0,
-      'Saldo Acumulado': dia.saldoAcumulado
+      'Ventas Brutas': dia.totalVentas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Crédito': dia.totalCredito.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Abonos': dia.totalAbonosCredito.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Recargas': dia.totalRecargas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Pago con Tarjeta': dia.totalPagoTarjeta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Transferencias': dia.totalTransferencias.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Gastos': dia.totalGastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Saldo del Día': dia.saldoDelDiaCalculado.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Depósitos': (dia.totalDepositos || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      'Saldo Acumulado': dia.saldoAcumulado.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     }))
 
     // Crear hoja de trabajo
@@ -191,8 +192,8 @@ export default function ResumenPage() {
 
   // Los movimientos diarios ya están agrupados por día, solo necesitamos mapearlos
   const movimientosPorDia = movimientosDelMes.map((movimiento, index) => {
-    // Calcular saldo del día
-    const saldoDelDia = movimiento.ventasBrutas - movimiento.credito - movimiento.recargas - movimiento.pagoTarjeta - movimiento.transferencias - movimiento.gastos
+    // Calcular saldo del día (ventas brutas ya incluyen abonos)
+    const saldoDelDia = movimiento.ventasBrutas - movimiento.gastos
     
     // Calcular saldo acumulado (arrastrando del día anterior)
     let saldoAcumulado = saldoDelDia - (movimiento.depositos || 0)
@@ -200,13 +201,13 @@ export default function ResumenPage() {
     // Si no es el primer día, sumar el saldo acumulado del día anterior
     if (index > 0) {
       const diaAnterior = movimientosDelMes[index - 1]
-      const saldoDelDiaAnterior = diaAnterior.ventasBrutas - diaAnterior.credito - diaAnterior.recargas - diaAnterior.pagoTarjeta - diaAnterior.transferencias - diaAnterior.gastos
+      const saldoDelDiaAnterior = diaAnterior.ventasBrutas - diaAnterior.gastos
       
       // Buscar el saldo acumulado del día anterior en el array ya procesado
       let saldoAcumuladoAnterior = 0
       for (let i = 0; i < index; i++) {
         const mov = movimientosDelMes[i]
-        const saldoDia = mov.ventasBrutas - mov.credito - mov.recargas - mov.pagoTarjeta - mov.transferencias - mov.gastos
+        const saldoDia = mov.ventasBrutas - mov.gastos
         saldoAcumuladoAnterior += saldoDia - (mov.depositos || 0)
       }
       
@@ -383,21 +384,23 @@ export default function ResumenPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exportar
-                </label>
-                <button
-                  onClick={exportarAExcel}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                  title="Exportar a Excel"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span>Excel</span>
-                </button>
-              </div>
+              {user?.rol?.nombre === 'Administrador' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Exportar
+                  </label>
+                  <button
+                    onClick={exportarAExcel}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                    title="Exportar a Excel"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Excel</span>
+                  </button>
+                </div>
+              )}
             </div>
             
             {/* Totales del Mes Seleccionado */}
@@ -698,6 +701,9 @@ export default function ResumenPage() {
                         Crédito
                       </th>
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Abonos
+                      </th>
+                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Recargas
                       </th>
                       <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -734,6 +740,9 @@ export default function ResumenPage() {
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
                           ${dia.totalCredito.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-3 text-xs text-gray-900">
+                          ${dia.totalAbonosCredito.toLocaleString()}
                         </td>
                         <td className="px-2 py-3 text-xs text-gray-900">
                           ${dia.totalRecargas.toLocaleString()}

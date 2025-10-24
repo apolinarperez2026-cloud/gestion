@@ -37,6 +37,10 @@ export default function TpvPage() {
   const [itemsPerPage] = useState(10)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedTpv, setSelectedTpv] = useState<any>(null)
+  const [editingTpv, setEditingTpv] = useState<any>(null)
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [tpvToDelete, setTpvToDelete] = useState<any>(null)
   const router = useRouter()
 
   // Calcular resúmenes de cobros TPV
@@ -275,6 +279,106 @@ export default function TpvPage() {
     setShowDetailsModal(true)
   }
 
+  const handleEdit = (tpv: any, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingTpv(tpv)
+    setFormData({
+      fecha: tpv.fecha.split('T')[0],
+      quienCobro: tpv.quienCobro,
+      monto: tpv.monto.toString(),
+      estado: tpv.estado,
+      foto: tpv.foto || '',
+      usuarioRegistro: tpv.usuarioRegistro
+    })
+    setShowEditForm(true)
+  }
+
+  const handleDelete = (tpv: any, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setTpvToDelete(tpv)
+    setShowDeleteModal(true)
+  }
+
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch(`/api/tpv/${editingTpv.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...formData,
+          monto: typeof formData.monto === 'string' ? parseFloat(formData.monto) || 0 : formData.monto
+        })
+      })
+
+      if (response.ok) {
+        setShowEditForm(false)
+        setEditingTpv(null)
+        fetchTpvs()
+        setModalMessage('Cobro TPV actualizado exitosamente')
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setModalMessage(`Error: ${error.message || 'Error al actualizar cobro TPV'}`)
+        setShowErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setModalMessage('Error al actualizar cobro TPV')
+      setShowErrorModal(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    setSubmitting(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch(`/api/tpv/${tpvToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        setShowDeleteModal(false)
+        setTpvToDelete(null)
+        fetchTpvs()
+        setModalMessage('Cobro TPV eliminado exitosamente')
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setModalMessage(`Error: ${error.message || 'Error al eliminar cobro TPV'}`)
+        setShowErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setModalMessage('Error al eliminar cobro TPV')
+      setShowErrorModal(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -377,6 +481,121 @@ export default function TpvPage() {
           </button>
         </div>
 
+
+        {/* Formulario de Edición */}
+        {showEditForm && editingTpv && (
+          <div className="card mb-8">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">
+              Editar Cobro TPV
+            </h2>
+            <form onSubmit={handleUpdateSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha *
+                  </label>
+                  <input
+                    type="date"
+                    name="fecha"
+                    value={formData.fecha}
+                    onChange={handleChange}
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quien Cobró *
+                  </label>
+                  <input
+                    type="text"
+                    name="quienCobro"
+                    value={formData.quienCobro}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Nombre de quien cobró"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monto *
+                  </label>
+                  <input
+                    type="text"
+                    name="monto"
+                    value={formData.monto === '' ? '' : formData.monto}
+                    onChange={handleChange}
+                    onKeyPress={handleKeyPress}
+                    className="input-field"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Estado *
+                  </label>
+                  <select
+                    name="estado"
+                    value={formData.estado}
+                    onChange={handleChange}
+                    className="input-field"
+                    required
+                  >
+                    <option value="exitoso">Exitoso</option>
+                    <option value="en_proceso">En Proceso</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Campo de imagen */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Foto (Opcional)
+                </label>
+                <div className="space-y-3">
+                  <UploadThingComponent
+                    onUploadComplete={handleImageUploadComplete}
+                    onUploadError={handleImageUploadError}
+                  />
+                  {formData.foto && (
+                    <div className="mt-2">
+                      <img
+                        src={formData.foto}
+                        alt="Foto de cobro TPV"
+                        className="h-32 w-32 object-cover rounded-lg border"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditForm(false)
+                    setEditingTpv(null)
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Actualizando...' : 'Actualizar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Formulario */}
         {showForm && (
@@ -582,9 +801,25 @@ export default function TpvPage() {
                       </div>
                     </div>
                     <div className="text-center pt-3 border-t border-gray-200">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 mb-2">
                         Toca para ver detalles
                       </p>
+                      {user?.rol?.nombre === 'Administrador' && (
+                        <div className="flex justify-center space-x-4">
+                          <button
+                            onClick={(e) => handleEdit(tpv, e)}
+                            className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(tpv, e)}
+                            className="text-red-600 hover:text-red-900 text-sm font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -613,6 +848,11 @@ export default function TpvPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Foto
                       </th>
+                      {user?.rol?.nombre === 'Administrador' && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Acciones
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -653,6 +893,26 @@ export default function TpvPage() {
                             <span className="text-gray-400">Sin foto</span>
                           )}
                         </td>
+                        {user?.rol?.nombre === 'Administrador' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={(e) => handleEdit(tpv, e)}
+                                className="text-blue-600 hover:text-blue-900 font-medium"
+                                title="Editar cobro TPV"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={(e) => handleDelete(tpv, e)}
+                                className="text-red-600 hover:text-red-900 font-medium"
+                                title="Eliminar cobro TPV"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -741,6 +1001,56 @@ export default function TpvPage() {
           )}
         </div>
       </main>
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && tpvToDelete && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mt-4">Confirmar Eliminación</h3>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  ¿Estás seguro de que quieres eliminar este cobro TPV?
+                </p>
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    <strong>Fecha:</strong> {displayDateOnly(tpvToDelete.fecha)}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <strong>Quien Cobró:</strong> {tpvToDelete.quienCobro}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <strong>Monto:</strong> ${tpvToDelete.monto.toLocaleString()}
+                  </p>
+                </div>
+                <p className="text-xs text-red-600 mt-2">
+                  Esta acción no se puede deshacer.
+                </p>
+              </div>
+              <div className="items-center px-4 py-3 flex space-x-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50"
+                >
+                  {submitting ? 'Eliminando...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de detalles del cobro TPV */}
       {showDetailsModal && selectedTpv && (
