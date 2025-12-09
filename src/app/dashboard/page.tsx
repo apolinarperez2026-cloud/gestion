@@ -445,24 +445,24 @@ export default function DashboardPage() {
             {/* Fila 1: Resumen | Control | Gastos | Pedidos Especiales */}
             
             {/* Card de Resumen */}
-            <div className="card">
+            <div className="card border-4 border-primary-600 shadow-2xl bg-gradient-to-br from-primary-50 to-white scale-105 hover:scale-110 transition-transform duration-300">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-10 h-10 bg-primary-200 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-primary-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Resumen</h3>
-                  <p className="text-sm text-gray-500">Ver resumen financiero y movimientos</p>
+                <div className="ml-6">
+                  <h3 className="text-xl font-bold text-primary-800 drop-shadow">Resumen</h3>
+                  <p className="text-base text-primary-600 font-medium">Ver resumen financiero y movimientos</p>
                 </div>
               </div>
-              <div className="mt-4">
+              <div className="mt-6">
                 <button 
                   onClick={() => router.push('/dashboard/resumen')}
-                  className="btn-primary w-full"
+                  className="btn-primary w-full py-3 text-lg font-semibold shadow-md bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors duration-200"
                 >
                   Ver Resumen
                 </button>

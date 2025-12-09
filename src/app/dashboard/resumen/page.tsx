@@ -277,35 +277,35 @@ export default function ResumenPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-blue-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-lg border-b sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center gap-6">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="text-gray-600 hover:text-gray-900"
+                className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 transition-colors"
               >
-                ← Volver al Dashboard
+                <span className="text-xl">←</span> Dashboard
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Resumen Financiero
+                <h1 className="text-3xl font-extrabold text-blue-900 tracking-tight drop-shadow-sm">
+                  Resumen Empresarial
                 </h1>
-                <p className="text-sm text-gray-600">
+                <p className="text-base text-gray-500 font-medium mt-1">
                   {user.sucursal?.nombre || 'Sin sucursal'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user.nombre}</p>
-                <p className="text-xs text-gray-500">{user.rol.nombre}</p>
+                <p className="text-base font-bold text-blue-900">{user.nombre}</p>
+                <p className="text-xs text-gray-400">{user.rol.nombre}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="btn-secondary text-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors text-sm font-semibold"
               >
                 Cerrar Sesión
               </button>
@@ -318,8 +318,11 @@ export default function ResumenPage() {
       <main className=" mx-auto px-4 2xl:px-28 sm:px-6 lg:px-8 py-8">
         {/* Selector de Mes con Calendario */}
         <div className="mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Seleccionar Mes y Año</h2>
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+            <h2 className="text-2xl font-bold text-blue-900 mb-6 flex items-center gap-2">
+              <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              Seleccionar Mes y Año
+            </h2>
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -405,7 +408,7 @@ export default function ResumenPage() {
             
             {/* Totales del Mes Seleccionado */}
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-500">Total Ventas</p>
                   <p className="text-lg font-bold text-green-600">
@@ -438,7 +441,7 @@ export default function ResumenPage() {
 
         {/* Desglose Detallado */}
         <div className="mb-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6">
             {/* Crédito */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="text-center">
@@ -549,7 +552,7 @@ export default function ResumenPage() {
 
         {/* Lista de Movimientos del Mes */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-8 py-6 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h3 className="text-lg font-medium text-gray-900">
@@ -619,7 +622,7 @@ export default function ResumenPage() {
           ) : (
             <>
               {/* Vista de tarjetas para móvil */}
-              <div className="block lg:hidden space-y-3 p-4">
+              <div className="block lg:hidden space-y-6 p-4">
                 {diasPaginados.map((dia: any, index) => (
                   <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
                     <div className="flex justify-between items-start mb-3">
@@ -687,7 +690,7 @@ export default function ResumenPage() {
               </div>
 
               {/* Vista de tabla para desktop */}
-              <div className="hidden lg:block overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto rounded-xl shadow-lg bg-white">
                 <table className="w-full divide-y divide-gray-200 table-fixed">
                   <thead className="bg-gray-50">
                     <tr>
