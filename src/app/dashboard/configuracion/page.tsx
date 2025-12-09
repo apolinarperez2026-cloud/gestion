@@ -17,7 +17,7 @@ export default function ConfiguracionPage() {
   const { modalState, showConfirm, hideConfirm, handleConfirm } = useConfirmModal()
   const { modalState: successState, showSuccess, hideSuccess, handleClose } = useSuccessModal()
   
-  // Estados para formularios
+  // Estados para formularios.
   const [showFormaPagoForm, setShowFormaPagoForm] = useState(false)
   const [showTipoGastoForm, setShowTipoGastoForm] = useState(false)
   const [editingFormaPago, setEditingFormaPago] = useState<FormaDePago | null>(null)
