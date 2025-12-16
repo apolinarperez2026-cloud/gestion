@@ -28,6 +28,49 @@ interface Deposito {
 }
 
 export default function DepositosPage() {
+  // Estado para borrar
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Abre el modal de confirmación y almacena el id
+  const handleOpenDeleteModal = (id: number) => {
+    setDeleteId(id);
+    setShowDeleteModal(true);
+  };
+  // Realiza el borrado luego de confirmar en modal
+  const handleDeleteDeposito = async () => {
+    if (!deleteId) return;
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setErrorMessage('No hay token de autenticación. Inicia sesión nuevamente.');
+      setShowErrorModal(true);
+      setShowDeleteModal(false);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/depositos/${deleteId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        fetchDepositos();
+        setShowSuccessModal(true);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || 'No se pudo eliminar el depósito');
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      setErrorMessage('Error al eliminar depósito');
+      setShowErrorModal(true);
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteId(null);
+    }
+  }
+
   const [user, setUser] = useState<AuthUser | null>(null)
   const [depositos, setDepositos] = useState<Deposito[]>([])
   const [loading, setLoading] = useState(true)
@@ -412,7 +455,7 @@ export default function DepositosPage() {
                           'N/A'
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center gap-3 min-w-[180px]">
                         {deposito.imagen ? (
                           <img 
                             src={deposito.imagen} 
@@ -427,6 +470,15 @@ export default function DepositosPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {displayDateOnly(deposito.createdAt)}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button
+                          className="bg-red-600 hover:bg-red-700 rounded-full text-white px-3 py-2 text-xs shadow transition-colors duration-150"
+                          title="Eliminar depósito"
+                          onClick={() => handleOpenDeleteModal(deposito.id)}
+                        >
+                          Borrar
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -436,12 +488,32 @@ export default function DepositosPage() {
         </div>
       </main>
 
+      {/* Modal propio de confirmación de borrado */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center animate-fade-in">
+            <h3 className="text-xl font-bold mb-3 text-gray-900">¿Confirmar borrado?</h3>
+            <p className="text-gray-700 mb-6">¿Estás seguro/a de que quieres eliminar este depósito? <br /> <span className="font-semibold text-red-600">Esta acción no se puede deshacer.</span></p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded shadow text-gray-800"
+              >Cancelar</button>
+              <button
+                onClick={handleDeleteDeposito}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow font-semibold focus:ring-2 focus:ring-red-400"
+              >Borrar definitivamente</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de éxito */}
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="¡Depósito Creado!"
-        message="El depósito bancario se ha registrado exitosamente con todos los datos y el comprobante."
+        title="¡Operación exitosa!"
+        message="El depósito bancario se ha eliminado correctamente."
         buttonText="Continuar"
       />
 
