@@ -32,10 +32,76 @@ export default function DepositosPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // Estado para editar
+  const [editId, setEditId] = useState<number | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    monto: '',
+    fecha: '',
+    imagen: ''
+  });
+
+  // Estado para modal de detalles
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDeposito, setSelectedDeposito] = useState<Deposito | null>(null);
+
   // Abre el modal de confirmación y almacena el id
   const handleOpenDeleteModal = (id: number) => {
     setDeleteId(id);
     setShowDeleteModal(true);
+  };
+
+  // Abre el modal de edición
+  const handleOpenEditModal = (deposito: Deposito) => {
+    setEditId(deposito.id);
+    setEditFormData({
+      monto: deposito.monto.toString(),
+      fecha: new Date(deposito.fecha).toISOString().split('T')[0],
+      imagen: deposito.imagen || ''
+    });
+    setShowEditModal(true);
+  };
+
+  // Abre el modal de detalles
+  const handleOpenDetailsModal = (deposito: Deposito) => {
+    setSelectedDeposito(deposito);
+    setShowDetailsModal(true);
+  };
+
+  // Realiza la edición
+  const handleEditDeposito = async () => {
+    if (!editId) return;
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setErrorMessage('No hay token de autenticación. Inicia sesión nuevamente.');
+      setShowErrorModal(true);
+      setShowEditModal(false);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/depositos/${editId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editFormData)
+      });
+      if (response.ok) {
+        fetchDepositos();
+        setShowEditModal(false);
+        setEditId(null);
+        setEditFormData({ monto: '', fecha: '', imagen: '' });
+        setShowSuccessModal(true);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || 'No se pudo editar el depósito');
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      setErrorMessage('Error al editar depósito');
+      setShowErrorModal(true);
+    }
   };
   // Realiza el borrado luego de confirmar en modal
   const handleDeleteDeposito = async () => {
@@ -434,11 +500,18 @@ export default function DepositosPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Registrado
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {depositos.map((deposito) => (
-                    <tr key={deposito.id}>
+                    <tr 
+                      key={deposito.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleOpenDetailsModal(deposito)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {displayDateOnly(deposito.fecha)}
                       </td>
@@ -455,13 +528,13 @@ export default function DepositosPage() {
                           'N/A'
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center gap-3 min-w-[180px]">
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center gap-3 min-w-[180px]">
                         {deposito.imagen ? (
                           <img 
                             src={deposito.imagen} 
                             alt="Comprobante" 
-                            className="w-16 h-16 object-cover rounded border cursor-pointer"
-                            onClick={() => window.open(deposito.imagen, '_blank')}
+                            className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => handleOpenDetailsModal(deposito)}
                           />
                         ) : (
                           <span className="text-gray-400">Sin comprobante</span>
@@ -471,13 +544,28 @@ export default function DepositosPage() {
                         {displayDateOnly(deposito.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          className="bg-red-600 hover:bg-red-700 rounded-full text-white px-3 py-2 text-xs shadow transition-colors duration-150"
-                          title="Eliminar depósito"
-                          onClick={() => handleOpenDeleteModal(deposito.id)}
-                        >
-                          Borrar
-                        </button>
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            className="bg-blue-600 hover:bg-blue-700 rounded-full text-white px-3 py-2 text-xs shadow transition-colors duration-150"
+                            title="Editar depósito"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenEditModal(deposito)
+                            }}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            className="bg-red-600 hover:bg-red-700 rounded-full text-white px-3 py-2 text-xs shadow transition-colors duration-150"
+                            title="Eliminar depósito"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenDeleteModal(deposito.id)
+                            }}
+                          >
+                            Borrar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -487,6 +575,187 @@ export default function DepositosPage() {
           )}
         </div>
       </main>
+
+      {/* Modal de detalles del depósito */}
+      {showDetailsModal && selectedDeposito && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Detalles del Depósito Bancario</h3>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Información básica */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha del Depósito</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {displayDateOnly(selectedDeposito.fecha)}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Monto</label>
+                    <p className="mt-1 text-sm font-bold text-green-600">
+                      ${selectedDeposito.monto.toLocaleString('en-US')}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Sucursal</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedDeposito.sucursal.nombre}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Registrado por</label>
+                    <div className="mt-1 text-sm text-gray-900">
+                      {selectedDeposito.usuario ? (
+                        <>
+                          <div className="font-medium">{selectedDeposito.usuario.nombre}</div>
+                          <div className="text-xs text-gray-500">{selectedDeposito.usuario.rol.nombre}</div>
+                        </>
+                      ) : (
+                        'N/A'
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Imagen */}
+                {selectedDeposito.imagen && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Comprobante del Depósito</label>
+                    <div className="flex justify-center">
+                      <img
+                        src={selectedDeposito.imagen}
+                        alt="Comprobante del depósito"
+                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Información adicional */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fecha de Registro</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {displayDateOnly(selectedDeposito.createdAt)}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">ID del Depósito</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      #{selectedDeposito.id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de edición */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full animate-fade-in">
+            <h3 className="text-xl font-bold mb-6 text-gray-900">Editar Depósito</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha *
+                </label>
+                <input
+                  type="date"
+                  value={editFormData.fecha}
+                  onChange={(e) => setEditFormData({ ...editFormData, fecha: e.target.value })}
+                  className="input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Monto *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.monto}
+                  onChange={(e) => setEditFormData({ ...editFormData, monto: e.target.value })}
+                  className="input"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Comprobante (Opcional)
+                </label>
+                <UploadThing
+                  onUploadComplete={(url) => {
+                    setEditFormData({ ...editFormData, imagen: url })
+                  }}
+                  onUploadError={(error: Error) => {
+                    console.error('Error al subir imagen:', error)
+                    setErrorMessage('Error al subir la imagen: ' + error.message)
+                    setShowErrorModal(true)
+                  }}
+                />
+                {(editFormData.imagen) && (
+                  <div className="mt-2">
+                    <p className="text-sm text-green-600 mb-2">✓ Imagen actual</p>
+                    <img 
+                      src={editFormData.imagen} 
+                      alt="Comprobante" 
+                      className="w-24 h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => window.open(editFormData.imagen, '_blank')}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Haz clic para ver en tamaño completo</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-4 justify-center mt-6">
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditId(null)
+                  setEditFormData({ monto: '', fecha: '', imagen: '' })
+                }}
+                className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded shadow text-gray-800"
+              >Cancelar</button>
+              <button
+                onClick={handleEditDeposito}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow font-semibold focus:ring-2 focus:ring-blue-400"
+              >Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal propio de confirmación de borrado */}
       {showDeleteModal && (
@@ -513,7 +782,7 @@ export default function DepositosPage() {
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         title="¡Operación exitosa!"
-        message="El depósito bancario se ha eliminado correctamente."
+        message="El depósito bancario se ha procesado correctamente."
         buttonText="Continuar"
       />
 
