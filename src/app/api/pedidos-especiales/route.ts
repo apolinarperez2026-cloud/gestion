@@ -13,10 +13,33 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
+// Determinar qué pedidos puede ver el usuario
+    let whereClause: any = {}
+    
+    if (decoded.rol !== 'Administrador') {
+      if (decoded.sucursalId) {
+        whereClause.sucursalId = decoded.sucursalId
+      } else {
+        // Si no tiene sucursalId, verificar sus sucursales asignadas
+        const usuarioConSucursales = await prisma.usuario.findUnique({
+          where: { id: decoded.userId },
+          include: {
+            sucursales: {
+              select: { sucursalId: true }
+            }
+          }
+        })
+        
+        if (usuarioConSucursales && usuarioConSucursales.sucursales.length > 0) {
+          whereClause.sucursalId = {
+            in: usuarioConSucursales.sucursales.map(s => s.sucursalId)
+          }
+        }
+      }
+    }
+
     const pedidos = await prisma.pedidoEspecial.findMany({
-      where: {
-        sucursalId: decoded.sucursalId
-      },
+      where: whereClause,
       include: {
         usuario: {
           select: {

@@ -320,6 +320,36 @@ export default function PedidosEspecialesPage() {
     }
   }
 
+  const handleEliminar = (pedido: PedidoEspecial) => {
+    showConfirm('¿Estás seguro de que quieres eliminar este pedido?', async () => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          router.push('/auth/login')
+          return
+        }
+
+        const response = await fetch(`/api/pedidos-especiales/${pedido.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.ok) {
+          fetchPedidos()
+          showModal('Pedido eliminado exitosamente', 'success')
+        } else {
+          const errorData = await response.json()
+          showModal(errorData.error || 'Error al eliminar el pedido')
+        }
+      } catch (error) {
+        console.error('Error al eliminar pedido:', error)
+        showModal('Error al eliminar el pedido')
+      }
+    })
+  }
+
   const handleEditSubmit = async () => {
     if (!selectedPedido) return
 
@@ -882,7 +912,7 @@ export default function PedidosEspecialesPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex flex-wrap gap-1">
                             
-                            {/* Botones para estado Pendiente */}
+                             {/* Botones para estado Pendiente */}
                             {pedido.estado === 'Pendiente' && (
                               <>
                                 <button
@@ -903,19 +933,10 @@ export default function PedidosEspecialesPage() {
                                 >
                                   Cancelar
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleRecibido(pedido)
-                                  }}
-                                  className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                                >
-                                  Recibido
-                                </button>
                               </>
                             )}
                             
-                            {/* Botones para estado En Proceso */}
+                             {/* Botones para estado En Proceso */}
                             {pedido.estado === 'En Proceso' && (
                               <>
                                 <button
@@ -939,15 +960,6 @@ export default function PedidosEspecialesPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleRecibido(pedido)
-                                  }}
-                                  className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                                >
-                                  Recibido
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
                                     handleEntregar(pedido)
                                   }}
                                   className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs font-medium transition-colors"
@@ -957,23 +969,61 @@ export default function PedidosEspecialesPage() {
                               </>
                             )}
                             
-                            {/* Botones para estado Recibido */}
-                            {pedido.estado === 'Recibido' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleEntregar(pedido)
-                                }}
-                                className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs font-medium transition-colors"
-                              >
-                                Entregar
-                              </button>
-                            )}
+                             {/* Botones para estado Recibido - solo editar y eliminar */}
+                             {pedido.estado === 'Recibido' && (
+                               <>
+                                 {/* Botón de Editar - disponible para todos */}
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     handleEdit(pedido)
+                                   }}
+                                   className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                 >
+                                   Editar
+                                 </button>
+                                 {/* Botón de Eliminar - solo para administradores */}
+                                 {user?.rol.nombre === 'Administrador' && (
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation()
+                                       handleEliminar(pedido)
+                                     }}
+                                     className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                   >
+                                     Eliminar
+                                   </button>
+                                 )}
+                               </>
+                             )}
                             
-                            {/* Estados finales */}
-                            {pedido.estado === 'Entregado' && (
-                              <span className="text-green-600 text-xs font-medium">✓ Entregado</span>
-                            )}
+                             {/* Estados finales */}
+                             {pedido.estado === 'Entregado' && (
+                               <>
+                                 {/* Botón de Editar - disponible para todos */}
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     handleEdit(pedido)
+                                   }}
+                                   className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                 >
+                                   Editar
+                                 </button>
+                                 {/* Botón de Eliminar - solo para administradores */}
+                                 {user?.rol.nombre === 'Administrador' && (
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation()
+                                       handleEliminar(pedido)
+                                     }}
+                                     className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                   >
+                                     Eliminar
+                                   </button>
+                                 )}
+                               </>
+                             )}
                             
                             {pedido.estado === 'Cancelado' && (
                               <span className="text-red-600 text-xs font-medium">✗ Cancelado</span>
@@ -1049,7 +1099,7 @@ export default function PedidosEspecialesPage() {
                         Historial
                       </button>
                       
-                      {/* Botones para estado Pendiente */}
+                       {/* Botones para estado Pendiente */}
                       {pedido.estado === 'Pendiente' && (
                         <>
                           <button
@@ -1070,19 +1120,10 @@ export default function PedidosEspecialesPage() {
                           >
                             Cancelar
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleRecibido(pedido)
-                            }}
-                            className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded text-xs font-medium transition-colors"
-                          >
-                            Recibido
-                          </button>
                         </>
                       )}
                       
-                      {/* Botones para estado En Proceso */}
+                       {/* Botones para estado En Proceso */}
                       {pedido.estado === 'En Proceso' && (
                         <>
                           <button
@@ -1106,15 +1147,6 @@ export default function PedidosEspecialesPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleRecibido(pedido)
-                            }}
-                            className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded text-xs font-medium transition-colors"
-                          >
-                            Recibido
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
                               handleEntregar(pedido)
                             }}
                             className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded text-xs font-medium transition-colors"
@@ -1124,23 +1156,61 @@ export default function PedidosEspecialesPage() {
                         </>
                       )}
                       
-                      {/* Botones para estado Recibido */}
-                      {pedido.estado === 'Recibido' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleEntregar(pedido)
-                          }}
-                          className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded text-xs font-medium transition-colors"
-                        >
-                          Entregar
-                        </button>
-                      )}
+                       {/* Botones para estado Recibido - solo editar y eliminar */}
+                       {pedido.estado === 'Recibido' && (
+                         <>
+                           {/* Botón de Editar - disponible para todos */}
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleEdit(pedido)
+                             }}
+                             className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                           >
+                             Editar
+                           </button>
+                           {/* Botón de Eliminar - solo para administradores */}
+                           {user?.rol.nombre === 'Administrador' && (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation()
+                                 handleEliminar(pedido)
+                               }}
+                               className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                             >
+                               Eliminar
+                             </button>
+                           )}
+                         </>
+                       )}
                       
-                      {/* Estados finales */}
-                      {pedido.estado === 'Entregado' && (
-                        <span className="text-green-600 text-xs font-medium px-3 py-1 bg-green-50 rounded">✓ Entregado</span>
-                      )}
+                       {/* Estados finales */}
+                       {pedido.estado === 'Entregado' && (
+                         <>
+                           {/* Botón de Editar - disponible para todos */}
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleEdit(pedido)
+                             }}
+                             className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                           >
+                             Editar
+                           </button>
+                           {/* Botón de Eliminar - solo para administradores */}
+                           {user?.rol.nombre === 'Administrador' && (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation()
+                                 handleEliminar(pedido)
+                               }}
+                               className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                             >
+                               Eliminar
+                             </button>
+                           )}
+                         </>
+                       )}
                       
                       {pedido.estado === 'Cancelado' && (
                         <span className="text-red-600 text-xs font-medium px-3 py-1 bg-red-50 rounded">✗ Cancelado</span>
