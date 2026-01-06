@@ -40,6 +40,8 @@ export default function FondoCajaInicialPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [editingFondo, setEditingFondo] = useState<FondoCajaInicial | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [fondoToDelete, setFondoToDelete] = useState<FondoCajaInicial | null>(null)
   const router = useRouter()
 
   const fetchUser = async () => {
@@ -240,6 +242,46 @@ export default function FondoCajaInicialPage() {
     setShowForm(false)
   }
 
+  const handleDelete = (fondo: FondoCajaInicial) => {
+    setFondoToDelete(fondo)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!fondoToDelete) return
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`/api/fondo-caja-inicial/${fondoToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        fetchFondosCajaInicial()
+        setShowDeleteModal(false)
+        setFondoToDelete(null)
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setErrorMessage(error.error || 'Error al eliminar fondo de caja inicial')
+        setShowErrorModal(true)
+        setShowDeleteModal(false)
+        setFondoToDelete(null)
+      }
+    } catch (error) {
+      console.error('Error al eliminar fondo:', error)
+      setErrorMessage('Error al eliminar fondo de caja inicial')
+      setShowErrorModal(true)
+      setShowDeleteModal(false)
+      setFondoToDelete(null)
+    }
+  }
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
@@ -426,12 +468,22 @@ export default function FondoCajaInicialPage() {
                         {displayDateOnly(fondo.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button
-                          onClick={() => handleEdit(fondo)}
-                          className="text-blue-600 hover:text-blue-900 font-medium"
-                        >
-                          Editar
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEdit(fondo)}
+                            className="text-blue-600 hover:text-blue-900 font-medium"
+                          >
+                            Editar
+                          </button>
+                          {user.rol.nombre === 'Administrador' && (
+                            <button
+                              onClick={() => handleDelete(fondo)}
+                              className="text-red-600 hover:text-red-900 font-medium"
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -446,8 +498,12 @@ export default function FondoCajaInicialPage() {
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="¡Fondo Inicial Creado!"
-        message="El fondo de caja inicial se ha registrado exitosamente."
+        title={isEditing ? "¡Fondo Inicial Actualizado!" : "¡Fondo Inicial Eliminado!"}
+        message={
+          isEditing 
+            ? "El fondo de caja inicial se ha actualizado exitosamente."
+            : "El fondo de caja inicial se ha eliminado exitosamente."
+        }
       />
 
       {/* Modal de error */}
@@ -458,6 +514,38 @@ export default function FondoCajaInicialPage() {
         title="Error"
         message={errorMessage}
       />
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && fondoToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Confirmar Eliminación
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              ¿Estás seguro que deseas eliminar el fondo de caja inicial de ${fondoToDelete.monto.toLocaleString('en-US')} del {displayDateOnly(fondoToDelete.fecha)}? 
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setFondoToDelete(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

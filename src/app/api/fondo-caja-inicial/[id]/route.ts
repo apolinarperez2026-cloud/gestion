@@ -139,6 +139,19 @@ export async function DELETE(
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
+    // Verificar que el usuario es administrador
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: decoded.userId },
+      include: { rol: true }
+    })
+
+    if (!usuario || usuario.rol.nombre !== 'Administrador') {
+      return NextResponse.json(
+        { error: 'No tienes permisos para eliminar fondos de caja inicial' },
+        { status: 403 }
+      )
+    }
+
     // Verificar que el fondo de caja inicial existe
     const fondoExistente = await prisma.fondoCajaInicial.findUnique({
       where: { id }

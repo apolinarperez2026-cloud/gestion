@@ -35,6 +35,8 @@ export default function MercaderiasPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [mercaderiaToDelete, setMercaderiaToDelete] = useState<any>(null)
   const [editFormData, setEditFormData] = useState<MercaderiaData>({
     fecha: '',
     tipo: 'entrada',
@@ -286,6 +288,47 @@ export default function MercaderiasPage() {
       recibe: '',
       monto: ''
     })
+  }
+
+  const handleDelete = (mercaderia: any) => {
+    setMercaderiaToDelete(mercaderia)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!mercaderiaToDelete) return
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`/api/mercaderias/${mercaderiaToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        fetchMercaderias()
+        setShowDeleteModal(false)
+        setMercaderiaToDelete(null)
+        setModalMessage('Mercadería eliminada exitosamente')
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setModalMessage(`Error: ${error.error || 'Error al eliminar mercadería'}`)
+        setShowErrorModal(true)
+        setShowDeleteModal(false)
+        setMercaderiaToDelete(null)
+      }
+    } catch (error) {
+      console.error('Error al eliminar mercadería:', error)
+      setModalMessage('Error al eliminar mercadería')
+      setShowErrorModal(true)
+      setShowDeleteModal(false)
+      setMercaderiaToDelete(null)
+    }
   }
 
   const handleLogout = async () => {
@@ -759,12 +802,22 @@ export default function MercaderiasPage() {
                         </div>
                         
                         <div className="flex justify-end mt-3 pt-3 border-t border-gray-200">
-                          <button
-                            onClick={() => handleEdit(mercaderia)}
-                            className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                          >
-                            Editar
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEdit(mercaderia)}
+                              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Editar
+                            </button>
+                            {user.rol.nombre === 'Administrador' && (
+                              <button
+                                onClick={() => handleDelete(mercaderia)}
+                                className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </>
                     )}
@@ -913,12 +966,22 @@ export default function MercaderiasPage() {
                               ${mercaderia.monto.toLocaleString('en-US')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button
-                                onClick={() => handleEdit(mercaderia)}
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                Editar
-                              </button>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEdit(mercaderia)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  Editar
+                                </button>
+                                {user.rol.nombre === 'Administrador' && (
+                                  <button
+                                    onClick={() => handleDelete(mercaderia)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    Eliminar
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </>
                         )}
@@ -1060,6 +1123,38 @@ export default function MercaderiasPage() {
                   Aceptar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && mercaderiaToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Confirmar Eliminación
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              ¿Estás seguro que deseas eliminar esta mercadería de {mercaderiaToDelete.tipo} por ${mercaderiaToDelete.monto.toLocaleString('en-US')}? 
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setMercaderiaToDelete(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
