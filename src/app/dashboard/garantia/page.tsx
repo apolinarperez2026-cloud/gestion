@@ -46,7 +46,15 @@ export default function GarantiaPage() {
   const [modalMessage, setModalMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editFormData, setEditFormData] = useState<Partial<GarantiaData>>({})
+  const [editFormData, setEditFormData] = useState<Partial<GarantiaData>>({
+    fechaRegistro: '',
+    cliente: '',
+    marca: '',
+    sku: '',
+    cantidad: '',
+    descripcion: '',
+    estado: 'en_reparacion'
+  })
   const [selectedGarantia, setSelectedGarantia] = useState<Garantia | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [stats, setStats] = useState({
@@ -60,6 +68,12 @@ export default function GarantiaPage() {
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [garantiaToDelete, setGarantiaToDelete] = useState<Garantia | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
   const router = useRouter()
 
   const fetchUser = async () => {
@@ -99,7 +113,7 @@ export default function GarantiaPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/garantias', {
+      const response = await fetch(`/api/garantias?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -118,7 +132,7 @@ export default function GarantiaPage() {
   useEffect(() => {
     fetchUser()
     fetchGarantias()
-  }, [])
+  }, [selectedMonth])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -176,12 +190,13 @@ export default function GarantiaPage() {
   const handleEdit = (garantia: Garantia) => {
     setEditingId(garantia.id.toString())
     setEditFormData({
-      fechaEntregaFabricante: garantia.fechaEntregaFabricante ? formatDateOnly(garantia.fechaEntregaFabricante) : '',
-      fechaRegresoFabricante: garantia.fechaRegresoFabricante ? formatDateOnly(garantia.fechaRegresoFabricante) : '',
-      fechaEntregaCliente: garantia.fechaEntregaCliente ? formatDateOnly(garantia.fechaEntregaCliente) : '',
-      fotoReciboEntrega: garantia.fotoReciboEntrega || '',
-      estado: garantia.estado as 'en_reparacion' | 'cancelada' | 'proceso_reembolso' | 'proceso_reemplazo' | 'completada',
-      comentarios: garantia.comentarios || ''
+      fechaRegistro: formatDateOnly(garantia.fechaRegistro),
+      cliente: garantia.cliente,
+      marca: garantia.marca,
+      sku: garantia.sku,
+      cantidad: garantia.cantidad.toString(),
+      descripcion: garantia.descripcion,
+      estado: garantia.estado as 'en_reparacion' | 'cancelada' | 'proceso_reembolso' | 'proceso_reemplazo' | 'completada'
     })
   }
 
@@ -200,10 +215,20 @@ export default function GarantiaPage() {
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    
+    if (name === 'cantidad') {
+      // Solo permitir números positivos
+      const numericValue = value.replace(/[^0-9]/g, '')
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: numericValue
+      }))
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
   }
 
   const handleEditSubmit = async (garantiaId: string) => {
@@ -215,35 +240,7 @@ export default function GarantiaPage() {
         return
       }
 
-      // Determinar qué datos enviar según el estado actual
-      const garantia = garantias.find(g => g.id.toString() === garantiaId)
-      if (!garantia) return
-
-      const actionButton = getActionButton(garantia)
-      let updateData: any = {}
-
-      switch (actionButton.action) {
-        case 'enviar_proveedor':
-          updateData = {
-            fechaEntregaFabricante: editFormData.fechaEntregaFabricante,
-            estado: 'en_reparacion'
-          }
-          break
-        case 'recibido_proveedor':
-          updateData = {
-            fechaRegresoFabricante: editFormData.fechaRegresoFabricante,
-            estado: editFormData.estado || 'en_reparacion',
-            comentarios: editFormData.comentarios || null
-          }
-          break
-        case 'entregar_cliente':
-          updateData = {
-            fechaEntregaCliente: editFormData.fechaEntregaCliente,
-            fotoReciboEntrega: editFormData.fotoReciboEntrega,
-            estado: 'completada'
-          }
-          break
-      }
+      console.log('Enviando datos:', editFormData) // Debug
 
       const response = await fetch(`/api/garantias/${garantiaId}`, {
         method: 'PUT',
@@ -251,18 +248,19 @@ export default function GarantiaPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(editFormData)
       })
 
       if (response.ok) {
         setEditingId(null)
         setEditFormData({})
         fetchGarantias()
-        setModalMessage(`${actionButton.text} exitosamente`)
+        setModalMessage('Garantía actualizada exitosamente')
         setShowSuccessModal(true)
       } else {
         const error = await response.json()
-        setModalMessage(`Error: ${error.message || 'Error al actualizar garantía'}`)
+        console.error('Error response:', error) // Debug
+        setModalMessage(`Error: ${error.error || 'Error al actualizar garantía'}`)
         setShowErrorModal(true)
       }
     } catch (error) {
@@ -279,11 +277,47 @@ export default function GarantiaPage() {
     setEditFormData({})
   }
 
-  const handleEditImageUpload = (url: string) => {
-    setEditFormData(prev => ({
-      ...prev,
-      fotoReciboEntrega: url
-    }))
+
+
+  const handleDelete = (garantia: Garantia) => {
+    setGarantiaToDelete(garantia)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!garantiaToDelete) return
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`/api/garantias/${garantiaToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        fetchGarantias()
+        setShowDeleteModal(false)
+        setGarantiaToDelete(null)
+        setModalMessage('Garantía eliminada exitosamente')
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        setModalMessage(`Error: ${error.error || 'Error al eliminar garantía'}`)
+        setShowErrorModal(true)
+        setShowDeleteModal(false)
+        setGarantiaToDelete(null)
+      }
+    } catch (error) {
+      console.error('Error al eliminar garantía:', error)
+      setModalMessage('Error al eliminar garantía')
+      setShowErrorModal(true)
+      setShowDeleteModal(false)
+      setGarantiaToDelete(null)
+    }
   }
 
   // Función para abrir modal de detalles
@@ -467,14 +501,30 @@ export default function GarantiaPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Botón para agregar garantía */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : '+ Nueva Garantía'}
-          </button>
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input-field"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : '+ Nueva Garantía'}
+            </button>
+          </div>
         </div>
 
         {/* Barra de búsqueda */}
@@ -504,6 +554,18 @@ export default function GarantiaPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Indicador del período seleccionado */}
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-blue-800 font-medium">
+              Mostrando datos de: {new Date(selectedMonth + '-01').toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}
+            </span>
           </div>
         </div>
 
@@ -826,22 +888,27 @@ export default function GarantiaPage() {
                       </div>
                     </div>
                     
-                    {/* Botón de acción */}
-                    <div className="mt-3 flex justify-end">
-                      {getActionButton(garantia).action !== 'completado' ? (
+                    {/* Botones de acción */}
+                    <div className="mt-3 flex justify-end space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEdit(garantia)
+                        }}
+                        className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Editar
+                      </button>
+                      {user.rol.nombre === 'Administrador' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleEdit(garantia)
+                            handleDelete(garantia)
                           }}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
                         >
-                          {getActionButton(garantia).text}
+                          Eliminar
                         </button>
-                      ) : (
-                        <span className="text-green-600 text-sm font-medium">
-                          ✓ Completado
-                        </span>
                       )}
                     </div>
                   </div>
@@ -924,7 +991,7 @@ export default function GarantiaPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {getActionButton(garantia).action !== 'completado' ? (
+                          <div className="flex space-x-2">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -932,13 +999,20 @@ export default function GarantiaPage() {
                               }}
                               className="text-blue-600 hover:text-blue-800 font-medium"
                             >
-                              {getActionButton(garantia).text}
+                              Editar
                             </button>
-                          ) : (
-                            <span className="text-green-600 font-medium">
-                              ✓ Completado
-                            </span>
-                          )}
+                            {user.rol.nombre === 'Administrador' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDelete(garantia)
+                                }}
+                                className="text-red-600 hover:text-red-800 font-medium"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1087,120 +1161,133 @@ export default function GarantiaPage() {
       {editingId && (() => {
         const garantia = garantias.find(g => g.id.toString() === editingId)
         if (!garantia) return null
-        const actionButton = getActionButton(garantia)
         
         return (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
               <div className="mt-3">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  {actionButton.text}
+                  Editar Garantía
                 </h3>
                 <form onSubmit={(e) => { e.preventDefault(); handleEditSubmit(editingId); }} className="space-y-4">
                   
-                  {/* Enviar a Proveedor */}
-                  {actionButton.action === 'enviar_proveedor' && (
+                  {/* Información Básica */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Fecha de Envío a Proveedor *
+                        Fecha de Registro *
                       </label>
                       <input
                         type="date"
-                        name="fechaEntregaFabricante"
-                        value={editFormData.fechaEntregaFabricante || ''}
+                        name="fechaRegistro"
+                        value={editFormData.fechaRegistro || ''}
                         onChange={handleEditChange}
                         className="input-field"
                         required
                       />
                     </div>
-                  )}
 
-                  {/* Recibido de Proveedor */}
-                  {actionButton.action === 'recibido_proveedor' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Fecha de Recibo de Proveedor *
-                        </label>
-                        <input
-                          type="date"
-                          name="fechaRegresoFabricante"
-                          value={editFormData.fechaRegresoFabricante || ''}
-                          onChange={handleEditChange}
-                          className="input-field"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Estado Actual
-                        </label>
-                        <select
-                          name="estado"
-                          value={editFormData.estado || garantia.estado}
-                          onChange={handleEditChange}
-                          className="input-field"
-                        >
-                          <option value="en_reparacion">En Reparación</option>
-                          <option value="proceso_reembolso">Proceso de Reembolso</option>
-                          <option value="proceso_reemplazo">Proceso de Reemplazo</option>
-                          <option value="cancelada">Cancelada</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Comentarios
-                        </label>
-                        <textarea
-                          name="comentarios"
-                          value={editFormData.comentarios || garantia.comentarios || ''}
-                          onChange={handleEditChange}
-                          className="input-field"
-                          placeholder="Comentarios sobre el estado del producto..."
-                          rows={3}
-                        />
-                      </div>
-                    </>
-                  )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cliente *
+                      </label>
+                      <input
+                        type="text"
+                        name="cliente"
+                        value={editFormData.cliente || ''}
+                        onChange={handleEditChange}
+                        className="input-field"
+                        placeholder="Nombre del cliente"
+                        required
+                      />
+                    </div>
 
-                  {/* Entregar al Cliente */}
-                  {actionButton.action === 'entregar_cliente' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Fecha de Entrega a Cliente *
-                        </label>
-                        <input
-                          type="date"
-                          name="fechaEntregaCliente"
-                          value={editFormData.fechaEntregaCliente || ''}
-                          onChange={handleEditChange}
-                          className="input-field"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Foto del Recibo de Entrega a Cliente *
-                        </label>
-                        <div className="space-y-3">
-                          <UploadThingComponent
-                            onUploadComplete={handleEditImageUpload}
-                            onUploadError={handleImageUploadError}
-                          />
-                          {editFormData.fotoReciboEntrega && (
-                            <div className="mt-2">
-                              <img
-                                src={editFormData.fotoReciboEntrega}
-                                alt="Recibo de entrega"
-                                className="h-32 w-32 object-cover rounded-lg border"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Marca *
+                      </label>
+                      <input
+                        type="text"
+                        name="marca"
+                        value={editFormData.marca || ''}
+                        onChange={handleEditChange}
+                        className="input-field"
+                        placeholder="Marca del producto"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        SKU *
+                      </label>
+                      <input
+                        type="text"
+                        name="sku"
+                        value={editFormData.sku || ''}
+                        onChange={handleEditChange}
+                        className="input-field"
+                        placeholder="Código SKU"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cantidad *
+                      </label>
+                      <input
+                        type="number"
+                        name="cantidad"
+                        value={editFormData.cantidad || ''}
+                        onChange={handleEditChange}
+                        className="input-field"
+                        placeholder="1"
+                        min="1"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Estado *
+                      </label>
+                      <select
+                        name="estado"
+                        value={editFormData.estado || ''}
+                        onChange={handleEditChange}
+                        className="input-field"
+                        required
+                      >
+                        <option value="en_reparacion">En Reparación</option>
+                        <option value="proceso_reembolso">Proceso de Reembolso</option>
+                        <option value="proceso_reemplazo">Proceso de Reemplazo</option>
+                        <option value="cancelada">Cancelada</option>
+                        <option value="completada">Completada</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Descripción *
+                    </label>
+                    <textarea
+                      name="descripcion"
+                      value={editFormData.descripcion || ''}
+                      onChange={handleEditChange}
+                      className="input-field"
+                      placeholder="Descripción del problema o garantía"
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+
+
+
+
+
 
                   <div className="flex justify-end space-x-4 pt-4">
                     <button
@@ -1215,7 +1302,7 @@ export default function GarantiaPage() {
                       className="btn-primary"
                       disabled={submitting}
                     >
-                      {submitting ? 'Guardando...' : actionButton.text}
+                      {submitting ? 'Guardando...' : 'Actualizar Garantía'}
                     </button>
                   </div>
                 </form>
@@ -1378,6 +1465,38 @@ export default function GarantiaPage() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && garantiaToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Confirmar Eliminación
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              ¿Estás seguro que deseas eliminar la garantía de {garantiaToDelete.cliente} para el producto {garantiaToDelete.marca} - {garantiaToDelete.sku}? 
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setGarantiaToDelete(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
