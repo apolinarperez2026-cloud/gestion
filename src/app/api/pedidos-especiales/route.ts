@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
+    // Obtener parámetro de mes de la URL
+    const { searchParams } = new URL(request.url)
+    const monthParam = searchParams.get('month')
+
 // Determinar qué pedidos puede ver el usuario
     let whereClause: any = {}
     
@@ -34,6 +38,20 @@ export async function GET(request: NextRequest) {
           whereClause.sucursalId = {
             in: usuarioConSucursales.sucursales.map(s => s.sucursalId)
           }
+        }
+      }
+    }
+
+    // Si se proporciona un mes, agregar filtro por fecha
+    if (monthParam) {
+      const [year, month] = monthParam.split('-')
+      if (year && month) {
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        
+        whereClause.fechaPedido = {
+          gte: startDate,
+          lte: endDate
         }
       }
     }

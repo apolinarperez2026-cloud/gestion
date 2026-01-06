@@ -14,6 +14,18 @@ export default function MovimientosPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [stats, setStats] = useState({
+    totalVentas: 0,
+    totalEfectivo: 0,
+    totalTarjeta: 0,
+    totalTransferencias: 0,
+    totalRecargas: 0,
+    countMovimientos: 0
+  })
   const { modalState, showConfirm, hideConfirm, handleConfirm } = useConfirmModal()
   const [formData, setFormData] = useState<MovimientoDiarioForm>({
     fecha: new Date().toISOString().split('T')[0],
@@ -29,6 +41,7 @@ export default function MovimientosPage() {
   })
   const [editingMovimiento, setEditingMovimiento] = useState<MovimientoDiario | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [showForm, setShowForm] = useState(false)
   const [historialModal, setHistorialModal] = useState<{ isOpen: boolean; movimientoId: number | null }>({
     isOpen: false,
     movimientoId: null
@@ -79,14 +92,32 @@ export default function MovimientosPage() {
     }
 
     fetchUser()
-  }, [router])
+  }, [router, selectedMonth])
+
+  // Función para calcular estadísticas
+  const calculateStats = (movimientosDiarios: MovimientoDiario[]) => {
+    const totalVentas = movimientosDiarios.reduce((sum, m) => sum + (m.ventasBrutas || 0), 0)
+    const totalEfectivo = movimientosDiarios.reduce((sum, m) => sum + (m.efectivo || 0), 0)
+    const totalTarjeta = movimientosDiarios.reduce((sum, m) => sum + (m.pagoTarjeta || 0), 0)
+    const totalTransferencias = movimientosDiarios.reduce((sum, m) => sum + (m.transferencias || 0), 0)
+    const totalRecargas = movimientosDiarios.reduce((sum, m) => sum + (m.recargas || 0), 0)
+    
+    setStats({
+      totalVentas,
+      totalEfectivo,
+      totalTarjeta,
+      totalTransferencias,
+      totalRecargas,
+      countMovimientos: movimientosDiarios.length
+    })
+  }
 
   const fetchMovimientosDiarios = async () => {
     try {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/movimientos-diarios', {
+      const response = await fetch(`/api/movimientos-diarios?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -95,6 +126,7 @@ export default function MovimientosPage() {
         const data = await response.json()
         console.log('Datos recibidos de la API:', data)
         setMovimientosDiarios(data.movimientosDiarios || [])
+        calculateStats(data.movimientosDiarios || [])
       } else {
         console.error('Error en la respuesta de la API:', response.status, response.statusText)
       }
@@ -651,6 +683,32 @@ export default function MovimientosPage() {
 
       {/* Main Content */}
       <main className=" 2xl:mx-20  mx-auto xl:px-4 sm:px-6 lg:px-8 py-8">
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input-field"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : '+ Nuevo Movimiento Diario'}
+            </button>
+          </div>
+        </div>
+
         {/* Totales del Mes */}
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -869,7 +927,8 @@ export default function MovimientosPage() {
         </div>
 
         {/* Formulario para nuevo movimiento diario */}
-        <div className="card mb-8">
+        {showForm && (
+          <div className="card mb-8">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             {isEditing ? 'Editar Movimiento Diario' : 'Nuevo Movimiento Diario'}
           </h3>
@@ -1070,6 +1129,7 @@ export default function MovimientosPage() {
             </div>
           </form>
         </div>
+        )}
 
         {/* Lista de movimientos diarios */}
         <div className="card">

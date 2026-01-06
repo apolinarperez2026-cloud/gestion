@@ -29,6 +29,16 @@ export default function MovimientosIndividualesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [stats, setStats] = useState({
+    totalIngresos: 0,
+    totalGastos: 0,
+    balance: 0,
+    countMovimientos: 0
+  })
   const { modalState, showConfirm, hideConfirm, handleConfirm } = useConfirmModal()
   const [formData, setFormData] = useState<MovimientoForm>({
     fecha: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
@@ -78,7 +88,7 @@ export default function MovimientosIndividualesPage() {
     }
 
     fetchUser()
-  }, [router])
+  }, [router, selectedMonth])
 
   const fetchFormasDePago = async () => {
     try {
@@ -118,12 +128,30 @@ export default function MovimientosIndividualesPage() {
     }
   }
 
+  // Función para calcular estadísticas
+  const calculateStats = (movimientos: Movimiento[]) => {
+    const ventas = movimientos.filter(m => m.tipo === 'VENTA')
+    const gastos = movimientos.filter(m => m.tipo === 'GASTO')
+    const fondoCaja = movimientos.filter(m => m.tipo === 'FONDO_CAJA')
+    
+    const totalVentas = ventas.reduce((sum, m) => sum + m.monto, 0)
+    const totalGastos = gastos.reduce((sum, m) => sum + m.monto, 0)
+    const totalFondoCaja = fondoCaja.reduce((sum, m) => sum + m.monto, 0)
+    
+    setStats({
+      totalIngresos: totalVentas + totalFondoCaja,
+      totalGastos,
+      balance: totalVentas + totalFondoCaja - totalGastos,
+      countMovimientos: movimientos.length
+    })
+  }
+
   const fetchMovimientos = async () => {
     try {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/movimientos', {
+      const response = await fetch(`/api/movimientos?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -131,6 +159,7 @@ export default function MovimientosIndividualesPage() {
       if (response.ok) {
         const data = await response.json()
         setMovimientos(data.movimientos || [])
+        calculateStats(data.movimientos || [])
       }
     } catch (error) {
       console.error('Error al cargar movimientos:', error)
@@ -694,6 +723,95 @@ export default function MovimientosIndividualesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input-field"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Estadísticas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Ingresos</p>
+                <p className="text-2xl font-semibold text-green-600">${stats.totalIngresos.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Gastos</p>
+                <p className="text-2xl font-semibold text-red-600">${stats.totalGastos.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Balance</p>
+                <p className={`text-2xl font-semibold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ${stats.balance.toLocaleString('en-US')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Movimientos</p>
+                <p className="text-2xl font-semibold text-purple-600">{stats.countMovimientos}</p>
+              </div>
+            </div>
           </div>
         </div>
 

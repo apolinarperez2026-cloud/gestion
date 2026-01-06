@@ -16,13 +16,31 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
+    // Obtener parámetro de mes de la URL
+    const { searchParams } = new URL(request.url)
+    const monthParam = searchParams.get('month')
+
     // Si es administrador sin sucursal específica, mostrar todos los movimientos
     // Si tiene sucursal específica, filtrar por esa sucursal
-    const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
+    let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId 
       ? {} 
       : decoded.sucursalId 
         ? { sucursalId: decoded.sucursalId }
         : {}
+
+    // Si se proporciona un mes, agregar filtro por fecha
+    if (monthParam) {
+      const [year, month] = monthParam.split('-')
+      if (year && month) {
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        
+        whereClause.fecha = {
+          gte: startDate,
+          lte: endDate
+        }
+      }
+    }
 
     const movimientos = await prisma.movimiento.findMany({
       where: whereClause,

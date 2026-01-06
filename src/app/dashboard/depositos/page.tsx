@@ -141,6 +141,14 @@ export default function DepositosPage() {
   const [depositos, setDepositos] = useState<Deposito[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [stats, setStats] = useState({
+    totalMonto: 0,
+    countDepositos: 0
+  })
   const [formData, setFormData] = useState({
     monto: '',
     fecha: new Date().toISOString().split('T')[0],
@@ -152,34 +160,15 @@ export default function DepositosPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const router = useRouter()
 
-  // Calcular resúmenes de depósitos
-  const calculateSummary = () => {
-    const today = new Date()
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
-    const depositosDelDia = depositos.filter(deposito => {
-      const depositoDate = new Date(deposito.fecha)
-      return depositoDate >= startOfDay
+  // Función para calcular estadísticas
+  const calculateStats = (depositos: Deposito[]) => {
+    const totalMonto = depositos.reduce((sum, deposito) => sum + deposito.monto, 0)
+    
+    setStats({
+      totalMonto,
+      countDepositos: depositos.length
     })
-
-    const depositosDelMes = depositos.filter(deposito => {
-      const depositoDate = new Date(deposito.fecha)
-      return depositoDate >= startOfMonth
-    })
-
-    const totalDelDia = depositosDelDia.reduce((sum, deposito) => sum + deposito.monto, 0)
-    const totalDelMes = depositosDelMes.reduce((sum, deposito) => sum + deposito.monto, 0)
-
-    return {
-      totalDelDia,
-      totalDelMes,
-      cantidadDelDia: depositosDelDia.length,
-      cantidadDelMes: depositosDelMes.length
-    }
   }
-
-  const summary = calculateSummary()
 
   const fetchUser = async () => {
     try {
@@ -211,7 +200,7 @@ export default function DepositosPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/depositos', {
+      const response = await fetch(`/api/depositos?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -219,7 +208,8 @@ export default function DepositosPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setDepositos(data.depositos)
+        setDepositos(data.depositos || [])
+        calculateStats(data.depositos || [])
       }
     } catch (error) {
       console.error('Error al obtener depósitos:', error)
@@ -231,7 +221,7 @@ export default function DepositosPage() {
   useEffect(() => {
     fetchUser()
     fetchDepositos()
-  }, [])
+  }, [selectedMonth])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -338,51 +328,64 @@ export default function DepositosPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Resumen de depósitos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Depósitos del Día</h3>
-                <p className="text-3xl font-bold text-green-600 mt-2">
-                  ${summary.totalDelDia.toLocaleString('en-US')}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {summary.cantidadDelDia} depósito{summary.cantidadDelDia !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="text-green-500 text-4xl">
-                📅
-              </div>
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                }}
+                className="input-field"
+              />
             </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Depósitos del Mes</h3>
-                <p className="text-3xl font-bold text-blue-600 mt-2">
-                  ${summary.totalDelMes.toLocaleString('en-US')}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {summary.cantidadDelMes} depósito{summary.cantidadDelMes !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="text-blue-500 text-4xl">
-                📊
-              </div>
-            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : 'Nuevo Depósito Bancario'}
+            </button>
           </div>
         </div>
 
-        {/* Botón para agregar nuevo depósito */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : 'Nuevo Depósito Bancario'}
-          </button>
+        {/* Estadísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total del Mes</p>
+                <p className="text-2xl font-semibold text-green-600">${stats.totalMonto.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Cantidad de Depósitos</p>
+                <p className="text-2xl font-semibold text-blue-600">{stats.countDepositos}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Formulario para nuevo depósito */}

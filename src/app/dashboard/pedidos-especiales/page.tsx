@@ -26,6 +26,16 @@ export default function PedidosEspecialesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [stats, setStats] = useState({
+    totalPedidos: 0,
+    totalAnticipos: 0,
+    totalVentas: 0,
+    totalRestante: 0
+  })
   const [deliveryData, setDeliveryData] = useState({
     comprobante: ''
   })
@@ -66,7 +76,21 @@ export default function PedidosEspecialesPage() {
     }
 
     fetchUser()
-  }, [router])
+  }, [router, selectedMonth])
+
+  // Función para calcular estadísticas
+  const calculateStats = (pedidos: PedidoEspecial[]) => {
+    const totalPedidos = pedidos.reduce((sum, pedido) => sum + (pedido.total || 0), 0)
+    const totalAnticipos = pedidos.reduce((sum, pedido) => sum + (pedido.anticipo || 0), 0)
+    const totalVentas = pedidos.reduce((sum, pedido) => sum + (pedido.precioVenta * pedido.cantidad || 0), 0)
+    
+    setStats({
+      totalPedidos,
+      totalAnticipos,
+      totalVentas,
+      totalRestante: totalVentas - totalAnticipos
+    })
+  }
 
   const fetchPedidos = async () => {
     try {
@@ -76,14 +100,15 @@ export default function PedidosEspecialesPage() {
         return
       }
 
-      const response = await fetch('/api/pedidos-especiales', {
+      const response = await fetch(`/api/pedidos-especiales?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
       if (response.ok) {
         const data = await response.json()
-        setPedidos(data.pedidos)
+        setPedidos(data.pedidos || [])
+        calculateStats(data.pedidos || [])
       }
     } catch (error) {
       console.error('Error al cargar pedidos especiales:', error)
@@ -636,14 +661,97 @@ export default function PedidosEspecialesPage() {
           </div>
         </div>
 
-        {/* Botón para agregar pedido */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : '+ Nuevo Pedido Especial'}
-          </button>
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input-field"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : '+ Nuevo Pedido Especial'}
+            </button>
+          </div>
+        </div>
+
+        {/* Estadísticas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Pedidos</p>
+                <p className="text-2xl font-semibold text-blue-600">{stats.totalPedidos}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Anticipos</p>
+                <p className="text-2xl font-semibold text-green-600">${stats.totalAnticipos.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Ventas</p>
+                <p className="text-2xl font-semibold text-purple-600">${stats.totalVentas.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Restante</p>
+                <p className="text-2xl font-semibold text-orange-600">${stats.totalRestante.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Barra de búsqueda */}
