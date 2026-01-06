@@ -42,6 +42,14 @@ export default function FondoCajaInicialPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fondoToDelete, setFondoToDelete] = useState<FondoCajaInicial | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [stats, setStats] = useState({
+    totalMonto: 0,
+    countFondos: 0
+  })
   const router = useRouter()
 
   const fetchUser = async () => {
@@ -69,12 +77,22 @@ export default function FondoCajaInicialPage() {
     }
   }
 
+  // Función para calcular estadísticas
+  const calculateStats = (fondos: FondoCajaInicial[]) => {
+    const totalMonto = fondos.reduce((sum, fondo) => sum + fondo.monto, 0)
+    
+    setStats({
+      totalMonto,
+      countFondos: fondos.length
+    })
+  }
+
   const fetchFondosCajaInicial = async () => {
     try {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/fondo-caja-inicial', {
+      const response = await fetch(`/api/fondo-caja-inicial?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -83,6 +101,7 @@ export default function FondoCajaInicialPage() {
       if (response.ok) {
         const data = await response.json()
         setFondosCajaInicial(data.fondosCajaInicial || [])
+        calculateStats(data.fondosCajaInicial || [])
       } else if (response.status === 401) {
         router.push('/auth/login')
       }
@@ -96,7 +115,7 @@ export default function FondoCajaInicialPage() {
   useEffect(() => {
     fetchUser()
     fetchFondosCajaInicial()
-  }, [])
+  }, [selectedMonth])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -344,14 +363,66 @@ export default function FondoCajaInicialPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Botón para agregar nuevo fondo inicial */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : 'Nuevo Fondo de Caja Inicial'}
-          </button>
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                }}
+                className="input-field"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : 'Nuevo Fondo de Caja Inicial'}
+            </button>
+          </div>
+        </div>
+
+
+
+        {/* Estadísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total del Mes</p>
+                <p className="text-2xl font-semibold text-green-600">${stats.totalMonto.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Cantidad de Fondos</p>
+                <p className="text-2xl font-semibold text-blue-600">{stats.countFondos}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Formulario para nuevo fondo inicial */}

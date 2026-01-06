@@ -41,22 +41,30 @@ export default function TpvPage() {
   const [showEditForm, setShowEditForm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [tpvToDelete, setTpvToDelete] = useState<any>(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
   const router = useRouter()
 
   // Calcular resúmenes de cobros TPV
   const calculateSummary = () => {
     const today = new Date()
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    
+    // Filtrar TPVs del mes seleccionado
+    const [year, month] = selectedMonth.split('-')
+    const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1)
+    const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
 
     const tpvsDelDia = tpvs.filter(tpv => {
       const tpvDate = new Date(tpv.fecha)
-      return tpvDate >= startOfDay
+      return tpvDate >= startOfDay && tpvDate.toDateString() === today.toDateString()
     })
 
     const tpvsDelMes = tpvs.filter(tpv => {
       const tpvDate = new Date(tpv.fecha)
-      return tpvDate >= startOfMonth
+      return tpvDate >= startOfMonth && tpvDate <= endOfMonth
     })
 
     const totalDelDia = tpvsDelDia.reduce((sum, tpv) => sum + (typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0), 0)
@@ -109,7 +117,7 @@ export default function TpvPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/tpv', {
+      const response = await fetch(`/api/tpv?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -127,7 +135,7 @@ export default function TpvPage() {
   useEffect(() => {
     fetchUser()
     fetchTpvs()
-  }, [])
+  }, [selectedMonth])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -471,15 +479,33 @@ export default function TpvPage() {
           </div>
         </div>
 
-        {/* Botón para agregar cobro TPV */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : '+ Nuevo Cobro TPV'}
-          </button>
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input-field"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : '+ Nuevo Cobro TPV'}
+            </button>
+          </div>
         </div>
+
+
 
 
         {/* Formulario de Edición */}

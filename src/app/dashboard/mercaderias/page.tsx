@@ -37,6 +37,17 @@ export default function MercaderiasPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [mercaderiaToDelete, setMercaderiaToDelete] = useState<any>(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [stats, setStats] = useState({
+    totalEntradas: 0,
+    totalSalidas: 0,
+    balance: 0,
+    countEntradas: 0,
+    countSalidas: 0
+  })
   const [editFormData, setEditFormData] = useState<MercaderiaData>({
     fecha: '',
     tipo: 'entrada',
@@ -45,6 +56,23 @@ export default function MercaderiasPage() {
     recibe: '',
     monto: ''
   })
+
+  // Función para calcular estadísticas
+  const calculateStats = (mercaderias: any[]) => {
+    const entradas = mercaderias.filter(m => m.tipo === 'entrada')
+    const salidas = mercaderias.filter(m => m.tipo === 'salida')
+    
+    const totalEntradas = entradas.reduce((sum, m) => sum + m.monto, 0)
+    const totalSalidas = salidas.reduce((sum, m) => sum + m.monto, 0)
+    
+    setStats({
+      totalEntradas,
+      totalSalidas,
+      balance: totalEntradas - totalSalidas,
+      countEntradas: entradas.length,
+      countSalidas: salidas.length
+    })
+  }
   const router = useRouter()
 
   const fetchUser = async () => {
@@ -84,7 +112,7 @@ export default function MercaderiasPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch('/api/mercaderias', {
+      const response = await fetch(`/api/mercaderias?month=${selectedMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -93,6 +121,7 @@ export default function MercaderiasPage() {
       if (response.ok) {
         const data = await response.json()
         setMercaderias(data.mercaderias || [])
+        calculateStats(data.mercaderias || [])
       }
     } catch (error) {
       console.error('Error al cargar mercaderías:', error)
@@ -102,7 +131,7 @@ export default function MercaderiasPage() {
   useEffect(() => {
     fetchUser()
     fetchMercaderias()
-  }, [])
+  }, [selectedMonth])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -492,14 +521,117 @@ export default function MercaderiasPage() {
           </div>
         </div>
 
-        {/* Botón para agregar mercadería */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
-          >
-            {showForm ? 'Cancelar' : '+ Nueva Entrada/Salida'}
-          </button>
+        {/* Controles superiores */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mes y Año
+              </label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input-field"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary h-fit mt-6"
+            >
+              {showForm ? 'Cancelar' : '+ Nueva Entrada/Salida'}
+            </button>
+          </div>
+        </div>
+
+
+
+        {/* Estadísticas */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Entradas</p>
+                <p className="text-2xl font-semibold text-green-600">${stats.totalEntradas.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Total Salidas</p>
+                <p className="text-2xl font-semibold text-red-600">${stats.totalSalidas.toLocaleString('en-US')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Balance</p>
+                <p className={`text-2xl font-semibold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ${stats.balance.toLocaleString('en-US')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Cant. Entradas</p>
+                <p className="text-2xl font-semibold text-green-600">{stats.countEntradas}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-500">Cant. Salidas</p>
+                <p className="text-2xl font-semibold text-red-600">{stats.countSalidas}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Barra de búsqueda */}
