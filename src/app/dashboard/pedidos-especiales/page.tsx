@@ -300,6 +300,35 @@ export default function PedidosEspecialesPage() {
     }
   }
 
+  const handleAvisado = async (pedido: PedidoEspecial) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch(`/api/pedidos-especiales/${pedido.id}/estado`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ estado: 'Avisado' }),
+      })
+
+      if (response.ok) {
+        fetchPedidos()
+        showModal('Cliente avisado exitosamente', 'success')
+      } else {
+        showModal('Error al actualizar el estado del pedido')
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado:', error)
+      showModal('Error al actualizar el estado del pedido')
+    }
+  }
+
   const handleEntregar = (pedido: PedidoEspecial) => {
     setSelectedPedido(pedido)
     setDeliveryData({ comprobante: '' })
@@ -551,6 +580,7 @@ export default function PedidosEspecialesPage() {
 
   const pedidosPendientes = filteredPedidos.filter(p => p.estado === 'Pendiente').length
   const pedidosRecibidos = filteredPedidos.filter(p => p.estado === 'Recibido').length
+  const pedidosAvisados = filteredPedidos.filter(p => p.estado === 'Avisado').length
   const pedidosEntregados = filteredPedidos.filter(p => p.estado === 'Entregado').length
   const pedidosCancelados = filteredPedidos.filter(p => p.estado === 'Cancelado').length
 
@@ -595,7 +625,7 @@ export default function PedidosEspecialesPage() {
       {/* Main Content */}
       <main className="  mx-auto sm:px-0 lg:px-40 py-8">
         {/* Resumen */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -624,6 +654,22 @@ export default function PedidosEspecialesPage() {
               <div className="ml-4">
                 <h3 className="text-lg font-medium text-gray-900">Recibidos</h3>
                 <p className="text-2xl font-bold text-orange-600">{pedidosRecibidos}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-gray-900">Avisados</h3>
+                <p className="text-2xl font-bold text-blue-600">{pedidosAvisados}</p>
               </div>
             </div>
           </div>
@@ -991,6 +1037,7 @@ export default function PedidosEspecialesPage() {
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             pedido.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
                             pedido.estado === 'Recibido' ? 'bg-orange-100 text-orange-800' :
+                            pedido.estado === 'Avisado' ? 'bg-blue-100 text-blue-800' :
                             pedido.estado === 'Entregado' ? 'bg-green-100 text-green-800' :
                             'bg-red-100 text-red-800'
                           }`}>
@@ -1077,7 +1124,7 @@ export default function PedidosEspecialesPage() {
                               </>
                             )}
                             
-                             {/* Botones para estado Recibido - solo editar y eliminar */}
+                             {/* Botones para estado Recibido - puede avisar al cliente */}
                              {pedido.estado === 'Recibido' && (
                                <>
                                  {/* Botón de Editar - disponible para todos */}
@@ -1089,6 +1136,54 @@ export default function PedidosEspecialesPage() {
                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
                                  >
                                    Editar
+                                 </button>
+                                 {/* Botón de Avisar Cliente */}
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     handleAvisado(pedido)
+                                   }}
+                                   className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                 >
+                                   Avisar Cliente
+                                 </button>
+                                 {/* Botón de Eliminar - solo para administradores */}
+                                 {user?.rol.nombre === 'Administrador' && (
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation()
+                                       handleEliminar(pedido)
+                                     }}
+                                     className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                   >
+                                     Eliminar
+                                   </button>
+                                 )}
+                               </>
+                             )}
+                             
+                             {/* Botones para estado Avisado - puede entregar */}
+                             {pedido.estado === 'Avisado' && (
+                               <>
+                                 {/* Botón de Editar - disponible para todos */}
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     handleEdit(pedido)
+                                   }}
+                                   className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                 >
+                                   Editar
+                                 </button>
+                                 {/* Botón de Entregar */}
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     handleEntregar(pedido)
+                                   }}
+                                   className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                 >
+                                   Entregar
                                  </button>
                                  {/* Botón de Eliminar - solo para administradores */}
                                  {user?.rol.nombre === 'Administrador' && (
@@ -1163,6 +1258,7 @@ export default function PedidosEspecialesPage() {
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         pedido.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
                         pedido.estado === 'Recibido' ? 'bg-orange-100 text-orange-800' :
+                        pedido.estado === 'Avisado' ? 'bg-blue-100 text-blue-800' :
                         pedido.estado === 'Entregado' ? 'bg-green-100 text-green-800' :
                         'bg-red-100 text-red-800'
                       }`}>
@@ -1264,7 +1360,7 @@ export default function PedidosEspecialesPage() {
                         </>
                       )}
                       
-                       {/* Botones para estado Recibido - solo editar y eliminar */}
+                       {/* Botones para estado Recibido - puede avisar al cliente */}
                        {pedido.estado === 'Recibido' && (
                          <>
                            {/* Botón de Editar - disponible para todos */}
@@ -1276,6 +1372,54 @@ export default function PedidosEspecialesPage() {
                              className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
                            >
                              Editar
+                           </button>
+                           {/* Botón de Avisar Cliente */}
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleAvisado(pedido)
+                             }}
+                             className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                           >
+                             Avisar Cliente
+                           </button>
+                           {/* Botón de Eliminar - solo para administradores */}
+                           {user?.rol.nombre === 'Administrador' && (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation()
+                                 handleEliminar(pedido)
+                               }}
+                               className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                             >
+                               Eliminar
+                             </button>
+                           )}
+                         </>
+                       )}
+                       
+                       {/* Botones para estado Avisado - puede entregar */}
+                       {pedido.estado === 'Avisado' && (
+                         <>
+                           {/* Botón de Editar - disponible para todos */}
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleEdit(pedido)
+                             }}
+                             className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                           >
+                             Editar
+                           </button>
+                           {/* Botón de Entregar */}
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleEntregar(pedido)
+                             }}
+                             className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded text-xs font-medium transition-colors"
+                           >
+                             Entregar
                            </button>
                            {/* Botón de Eliminar - solo para administradores */}
                            {user?.rol.nombre === 'Administrador' && (
@@ -1668,6 +1812,7 @@ export default function PedidosEspecialesPage() {
                         selectedPedido.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
                         selectedPedido.estado === 'En Proceso' ? 'bg-blue-100 text-blue-800' :
                         selectedPedido.estado === 'Recibido' ? 'bg-orange-100 text-orange-800' :
+                        selectedPedido.estado === 'Avisado' ? 'bg-blue-100 text-blue-800' :
                         selectedPedido.estado === 'Entregado' ? 'bg-green-100 text-green-800' :
                         'bg-red-100 text-red-800'
                       }`}>
@@ -1706,6 +1851,12 @@ export default function PedidosEspecialesPage() {
                         </p>
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-600">Fecha de Aviso al Cliente</label>
+                        <p className="text-sm text-gray-900">
+                          {loadingHistorial ? 'Cargando...' : getFechaAccion('AVISADO')}
+                        </p>
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-600">Fecha de Entrega</label>
                         <p className="text-sm text-gray-900">
                           {loadingHistorial ? 'Cargando...' : getFechaAccion('ENTREGADO')}
@@ -1717,6 +1868,12 @@ export default function PedidosEspecialesPage() {
                         <label className="block text-sm font-medium text-gray-600">Recibido por</label>
                         <p className="text-sm text-gray-900">
                           {loadingHistorial ? 'Cargando...' : getUsuarioInfo('RECIBIDO')}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600">Avisado por</label>
+                        <p className="text-sm text-gray-900">
+                          {loadingHistorial ? 'Cargando...' : getUsuarioInfo('AVISADO')}
                         </p>
                       </div>
                       <div>

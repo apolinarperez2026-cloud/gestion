@@ -92,24 +92,94 @@ export default function ResumenPage() {
   }
 
   const exportarAExcel = () => {
-    // Ordenar por fecha ascendente para exportar (del más antiguo al más reciente)
-    const diasOrdenadosParaExport = [...movimientosPorDia].sort((a: any, b: any) => 
-      new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-    )
+    // Función auxiliar para normalizar fechas (solo año, mes, día, sin hora)
+    const normalizarFecha = (fecha: Date): string => {
+      const año = fecha.getFullYear()
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+      const dia = String(fecha.getDate()).padStart(2, '0')
+      return `${año}-${mes}-${dia}`
+    }
     
-    // Preparar datos para exportar
-    const datosExcel = diasOrdenadosParaExport.map((dia: any) => ({
+    // Generar todos los días del mes seleccionado
+    const [año, mes] = mesSeleccionado.split('-')
+    const añoNum = parseInt(año)
+    const mesNum = parseInt(mes)
+    const diasEnMes = new Date(añoNum, mesNum, 0).getDate()
+    
+    // Crear un mapa de movimientos por fecha para búsqueda rápida
+    const movimientosPorFecha = new Map<string, any>()
+    movimientosPorDia.forEach((dia: any) => {
+      const fechaDate = new Date(dia.fecha)
+      const fechaKey = normalizarFecha(fechaDate)
+      movimientosPorFecha.set(fechaKey, dia)
+    })
+    
+    // Generar array con todos los días del mes
+    const todosLosDias: any[] = []
+    let saldoAcumuladoAnterior = 0
+    
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+      const fecha = new Date(añoNum, mesNum - 1, dia)
+      const fechaKey = normalizarFecha(fecha)
+      const movimiento = movimientosPorFecha.get(fechaKey)
+      
+      let datosDia: any
+      
+      if (movimiento) {
+        // Usar datos reales del movimiento
+        datosDia = {
+          fecha: new Date(fecha),
+          totalVentas: movimiento.totalVentas || 0,
+          totalCredito: movimiento.totalCredito || 0,
+          totalAbonosCredito: movimiento.totalAbonosCredito || 0,
+          totalRecargas: movimiento.totalRecargas || 0,
+          totalPagoTarjeta: movimiento.totalPagoTarjeta || 0,
+          totalTransferencias: movimiento.totalTransferencias || 0,
+          totalGastos: movimiento.totalGastos || 0,
+          totalDepositos: movimiento.totalDepositos || 0
+        }
+      } else {
+        // Crear entrada con valores en cero
+        datosDia = {
+          fecha: new Date(fecha),
+          totalVentas: 0,
+          totalCredito: 0,
+          totalAbonosCredito: 0,
+          totalRecargas: 0,
+          totalPagoTarjeta: 0,
+          totalTransferencias: 0,
+          totalGastos: 0,
+          totalDepositos: 0
+        }
+      }
+      
+      // Calcular Saldo del Día según fórmula del Excel: Ventas Brutas - Crédito - Recargas - Pago con Tarjeta - Transferencias - Gastos
+      const saldoDelDia = datosDia.totalVentas - datosDia.totalCredito - datosDia.totalRecargas - datosDia.totalPagoTarjeta - datosDia.totalTransferencias - datosDia.totalGastos
+      
+      // Calcular Saldo Acumulado: Saldo Acumulado anterior + Saldo del Día - Depósitos
+      const saldoAcumulado = saldoAcumuladoAnterior + saldoDelDia - datosDia.totalDepositos
+      saldoAcumuladoAnterior = saldoAcumulado
+      
+      todosLosDias.push({
+        ...datosDia,
+        saldoDelDiaCalculado: saldoDelDia,
+        saldoAcumulado: saldoAcumulado
+      })
+    }
+    
+    // Preparar datos para exportar - orden y formato exacto como el Excel manual
+    const datosExcel = todosLosDias.map((dia: any) => ({
       'Fecha': dia.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      'Ventas Brutas': dia.totalVentas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Crédito': dia.totalCredito.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Abonos': dia.totalAbonosCredito.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Recargas': dia.totalRecargas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Pago con Tarjeta': dia.totalPagoTarjeta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Transferencias': dia.totalTransferencias.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Gastos': dia.totalGastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Saldo del Día': dia.saldoDelDiaCalculado.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Depósitos': (dia.totalDepositos || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      'Saldo Acumulado': dia.saldoAcumulado.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      'Ventas Brutas': parseFloat(dia.totalVentas.toFixed(2)),
+      'Crédito': parseFloat(dia.totalCredito.toFixed(2)),
+      'Abonos': parseFloat(dia.totalAbonosCredito.toFixed(2)),
+      'Recargas': parseFloat(dia.totalRecargas.toFixed(2)),
+      'Pago con Tarjeta': parseFloat(dia.totalPagoTarjeta.toFixed(2)),
+      'Transferencias': parseFloat(dia.totalTransferencias.toFixed(2)),
+      'Gastos': parseFloat(dia.totalGastos.toFixed(2)),
+      'Saldo del Día': parseFloat(dia.saldoDelDiaCalculado.toFixed(2)),
+      'Depósitos': parseFloat(dia.totalDepositos.toFixed(2)),
+      'Saldo Acumulado': parseFloat(dia.saldoAcumulado.toFixed(2))
     }))
 
     // Crear hoja de trabajo
@@ -120,7 +190,6 @@ export default function ResumenPage() {
     XLSX.utils.book_append_sheet(wb, ws, 'Resumen Mensual')
 
     // Generar nombre de archivo con mes y año
-    const [año, mes] = mesSeleccionado.split('-')
     const nombreArchivo = `Resumen_${obtenerNombreMes(mesSeleccionado)}_${año}.xlsx`
 
     // Descargar archivo
@@ -192,26 +261,24 @@ export default function ResumenPage() {
 
   // Los movimientos diarios ya están agrupados por día, solo necesitamos mapearlos
   const movimientosPorDia = movimientosDelMes.map((movimiento, index) => {
-    // Calcular saldo del día (ventas brutas ya incluyen abonos)
-    const saldoDelDia = movimiento.ventasBrutas - movimiento.gastos
+    // Calcular saldo del día según fórmula del Excel: Ventas Brutas - Crédito - Recargas - Pago con Tarjeta - Transferencias - Gastos
+    const saldoDelDia = movimiento.ventasBrutas - movimiento.credito - movimiento.recargas - movimiento.pagoTarjeta - movimiento.transferencias - movimiento.gastos
     
     // Calcular saldo acumulado (arrastrando del día anterior)
-    let saldoAcumulado = saldoDelDia - (movimiento.depositos || 0)
+    let saldoAcumulado = 0
     
-    // Si no es el primer día, sumar el saldo acumulado del día anterior
+    // Si no es el primer día, calcular el saldo acumulado anterior
     if (index > 0) {
-      const diaAnterior = movimientosDelMes[index - 1]
-      const saldoDelDiaAnterior = diaAnterior.ventasBrutas - diaAnterior.gastos
-      
-      // Buscar el saldo acumulado del día anterior en el array ya procesado
       let saldoAcumuladoAnterior = 0
       for (let i = 0; i < index; i++) {
         const mov = movimientosDelMes[i]
-        const saldoDia = mov.ventasBrutas - mov.gastos
-        saldoAcumuladoAnterior += saldoDia - (mov.depositos || 0)
+        const saldoDia = mov.ventasBrutas - mov.credito - mov.recargas - mov.pagoTarjeta - mov.transferencias - mov.gastos
+        saldoAcumuladoAnterior = saldoAcumuladoAnterior + saldoDia - (mov.depositos || 0)
       }
-      
       saldoAcumulado = saldoAcumuladoAnterior + saldoDelDia - (movimiento.depositos || 0)
+    } else {
+      // Primer día: Saldo Acumulado = Saldo del Día - Depósitos
+      saldoAcumulado = saldoDelDia - (movimiento.depositos || 0)
     }
     
     return {
@@ -760,7 +827,7 @@ export default function ResumenPage() {
                           ${dia.totalGastos.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-blue-600 font-medium">
-                          ${(dia.totalVentas - dia.totalCredito - dia.totalRecargas - dia.totalPagoTarjeta - dia.totalTransferencias - dia.totalGastos).toLocaleString('en-US')}
+                          ${dia.saldoDelDiaCalculado.toLocaleString('en-US')}
                         </td>
                         <td className="px-2 py-3 text-xs text-teal-600 font-medium">
                           ${(dia.totalDepositos || 0).toLocaleString('en-US')}

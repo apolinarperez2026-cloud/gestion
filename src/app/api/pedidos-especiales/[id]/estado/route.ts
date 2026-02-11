@@ -25,7 +25,7 @@ export async function PUT(
     const { estado } = body
 
     // Validar estado
-    const estadosValidos = ['En Proceso', 'Recibido', 'Cancelado', 'Entregado']
+    const estadosValidos = ['En Proceso', 'Recibido', 'Avisado', 'Cancelado', 'Entregado']
     if (!estado || !estadosValidos.includes(estado)) {
       return NextResponse.json(
         { error: 'Estado inválido' },
@@ -69,6 +69,7 @@ export async function PUT(
       const accionMap: { [key: string]: string } = {
         'Cancelado': 'CANCELADO',
         'Recibido': 'RECIBIDO',
+        'Avisado': 'AVISADO',
         'Entregado': 'ENTREGADO'
       }
 
