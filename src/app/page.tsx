@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+//test
 export default function Home() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-50">
