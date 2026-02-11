@@ -32,12 +32,38 @@ export async function PUT(
       )
     }
 
-    // Verificar que el pedido existe y pertenece a la sucursal del usuario
-    const pedido = await prisma.pedidoEspecial.findFirst({
-      where: {
-        id,
-        sucursalId: decoded.sucursalId
+    // Verificar que el pedido existe
+    // Si el usuario es administrador, puede ver cualquier pedido
+    // Si no es administrador, solo puede ver pedidos de sus sucursales asignadas
+    let whereClause: any = { id }
+    
+    if (decoded.rol !== 'Administrador') {
+      if (decoded.sucursalId) {
+        whereClause.sucursalId = decoded.sucursalId
+      } else {
+        // Si no tiene sucursalId, verificar sus sucursales asignadas
+        const usuarioConSucursales = await prisma.usuario.findUnique({
+          where: { id: decoded.userId },
+          include: {
+            sucursales: {
+              select: { sucursalId: true }
+            }
+          }
+        })
+        
+        if (usuarioConSucursales && usuarioConSucursales.sucursales.length > 0) {
+          whereClause.sucursalId = {
+            in: usuarioConSucursales.sucursales.map(s => s.sucursalId)
+          }
+        } else {
+          // Si no tiene sucursales asignadas, usar la sucursal principal
+          whereClause.sucursalId = decoded.sucursalId
+        }
       }
+    }
+
+    const pedido = await prisma.pedidoEspecial.findFirst({
+      where: whereClause
     })
 
     if (!pedido) {
@@ -51,10 +77,7 @@ export async function PUT(
     const result = await prisma.$transaction(async (tx) => {
       // Obtener pedido actual para comparar
       const pedidoActual = await tx.pedidoEspecial.findFirst({
-        where: {
-          id,
-          sucursalId: decoded.sucursalId
-        }
+        where: whereClause
       })
 
       if (!pedidoActual) {
