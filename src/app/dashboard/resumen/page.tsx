@@ -261,10 +261,16 @@ export default function ResumenPage() {
 
   // BUG-05 FIX: Generar TODOS los días del mes, no solo los que tienen registro en BD
   // Días sin registro aparecen con valores en cero (igual que la lógica de exportarAExcel)
+  // Para el mes actual: solo hasta HOY (no mostrar días futuros)
+  // Para meses pasados: todos los días del mes
   const [_añoStr, _mesStr] = mesSeleccionado.split('-')
   const _añoNum = parseInt(_añoStr)
   const _mesNum = parseInt(_mesStr)
   const _diasEnMes = new Date(_añoNum, _mesNum, 0).getDate()
+
+  const _hoy = new Date()
+  const _esMesActual = _añoNum === _hoy.getFullYear() && _mesNum === (_hoy.getMonth() + 1)
+  const _diasAMostrar = _esMesActual ? Math.min(_hoy.getDate(), _diasEnMes) : _diasEnMes
 
   // Normalizar fecha a clave YYYY-MM-DD usando tiempo local (igual que exportarAExcel)
   const _normalizarFecha = (fecha: Date): string => {
@@ -280,9 +286,10 @@ export default function ResumenPage() {
     _movPorFechaMap.set(_normalizarFecha(new Date(mov.fecha)), mov)
   })
 
-  // Generar todos los días del mes con saldo acumulado encadenado
+  // Generar los días del mes con saldo acumulado encadenado
+  // (hasta hoy si es el mes actual, hasta fin de mes si es pasado)
   let _saldoAcumAnterior = 0
-  const movimientosPorDia = Array.from({ length: _diasEnMes }, (_, i) => {
+  const movimientosPorDia = Array.from({ length: _diasAMostrar }, (_, i) => {
     const fechaDia = new Date(_añoNum, _mesNum - 1, i + 1)
     const movimiento = _movPorFechaMap.get(_normalizarFecha(fechaDia))
 

@@ -272,4 +272,32 @@ export async function recalcularMovimientoDiario(
 
 ---
 
-*Documento generado: 2026-05-12 — mantener actualizado al completar cada tarea*
+---
+
+## BUG-09 — Resumen: días futuros aparecen con saldo acumulado arrastrado
+
+**Detectado:** 2026-05-12 | **Estado:** ✅ Completado 2026-05-12
+
+**Síntoma:** en el mes actual, la tabla mostraba días futuros (ej: 13/05 a 31/05 cuando hoy es 12/05) todos con $0 en ventas/gastos pero con el saldo acumulado del último día real (ej: -$1,631.4). Visualmente parecía un error de datos.
+
+**Root cause:** el fix de BUG-05 generaba `Array.from({ length: diasEnMes })` sin distinción entre mes actual y meses pasados. Para mayo con 31 días, generaba los 31 aunque solo existieran 12.
+
+**Fix aplicado (`resumen/page.tsx`):**
+```typescript
+const _esMesActual = _añoNum === _hoy.getFullYear() && _mesNum === (_hoy.getMonth() + 1)
+const _diasAMostrar = _esMesActual ? Math.min(_hoy.getDate(), _diasEnMes) : _diasEnMes
+```
+
+- Mes actual → genera solo hasta hoy
+- Meses pasados → genera todos los días (BUG-05 intacto)
+
+**Test:**
+```
+[x] Mayo (mes actual, hoy = 12/05) → tabla muestra días 1 al 12 únicamente  ✅
+[x] Abril (mes pasado) → tabla sigue mostrando los 30 días  ✅
+[x] Días sin registro en mes actual → aparecen con $0 pero sin saldo arrastrado de días vacíos  ✅
+```
+
+---
+
+*Documento actualizado: 2026-05-12*
