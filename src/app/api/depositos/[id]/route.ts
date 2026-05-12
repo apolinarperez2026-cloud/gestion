@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario';
 
 // PATCH - Editar un depósito bancario por ID
 export async function PATCH(
@@ -46,6 +47,13 @@ export async function PATCH(
       where: { id: idNum },
       data
     });
+
+    // Recalcular MovimientoDiario para la fecha original y la nueva si cambió
+    await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma);
+    if (data.fecha && data.fecha.toISOString().split('T')[0] !== deposito.fecha.toISOString().split('T')[0]) {
+      await recalcularMovimientoDiario(data.fecha, deposito.sucursalId, prisma);
+    }
+
     return NextResponse.json({ message: 'Depósito actualizado correctamente', deposito: updated });
   } catch (error) {
     console.error('Error al actualizar depósito:', error);
@@ -88,6 +96,10 @@ export async function DELETE(
     }
     // Eliminar el depósito
     await prisma.deposito.delete({ where: { id: idNum } });
+
+    // Recalcular MovimientoDiario para el día afectado
+    await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma);
+
     return NextResponse.json({ message: 'Depósito eliminado correctamente' });
   } catch (error) {
     console.error('Error al eliminar depósito:', error);

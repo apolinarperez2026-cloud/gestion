@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,162 +8,142 @@ datasource db {
 }
 
 model Rol {
-  id        Int      @id @default(autoincrement())
-  nombre    String   @unique
+  id        Int       @id @default(autoincrement())
+  nombre    String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   usuarios  Usuario[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Usuario {
-  id         Int      @id @default(autoincrement())
-  nombre     String
-  email      String   @unique
-  password   String
-  rolId      Int
-  rol        Rol      @relation(fields: [rolId], references: [id])
-  sucursalId Int?     // Mantener para compatibilidad con usuarios existentes
-  sucursal   Sucursal? @relation("UsuarioSucursalPrincipal", fields: [sucursalId], references: [id])
-  sucursales UsuarioSucursal[] // Relación muchos-a-muchos con sucursales
-  movimientos Movimiento[] // Movimientos registrados por este usuario
-  movimientosDiarios MovimientoDiario[] // Movimientos diarios registrados por este usuario
-  movimientosDiariosHistorial MovimientoDiarioHistorial[] // Historial de cambios en movimientos diarios
-  pedidosEspeciales PedidoEspecial[] // Pedidos especiales creados por este usuario
-  
-  // Relaciones de auditoría para pedidos especiales
-  pedidosCreados     PedidoEspecial[] @relation("PedidoCreadoPor")
-  pedidosActualizados PedidoEspecial[] @relation("PedidoActualizadoPor")
-  historialPedidos   PedidoEspecialHistorial[]
-  
-  // Relación con mercaderías
-  mercaderias        Mercaderia[]
-  
-  // Relación con garantías
-  garantias          Garantia[]
-  
-  // Relación con TPV
-  tpvs               Tpv[]
-  
-  // Relación con Depósitos
-  depositos          Deposito[]
-  
-  // Relación con FondoCajaInicial
-  fondosCajaInicial  FondoCajaInicial[]
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                          Int                         @id @default(autoincrement())
+  nombre                      String
+  email                       String                      @unique
+  password                    String
+  rolId                       Int
+  sucursalId                  Int?
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  depositos                   Deposito[]
+  fondosCajaInicial           FondoCajaInicial[]
+  movimientos                 Movimiento[]
+  movimientosDiarios          MovimientoDiario[]
+  movimientosDiariosHistorial MovimientoDiarioHistorial[]
+  pedidosActualizados         PedidoEspecial[]            @relation("PedidoActualizadoPor")
+  pedidosCreados              PedidoEspecial[]            @relation("PedidoCreadoPor")
+  pedidosEspeciales           PedidoEspecial[]
+  rol                         Rol                         @relation(fields: [rolId], references: [id])
+  sucursal                    Sucursal?                   @relation("UsuarioSucursalPrincipal", fields: [sucursalId], references: [id])
+  sucursales                  UsuarioSucursal[]
+  garantias                   Garantia[]
+  mercaderias                 Mercaderia[]
+  historialPedidos            PedidoEspecialHistorial[]
+  tpvs                        Tpv[]
 }
 
 model Sucursal {
-  id                Int                @id @default(autoincrement())
-  nombre            String             @unique
-  direccion         String
-  usuarios          Usuario[]          @relation("UsuarioSucursalPrincipal") // Usuarios con sucursal principal
-  usuariosAsignados UsuarioSucursal[]  // Relación muchos-a-muchos con usuarios
-  movimientos       Movimiento[]
+  id                 Int                @id @default(autoincrement())
+  nombre             String             @unique
+  direccion          String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  depositos          Deposito[]
+  fondosCajaInicial  FondoCajaInicial[]
+  movimientos        Movimiento[]
   movimientosDiarios MovimientoDiario[]
-  depositos         Deposito[]
-  fondosCajaInicial FondoCajaInicial[]
-  pedidosEspeciales PedidoEspecial[]
-  mercaderias       Mercaderia[]
-  garantias         Garantia[]
-  tpvs              Tpv[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  pedidosEspeciales  PedidoEspecial[]
+  usuarios           Usuario[]          @relation("UsuarioSucursalPrincipal")
+  usuariosAsignados  UsuarioSucursal[]
+  garantias          Garantia[]
+  mercaderias        Mercaderia[]
+  tpvs               Tpv[]
 }
 
 model FormaDePago {
-  id         Int         @id @default(autoincrement())
-  nombre     String      @unique
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   movimientos Movimiento[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
 }
 
 model TipoGasto {
-  id         Int         @id @default(autoincrement())
-  nombre     String      @unique
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   movimientos Movimiento[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-}
-
-enum MovimientoTipo {
-  VENTA
-  GASTO
-  FONDO_CAJA
-  DEPOSITO
 }
 
 model Movimiento {
   id            Int            @id @default(autoincrement())
   fecha         DateTime       @default(now())
-  descripcion   String
   monto         Float
-  tipo          MovimientoTipo
-  imagen        String?        // URL o path de la imagen
-  formaDePagoId Int?           // Solo para ventas
-  formaDePago   FormaDePago?   @relation(fields: [formaDePagoId], references: [id])
-  tipoGastoId   Int?           // Solo para gastos
-  tipoGasto     TipoGasto?     @relation(fields: [tipoGastoId], references: [id])
+  descripcion   String
+  tipoGastoId   Int?
   sucursalId    Int
-  sucursal      Sucursal       @relation(fields: [sucursalId], references: [id])
-  usuarioId     Int?           // Usuario que registró el movimiento
-  usuario       Usuario?       @relation(fields: [usuarioId], references: [id])
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  formaDePagoId Int?
+  tipo          MovimientoTipo
+  imagen        String?
+  usuarioId     Int?
+  formaDePago   FormaDePago?   @relation(fields: [formaDePagoId], references: [id])
+  sucursal      Sucursal       @relation(fields: [sucursalId], references: [id])
+  tipoGasto     TipoGasto?     @relation(fields: [tipoGastoId], references: [id])
+  usuario       Usuario?       @relation(fields: [usuarioId], references: [id])
 }
 
 model MovimientoDiario {
-  id                Int      @id @default(autoincrement())
-  fecha             DateTime @default(now())
-  ventasBrutas      Float    @default(0)
-  efectivo          Float    @default(0)
-  credito           Float    @default(0)
-  abonosCredito     Float    @default(0)
-  recargas          Float    @default(0)
-  pagoTarjeta       Float    @default(0)
-  transferencias    Float    @default(0)
-  gastos            Float    @default(0)
-  depositos         Float    @default(0)  // Suma de depósitos del día
-  fondoInicial      Float    @default(0)  // Fondo inicial de caja del día
-  saldoDia          Float    @default(0)
-  observaciones     String?
-  sucursalId        Int
-  sucursal          Sucursal @relation(fields: [sucursalId], references: [id])
-  usuarioId         Int?     // Usuario que registró el movimiento diario
-  usuario           Usuario? @relation(fields: [usuarioId], references: [id])
-  historial         MovimientoDiarioHistorial[] // Historial de cambios
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             Int                         @id @default(autoincrement())
+  fecha          DateTime                    @default(now())
+  ventasBrutas   Float                       @default(0)
+  efectivo       Float                       @default(0)
+  credito        Float                       @default(0)
+  abonosCredito  Float                       @default(0)
+  recargas       Float                       @default(0)
+  pagoTarjeta    Float                       @default(0)
+  transferencias Float                       @default(0)
+  gastos         Float                       @default(0)
+  saldoDia       Float                       @default(0)
+  observaciones  String?
+  sucursalId     Int
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  usuarioId      Int?
+  depositos      Float                       @default(0)
+  fondoInicial   Float                       @default(0)
+  sucursal       Sucursal                    @relation(fields: [sucursalId], references: [id])
+  usuario        Usuario?                    @relation(fields: [usuarioId], references: [id])
+  historial      MovimientoDiarioHistorial[]
 
   @@unique([fecha, sucursalId])
 }
 
 model MovimientoDiarioHistorial {
-  id                    Int      @id @default(autoincrement())
-  movimientoDiarioId    Int
-  movimientoDiario      MovimientoDiario @relation(fields: [movimientoDiarioId], references: [id], onDelete: Cascade)
-  usuarioId             Int
-  usuario               Usuario @relation(fields: [usuarioId], references: [id])
-  campoModificado       String   // "efectivo", "ventasBrutas", "observaciones", etc.
-  valorAnterior         String   // Para mantener formato original
-  valorNuevo            String
-  fechaCambio           DateTime @default(now())
-  observaciones         String?  // Comentario opcional del usuario
+  id                 Int              @id @default(autoincrement())
+  movimientoDiarioId Int
+  usuarioId          Int
+  campoModificado    String
+  valorAnterior      String
+  valorNuevo         String
+  fechaCambio        DateTime         @default(now())
+  observaciones      String?
+  movimientoDiario   MovimientoDiario @relation(fields: [movimientoDiarioId], references: [id], onDelete: Cascade)
+  usuario            Usuario          @relation(fields: [usuarioId], references: [id])
 }
 
 model Deposito {
   id         Int      @id @default(autoincrement())
-  monto      Float
   fecha      DateTime @default(now())
-  imagen     String?  // URL o path de la imagen del comprobante
   sucursalId Int
-  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
-  usuarioId  Int?     // Usuario que registró el depósito
-  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  monto      Float
+  imagen     String?
+  usuarioId  Int?
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
 }
 
 model FondoCajaInicial {
@@ -174,120 +151,108 @@ model FondoCajaInicial {
   monto      Float
   fecha      DateTime @default(now())
   sucursalId Int
-  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
-  usuarioId  Int?     // Usuario que registró el fondo inicial
-  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
+  usuarioId  Int?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
 
-  @@unique([fecha, sucursalId]) // Solo un fondo inicial por día por sucursal
+  @@unique([fecha, sucursalId])
 }
 
 model PedidoEspecial {
-  id          Int      @id @default(autoincrement())
-  marca       String
-  codigo      String
-  cantidad    Int
-  descripcion String
-  precioVenta Float
-  total       Float
-  anticipo    Float
-  fechaPedido DateTime @default(now())
-  fechaEntrega DateTime?
-  estado      String   @default("Pendiente")
-  comprobante String?  // URL del comprobante subido
-  usuarioId   Int
-  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
-  sucursalId  Int
-  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
-  
-  // Campos de auditoría
-  creadoPor     Int      // ID del usuario que creó el pedido
-  creadoEn      DateTime @default(now())
-  actualizadoPor Int?    // ID del usuario que hizo la última actualización
-  actualizadoEn DateTime @updatedAt
-  
-  // Relaciones de auditoría
-  creador       Usuario  @relation("PedidoCreadoPor", fields: [creadoPor], references: [id])
-  actualizador  Usuario? @relation("PedidoActualizadoPor", fields: [actualizadoPor], references: [id])
-  
-  // Historial de cambios
-  historial     PedidoEspecialHistorial[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             Int                       @id @default(autoincrement())
+  descripcion    String
+  sucursalId     Int
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  anticipo       Float
+  cantidad       Int
+  codigo         String
+  estado         String                    @default("Pendiente")
+  fechaEntrega   DateTime?
+  fechaPedido    DateTime                  @default(now())
+  marca          String
+  precioVenta    Float
+  total          Float
+  usuarioId      Int
+  comprobante    String?
+  actualizadoEn  DateTime                  @updatedAt
+  actualizadoPor Int?
+  creadoEn       DateTime                  @default(now())
+  creadoPor      Int
+  actualizador   Usuario?                  @relation("PedidoActualizadoPor", fields: [actualizadoPor], references: [id])
+  creador        Usuario                   @relation("PedidoCreadoPor", fields: [creadoPor], references: [id])
+  sucursal       Sucursal                  @relation(fields: [sucursalId], references: [id])
+  usuario        Usuario                   @relation(fields: [usuarioId], references: [id])
+  historial      PedidoEspecialHistorial[]
 }
 
-// Tabla intermedia para la relación muchos-a-muchos entre Usuario y Sucursal
 model UsuarioSucursal {
   id         Int      @id @default(autoincrement())
   usuarioId  Int
   sucursalId Int
-  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  sucursal   Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  @@unique([usuarioId, sucursalId]) // Evitar duplicados
+  @@unique([usuarioId, sucursalId])
 }
 
-// Modelo para el historial de cambios en pedidos especiales
 model PedidoEspecialHistorial {
-  id            Int      @id @default(autoincrement())
-  pedidoId      Int
-  accion        String   // "CREADO", "ACTUALIZADO", "CANCELADO", "RECIBIDO", "ENTREGADO"
-  descripcion   String   // Descripción de la acción
-  datosAnteriores Json?  // Datos antes del cambio (opcional)
-  datosNuevos   Json?    // Datos después del cambio (opcional)
-  usuarioId     Int      // Usuario que realizó la acción
-  fechaAccion   DateTime @default(now())
-  
-  pedido        PedidoEspecial @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  usuario       Usuario        @relation(fields: [usuarioId], references: [id])
-  
+  id              Int            @id @default(autoincrement())
+  pedidoId        Int
+  accion          String
+  descripcion     String
+  datosAnteriores Json?
+  datosNuevos     Json?
+  usuarioId       Int
+  fechaAccion     DateTime       @default(now())
+  pedido          PedidoEspecial @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuario         Usuario        @relation(fields: [usuarioId], references: [id])
+
   @@map("pedidos_especiales_historial")
 }
 
 model Mercaderia {
-  id          Int      @id @default(autoincrement())
-  fecha       DateTime
-  tipo        String   // "entrada" o "salida"
-  referencia  String   // Referencia o ODO
-  entrega     String   // Nombre de quien entrega
-  recibe      String   // Nombre de quien recibe
-  monto       Float
-  sucursalId  Int
-  usuarioId   Int      // Usuario que registró la mercadería
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
-  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+  id         Int      @id @default(autoincrement())
+  fecha      DateTime
+  tipo       String
+  referencia String
+  entrega    String
+  recibe     String
+  monto      Float
+  sucursalId Int
+  usuarioId  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
 
   @@map("mercaderias")
 }
 
 model Garantia {
-  id                      Int      @id @default(autoincrement())
-  fechaRegistro           DateTime
-  cliente                 String
-  marca                   String
-  sku                     String
-  cantidad                Int
-  descripcion             String
-  estado                  String   // "en_reparacion", "cancelada", "proceso_reembolso", "proceso_reemplazo", "completada"
-  comentarios             String?
-  fechaEntregaFabricante  DateTime?
-  fechaRegresoFabricante  DateTime?
-  fechaEntregaCliente     DateTime?
-  fotoReciboEntrega       String?  // URL de la foto del recibo de entrega al cliente
-  sucursalId              Int
-  usuarioId               Int      // Usuario que registró la garantía
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-
-  sucursal                Sucursal @relation(fields: [sucursalId], references: [id])
-  usuario                 Usuario  @relation(fields: [usuarioId], references: [id])
+  id                     Int       @id @default(autoincrement())
+  fechaRegistro          DateTime
+  estado                 String
+  sucursalId             Int
+  usuarioId              Int
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  cantidad               Int
+  cliente                String
+  comentarios            String?
+  descripcion            String
+  fechaEntregaCliente    DateTime?
+  fechaEntregaFabricante DateTime?
+  fechaRegresoFabricante DateTime?
+  fotoReciboEntrega      String?
+  marca                  String
+  sku                    String
+  sucursal               Sucursal  @relation(fields: [sucursalId], references: [id])
+  usuario                Usuario   @relation(fields: [usuarioId], references: [id])
 
   @@map("garantias")
 }
@@ -297,16 +262,22 @@ model Tpv {
   fecha           DateTime
   quienCobro      String
   monto           Float
-  estado          String   // "exitoso", "en_proceso"
-  foto            String?  // URL de la foto (opcional)
-  usuarioRegistro String   // Nombre del usuario que registró
+  estado          String
+  foto            String?
+  usuarioRegistro String
   sucursalId      Int
-  usuarioId       Int      // Usuario que registró el cobro TPV
+  usuarioId       Int
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
   sucursal        Sucursal @relation(fields: [sucursalId], references: [id])
   usuario         Usuario  @relation(fields: [usuarioId], references: [id])
 
   @@map("tpv")
+}
+
+enum MovimientoTipo {
+  VENTA
+  GASTO
+  FONDO_CAJA
+  DEPOSITO
 }

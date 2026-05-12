@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 const prisma = new PrismaClient()
 
@@ -98,9 +99,15 @@ export async function PUT(
       }
     })
 
-    return NextResponse.json({ 
+    // Recalcular MovimientoDiario para la fecha original y la nueva si cambió
+    await recalcularMovimientoDiario(fondoExistente.fecha, fondoExistente.sucursalId, prisma)
+    if (fondoExistente.fecha.toISOString().split('T')[0] !== fechaEspecifica.toISOString().split('T')[0]) {
+      await recalcularMovimientoDiario(fechaEspecifica, fondoExistente.sucursalId, prisma)
+    }
+
+    return NextResponse.json({
       message: 'Fondo de caja inicial actualizado exitosamente',
-      fondoCajaInicial: fondoActualizado 
+      fondoCajaInicial: fondoActualizado
     }, { status: 200 })
 
   } catch (error) {
@@ -169,7 +176,10 @@ export async function DELETE(
       where: { id }
     })
 
-    return NextResponse.json({ 
+    // Recalcular MovimientoDiario para el día afectado
+    await recalcularMovimientoDiario(fondoExistente.fecha, fondoExistente.sucursalId, prisma)
+
+    return NextResponse.json({
       message: 'Fondo de caja inicial eliminado exitosamente'
     }, { status: 200 })
 

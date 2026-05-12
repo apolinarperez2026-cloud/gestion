@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { parseDateOnly } from '@/lib/dateUtils'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 // GET - Obtener todos los depósitos bancarios
 export async function GET(request: NextRequest) {
@@ -140,9 +141,12 @@ export async function POST(request: NextRequest) {
       return deposito
     })
 
-    return NextResponse.json({ 
+    // Recalcular campos derivados de MovimientoDiario para el día
+    await recalcularMovimientoDiario(fechaEspecifica, decoded.sucursalId, prisma)
+
+    return NextResponse.json({
       message: 'Depósito bancario creado exitosamente',
-      deposito: result 
+      deposito: result
     }, { status: 201 })
   } catch (error) {
     console.error('Error al crear depósito:', error)

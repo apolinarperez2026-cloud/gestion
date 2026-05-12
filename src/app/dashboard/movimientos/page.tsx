@@ -140,10 +140,8 @@ export default function MovimientosPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const currentDate = new Date()
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth() + 1
-      
+      const [year, month] = selectedMonth.split('-')
+
       const response = await fetch(`/api/movimientos-diarios/monthly-totals?year=${year}&month=${month}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -712,7 +710,7 @@ export default function MovimientosPage() {
         {/* Totales del Mes */}
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            📊 Totales del Mes - {displayDateOnly(new Date()).split('/').slice(1).join('/')}
+            📊 Totales del Mes - {selectedMonth.split('-').reverse().slice(0, 2).join('/')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Ventas Brutas */}
@@ -916,7 +914,7 @@ export default function MovimientosPage() {
                   </div>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Saldo Total</p>
+                  <p className="text-sm font-medium text-gray-500">Saldo Acumulado</p>
                   <p className={`text-lg font-semibold ${(monthlyTotals.saldo || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     ${(monthlyTotals.saldo || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>

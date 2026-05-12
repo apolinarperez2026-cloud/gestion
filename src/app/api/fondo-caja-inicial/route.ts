@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { parseDateOnly } from '@/lib/dateUtils'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 // GET - Obtener todos los fondos de caja iniciales
 export async function GET(request: NextRequest) {
@@ -121,9 +122,12 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ 
+    // Recalcular campos derivados de MovimientoDiario para el día
+    await recalcularMovimientoDiario(fechaEspecifica, decoded.sucursalId, prisma)
+
+    return NextResponse.json({
       message: 'Fondo de caja inicial creado exitosamente',
-      fondoCajaInicial: result 
+      fondoCajaInicial: result
     }, { status: 201 })
   } catch (error: any) {
     // Si es un error de constraint único (fecha + sucursal)

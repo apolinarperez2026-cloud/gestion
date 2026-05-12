@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { parseDateOnly } from '@/lib/dateUtils'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 // PUT - Actualizar cobro TPV (solo administradores)
 export async function PUT(
@@ -64,7 +65,7 @@ export async function PUT(
 
     // Crear fecha específica para evitar problemas de zona horaria
     const fechaEspecifica = parseDateOnly(fecha)
-    
+
     const tpv = await prisma.tpv.update({
       where: { id: parseInt(id) },
       data: {
@@ -76,6 +77,12 @@ export async function PUT(
         usuarioRegistro
       }
     })
+
+    // Recalcular MovimientoDiario para el día afectado (y el nuevo día si cambió la fecha)
+    await recalcularMovimientoDiario(existingTpv.fecha, existingTpv.sucursalId, prisma)
+    if (existingTpv.fecha.toISOString().split('T')[0] !== fechaEspecifica.toISOString().split('T')[0]) {
+      await recalcularMovimientoDiario(fechaEspecifica, existingTpv.sucursalId, prisma)
+    }
 
     return NextResponse.json({ tpv })
   } catch (error) {
@@ -123,6 +130,9 @@ export async function DELETE(
     await prisma.tpv.delete({
       where: { id: parseInt(id) }
     })
+
+    // Recalcular MovimientoDiario para el día afectado
+    await recalcularMovimientoDiario(existingTpv.fecha, existingTpv.sucursalId, prisma)
 
     return NextResponse.json({ message: 'Cobro TPV eliminado exitosamente' })
   } catch (error) {

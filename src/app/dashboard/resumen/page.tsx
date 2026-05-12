@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -259,43 +259,62 @@ export default function ResumenPage() {
 
   const resumen = calcularResumen()
 
-  // Los movimientos diarios ya están agrupados por día, solo necesitamos mapearlos
-  const movimientosPorDia = movimientosDelMes.map((movimiento, index) => {
-    // Calcular saldo del día según fórmula del Excel: Ventas Brutas - Crédito - Recargas - Pago con Tarjeta - Transferencias - Gastos
-    const saldoDelDia = movimiento.ventasBrutas - movimiento.credito - movimiento.recargas - movimiento.pagoTarjeta - movimiento.transferencias - movimiento.gastos
-    
-    // Calcular saldo acumulado (arrastrando del día anterior)
-    let saldoAcumulado = 0
-    
-    // Si no es el primer día, calcular el saldo acumulado anterior
-    if (index > 0) {
-      let saldoAcumuladoAnterior = 0
-      for (let i = 0; i < index; i++) {
-        const mov = movimientosDelMes[i]
-        const saldoDia = mov.ventasBrutas - mov.credito - mov.recargas - mov.pagoTarjeta - mov.transferencias - mov.gastos
-        saldoAcumuladoAnterior = saldoAcumuladoAnterior + saldoDia - (mov.depositos || 0)
-      }
-      saldoAcumulado = saldoAcumuladoAnterior + saldoDelDia - (movimiento.depositos || 0)
-    } else {
-      // Primer día: Saldo Acumulado = Saldo del Día - Depósitos
-      saldoAcumulado = saldoDelDia - (movimiento.depositos || 0)
-    }
-    
+  // BUG-05 FIX: Generar TODOS los días del mes, no solo los que tienen registro en BD
+  // Días sin registro aparecen con valores en cero (igual que la lógica de exportarAExcel)
+  const [_añoStr, _mesStr] = mesSeleccionado.split('-')
+  const _añoNum = parseInt(_añoStr)
+  const _mesNum = parseInt(_mesStr)
+  const _diasEnMes = new Date(_añoNum, _mesNum, 0).getDate()
+
+  // Normalizar fecha a clave YYYY-MM-DD usando tiempo local (igual que exportarAExcel)
+  const _normalizarFecha = (fecha: Date): string => {
+    const a = fecha.getFullYear()
+    const m = String(fecha.getMonth() + 1).padStart(2, '0')
+    const d = String(fecha.getDate()).padStart(2, '0')
+    return `${a}-${m}-${d}`
+  }
+
+  // Mapa lookup O(1): fechaKey → movimiento
+  const _movPorFechaMap = new Map<string, MovimientoDiario>()
+  movimientosDelMes.forEach(mov => {
+    _movPorFechaMap.set(_normalizarFecha(new Date(mov.fecha)), mov)
+  })
+
+  // Generar todos los días del mes con saldo acumulado encadenado
+  let _saldoAcumAnterior = 0
+  const movimientosPorDia = Array.from({ length: _diasEnMes }, (_, i) => {
+    const fechaDia = new Date(_añoNum, _mesNum - 1, i + 1)
+    const movimiento = _movPorFechaMap.get(_normalizarFecha(fechaDia))
+
+    const totalVentas        = movimiento?.ventasBrutas    ?? 0
+    const totalCredito       = movimiento?.credito         ?? 0
+    const totalAbonosCredito = movimiento?.abonosCredito   ?? 0
+    const totalRecargas      = movimiento?.recargas        ?? 0
+    const totalPagoTarjeta   = movimiento?.pagoTarjeta     ?? 0
+    const totalTransferencias= movimiento?.transferencias  ?? 0
+    const totalGastos        = movimiento?.gastos          ?? 0
+    const totalEfectivo      = movimiento?.efectivo        ?? 0
+    const totalDepositos     = movimiento?.depositos       ?? 0
+
+    const saldoDelDiaCalculado = totalVentas - totalCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
+    const saldoAcumulado = _saldoAcumAnterior + saldoDelDiaCalculado - totalDepositos
+    _saldoAcumAnterior = saldoAcumulado
+
     return {
-      fecha: new Date(movimiento.fecha),
-      movimientos: [movimiento],
-      totalVentas: movimiento.ventasBrutas,
-      totalGastos: movimiento.gastos,
-      totalEfectivo: movimiento.efectivo,
-      totalCredito: movimiento.credito,
-      totalAbonosCredito: movimiento.abonosCredito,
-      totalRecargas: movimiento.recargas,
-      totalPagoTarjeta: movimiento.pagoTarjeta,
-      totalTransferencias: movimiento.transferencias,
-      totalDepositos: movimiento.depositos || 0,
-      saldoDia: movimiento.saldoDia,
-      saldoDelDiaCalculado: saldoDelDia,
-      saldoAcumulado: saldoAcumulado
+      fecha: fechaDia,
+      movimientos: movimiento ? [movimiento] : [],
+      totalVentas,
+      totalGastos,
+      totalEfectivo,
+      totalCredito,
+      totalAbonosCredito,
+      totalRecargas,
+      totalPagoTarjeta,
+      totalTransferencias,
+      totalDepositos,
+      saldoDia: movimiento?.saldoDia ?? 0,
+      saldoDelDiaCalculado,
+      saldoAcumulado
     }
   })
 
@@ -402,12 +421,12 @@ export default function ResumenPage() {
                     const mesActual = mesSeleccionado.split('-')[1]
                     setMesSeleccionado(`${nuevoAño}-${mesActual}`)
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-black focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   {Array.from({ length: 10 }, (_, i) => {
                     const año = new Date().getFullYear() - 5 + i
                     return (
-                      <option key={año} value={año}>
+                      <option key={año} value={año} className="bg-white text-black">
                         {año}
                       </option>
                     )
@@ -426,20 +445,20 @@ export default function ResumenPage() {
                     const añoActual = mesSeleccionado.split('-')[0]
                     setMesSeleccionado(`${añoActual}-${nuevoMes}`)
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-black focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="01">Enero</option>
-                  <option value="02">Febrero</option>
-                  <option value="03">Marzo</option>
-                  <option value="04">Abril</option>
-                  <option value="05">Mayo</option>
-                  <option value="06">Junio</option>
-                  <option value="07">Julio</option>
-                  <option value="08">Agosto</option>
-                  <option value="09">Septiembre</option>
-                  <option value="10">Octubre</option>
-                  <option value="11">Noviembre</option>
-                  <option value="12">Diciembre</option>
+                  <option value="01" className="bg-white text-black">Enero</option>
+                  <option value="02" className="bg-white text-black">Febrero</option>
+                  <option value="03" className="bg-white text-black">Marzo</option>
+                  <option value="04" className="bg-white text-black">Abril</option>
+                  <option value="05" className="bg-white text-black">Mayo</option>
+                  <option value="06" className="bg-white text-black">Junio</option>
+                  <option value="07" className="bg-white text-black">Julio</option>
+                  <option value="08" className="bg-white text-black">Agosto</option>
+                  <option value="09" className="bg-white text-black">Septiembre</option>
+                  <option value="10" className="bg-white text-black">Octubre</option>
+                  <option value="11" className="bg-white text-black">Noviembre</option>
+                  <option value="12" className="bg-white text-black">Diciembre</option>
                 </select>
               </div>
               

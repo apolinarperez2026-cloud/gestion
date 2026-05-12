@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { parseDateOnly } from '@/lib/dateUtils'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 // GET - Obtener todos los cobros TPV
 export async function GET(request: NextRequest) {
@@ -106,6 +107,11 @@ export async function POST(request: NextRequest) {
         usuarioId: decoded.userId
       }
     })
+
+    // Recalcular MovimientoDiario si el cobro es exitoso
+    if (estado === 'exitoso') {
+      await recalcularMovimientoDiario(fechaEspecifica, decoded.sucursalId, prisma)
+    }
 
     return NextResponse.json({ tpv }, { status: 201 })
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { parseDateOnly } from '@/lib/dateUtils'
 import jwt from 'jsonwebtoken'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 const prisma = new PrismaClient()
 
@@ -54,9 +55,14 @@ export async function PUT(
       )
     }
 
+    // Guardar fecha y sucursal originales antes de editar (para recalcular si cambia la fecha)
+    const movimientoExistente = await prisma.movimiento.findUnique({
+      where: { id: parseInt(id) }
+    })
+
     // Crear fecha específica para evitar problemas de zona horaria
     const fechaEspecifica = fecha ? parseDateOnly(fecha) : undefined
-    
+
     const movimiento = await prisma.movimiento.update({
       where: { id: parseInt(id) },
       data: {
@@ -79,6 +85,19 @@ export async function PUT(
         }
       }
     })
+
+    // Recalcular MovimientoDiario si el movimiento es (o era) un gasto
+    const eraGasto = movimientoExistente?.tipo === 'GASTO'
+    const esGasto  = tipo === 'GASTO'
+    if ((eraGasto || esGasto) && movimientoExistente) {
+      await recalcularMovimientoDiario(movimientoExistente.fecha, movimientoExistente.sucursalId, prisma)
+      // Si cambió la fecha, recalcular también el día nuevo
+      const fechaAnteriorStr = movimientoExistente.fecha.toISOString().split('T')[0]
+      const fechaNuevaStr    = movimiento.fecha.toISOString().split('T')[0]
+      if (fechaAnteriorStr !== fechaNuevaStr) {
+        await recalcularMovimientoDiario(movimiento.fecha, movimiento.sucursalId, prisma)
+      }
+    }
 
     return NextResponse.json({ movimiento })
   } catch (error) {
@@ -144,9 +163,19 @@ export async function DELETE(
 
     console.log('Eliminando movimiento:', { id, usuario: user.nombre })
 
+    // Guardar fecha y sucursal antes de borrar para recalcular después
+    const movimientoABorrar = await prisma.movimiento.findUnique({
+      where: { id: parseInt(id) }
+    })
+
     await prisma.movimiento.delete({
       where: { id: parseInt(id) }
     })
+
+    // Recalcular MovimientoDiario si era un gasto
+    if (movimientoABorrar?.tipo === 'GASTO') {
+      await recalcularMovimientoDiario(movimientoABorrar.fecha, movimientoABorrar.sucursalId, prisma)
+    }
 
     return NextResponse.json({ message: 'Movimiento eliminado exitosamente' })
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 import { parseDateOnly } from '@/lib/dateUtils'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 const prisma = new PrismaClient()
 
@@ -148,6 +149,11 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    // Recalcular campos derivados de MovimientoDiario si es un gasto
+    if (tipo === 'GASTO') {
+      await recalcularMovimientoDiario(movimiento.fecha, sucursalId, prisma)
+    }
 
     return NextResponse.json({ movimiento }, { status: 201 })
   } catch (error) {
