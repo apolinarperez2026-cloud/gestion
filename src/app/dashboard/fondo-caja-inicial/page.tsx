@@ -78,11 +78,16 @@ export default function FondoCajaInicialPage() {
   }
 
   // Función para calcular estadísticas
+  // BUG-13 FIX: mostrar el monto del último registro del mes, no la suma acumulada
+  // El fondo de caja inicial es un valor puntual, no acumulativo
   const calculateStats = (fondos: FondoCajaInicial[]) => {
-    const totalMonto = fondos.reduce((sum, fondo) => sum + fondo.monto, 0)
-    
+    const fondosOrdenados = [...fondos].sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    )
+    const ultimoMonto = fondosOrdenados.length > 0 ? fondosOrdenados[0].monto : 0
+
     setStats({
-      totalMonto,
+      totalMonto: ultimoMonto,
       countFondos: fondos.length
     })
   }
@@ -402,7 +407,7 @@ export default function FondoCajaInicialPage() {
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total del Mes</p>
+                <p className="text-sm font-medium text-gray-500">Último monto registrado</p>
                 <p className="text-2xl font-semibold text-green-600">${stats.totalMonto.toLocaleString('en-US')}</p>
               </div>
             </div>
@@ -608,6 +613,19 @@ export default function FondoCajaInicialPage() {
                 Cancelar
               </button>
               <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
                 onClick={confirmDelete}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
               >

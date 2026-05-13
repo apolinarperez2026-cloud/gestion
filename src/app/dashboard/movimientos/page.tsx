@@ -707,10 +707,10 @@ export default function MovimientosPage() {
           </div>
         </div>
 
-        {/* Totales del Mes */}
+        {/* Promedio del Mes */}
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            📊 Totales del Mes - {selectedMonth.split('-').reverse().slice(0, 2).join('/')}
+            📊 Promedio del Mes - {selectedMonth.split('-').reverse().slice(0, 2).join('/')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Ventas Brutas */}

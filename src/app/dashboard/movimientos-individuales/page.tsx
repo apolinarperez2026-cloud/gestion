@@ -142,7 +142,7 @@ export default function MovimientosIndividualesPage() {
       totalIngresos: totalVentas + totalFondoCaja,
       totalGastos,
       balance: totalVentas + totalFondoCaja - totalGastos,
-      countMovimientos: movimientos.length
+      countMovimientos: gastos.length
     })
   }
 

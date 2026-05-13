@@ -92,117 +92,77 @@ export default function ResumenPage() {
   }
 
   const exportarAExcel = () => {
-    // Función auxiliar para normalizar fechas (solo año, mes, día, sin hora)
-    const normalizarFecha = (fecha: Date): string => {
-      const año = fecha.getFullYear()
-      const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-      const dia = String(fecha.getDate()).padStart(2, '0')
-      return `${año}-${mes}-${dia}`
-    }
-    
-    // Generar todos los días del mes seleccionado
+    // BUG-15 FIX: leer directamente desde movimientosDelMes (ya filtrado con split('T')[0])
+    // y construir fechas como strings puros — sin new Date() para evitar desfase UTC→local
     const [año, mes] = mesSeleccionado.split('-')
     const añoNum = parseInt(año)
     const mesNum = parseInt(mes)
     const diasEnMes = new Date(añoNum, mesNum, 0).getDate()
-    
-    // Crear un mapa de movimientos por fecha para búsqueda rápida
-    const movimientosPorFecha = new Map<string, any>()
-    movimientosPorDia.forEach((dia: any) => {
-      const fechaDate = new Date(dia.fecha)
-      const fechaKey = normalizarFecha(fechaDate)
-      movimientosPorFecha.set(fechaKey, dia)
+
+    // Mapa O(1): "YYYY-MM-DD" → registro DB (usa split para evitar timezone shift)
+    const movPorFechaMap = new Map<string, MovimientoDiario>()
+    movimientosDelMes.forEach(mov => {
+      const fechaKey = (mov.fecha as unknown as string).split('T')[0]
+      movPorFechaMap.set(fechaKey, mov)
     })
-    
-    // Generar array con todos los días del mes
-    const todosLosDias: any[] = []
-    let saldoAcumuladoAnterior = 0
-    
-    for (let dia = 1; dia <= diasEnMes; dia++) {
-      const fecha = new Date(añoNum, mesNum - 1, dia)
-      const fechaKey = normalizarFecha(fecha)
-      const movimiento = movimientosPorFecha.get(fechaKey)
-      
-      let datosDia: any
-      
-      if (movimiento) {
-        // Usar datos reales del movimiento
-        datosDia = {
-          fecha: new Date(fecha),
-          totalVentas: movimiento.totalVentas || 0,
-          totalCredito: movimiento.totalCredito || 0,
-          totalAbonosCredito: movimiento.totalAbonosCredito || 0,
-          totalRecargas: movimiento.totalRecargas || 0,
-          totalPagoTarjeta: movimiento.totalPagoTarjeta || 0,
-          totalTransferencias: movimiento.totalTransferencias || 0,
-          totalGastos: movimiento.totalGastos || 0,
-          totalDepositos: movimiento.totalDepositos || 0
-        }
-      } else {
-        // Crear entrada con valores en cero
-        datosDia = {
-          fecha: new Date(fecha),
-          totalVentas: 0,
-          totalCredito: 0,
-          totalAbonosCredito: 0,
-          totalRecargas: 0,
-          totalPagoTarjeta: 0,
-          totalTransferencias: 0,
-          totalGastos: 0,
-          totalDepositos: 0
-        }
-      }
-      
-      // Calcular Saldo del Día según fórmula del Excel: Ventas Brutas - Crédito - Recargas - Pago con Tarjeta - Transferencias - Gastos
-      const saldoDelDia = datosDia.totalVentas - datosDia.totalCredito - datosDia.totalRecargas - datosDia.totalPagoTarjeta - datosDia.totalTransferencias - datosDia.totalGastos
-      
-      // Calcular Saldo Acumulado: Saldo Acumulado anterior + Saldo del Día - Depósitos
-      const saldoAcumulado = saldoAcumuladoAnterior + saldoDelDia - datosDia.totalDepositos
-      saldoAcumuladoAnterior = saldoAcumulado
-      
-      todosLosDias.push({
-        ...datosDia,
-        saldoDelDiaCalculado: saldoDelDia,
-        saldoAcumulado: saldoAcumulado
+
+    // Iterar día por día usando strings, nunca objetos Date
+    const datosExcel: Record<string, string | number>[] = []
+    let saldoAcumAnterior = 0
+
+    for (let d = 1; d <= diasEnMes; d++) {
+      const dStr   = String(d).padStart(2, '0')
+      const mesStr = String(mesNum).padStart(2, '0')
+      const fechaKey = `${año}-${mesStr}-${dStr}`          // "YYYY-MM-DD" sin timezone
+      const mov = movPorFechaMap.get(fechaKey)
+
+      // Leer campos directamente desde el registro DB (nombres exactos del modelo)
+      const ventas       = mov?.ventasBrutas    ?? 0
+      const credito      = mov?.credito         ?? 0
+      const abonos       = mov?.abonosCredito   ?? 0
+      const recargas     = mov?.recargas        ?? 0
+      const tarjeta      = mov?.pagoTarjeta     ?? 0
+      const transf       = mov?.transferencias  ?? 0
+      const gastos       = mov?.gastos          ?? 0
+      const depositos    = mov?.depositos       ?? 0
+
+      // Saldo del Día: Ventas - Crédito + Abonos - Recargas - Tarjeta - Transf - Gastos
+      const saldoDia = ventas - credito + abonos - recargas - tarjeta - transf - gastos
+      // Saldo Acumulado: acumula día a día, los depósitos salen del efectivo
+      const saldoAcum = saldoAcumAnterior + saldoDia - depositos
+      saldoAcumAnterior = saldoAcum
+
+      datosExcel.push({
+        'Fecha':           `${dStr}/${mesStr}/${año}`,
+        'Ventas Brutas':   parseFloat(ventas.toFixed(2)),
+        'Crédito':         parseFloat(credito.toFixed(2)),
+        'Abonos':          parseFloat(abonos.toFixed(2)),
+        'Recargas':        parseFloat(recargas.toFixed(2)),
+        'Pago con Tarjeta':parseFloat(tarjeta.toFixed(2)),
+        'Transferencias':  parseFloat(transf.toFixed(2)),
+        'Gastos':          parseFloat(gastos.toFixed(2)),
+        'Saldo del Día':   parseFloat(saldoDia.toFixed(2)),
+        'Depósitos':       parseFloat(depositos.toFixed(2)),
+        'Saldo Acumulado': parseFloat(saldoAcum.toFixed(2))
       })
     }
-    
-    // Preparar datos para exportar - orden y formato exacto como el Excel manual
-    const datosExcel = todosLosDias.map((dia: any) => ({
-      'Fecha': dia.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      'Ventas Brutas': parseFloat(dia.totalVentas.toFixed(2)),
-      'Crédito': parseFloat(dia.totalCredito.toFixed(2)),
-      'Abonos': parseFloat(dia.totalAbonosCredito.toFixed(2)),
-      'Recargas': parseFloat(dia.totalRecargas.toFixed(2)),
-      'Pago con Tarjeta': parseFloat(dia.totalPagoTarjeta.toFixed(2)),
-      'Transferencias': parseFloat(dia.totalTransferencias.toFixed(2)),
-      'Gastos': parseFloat(dia.totalGastos.toFixed(2)),
-      'Saldo del Día': parseFloat(dia.saldoDelDiaCalculado.toFixed(2)),
-      'Depósitos': parseFloat(dia.totalDepositos.toFixed(2)),
-      'Saldo Acumulado': parseFloat(dia.saldoAcumulado.toFixed(2))
-    }))
 
-    // Crear hoja de trabajo
     const ws = XLSX.utils.json_to_sheet(datosExcel)
-
-    // Crear libro de trabajo
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Resumen Mensual')
-
-    // Generar nombre de archivo con mes y año
     const nombreArchivo = `Resumen_${obtenerNombreMes(mesSeleccionado)}_${año}.xlsx`
-
-    // Descargar archivo
     XLSX.writeFile(wb, nombreArchivo)
   }
 
   // Filtrar movimientos diarios por mes seleccionado y ordenar por fecha ascendente
+  // BUG-10 FIX: extraer fecha del ISO string directamente para evitar desfase UTC→local
+  // "2026-01-31T00:00:00.000Z".split('T')[0] → "2026-01-31" sin importar la zona horaria
   const movimientosDelMes = movimientosDiarios
     .filter(movimiento => {
-      const fechaMovimiento = new Date(movimiento.fecha)
+      const fechaKey = (movimiento.fecha as unknown as string).split('T')[0]
+      const [añoFecha, mesFecha] = fechaKey.split('-')
       const [año, mes] = mesSeleccionado.split('-')
-      return fechaMovimiento.getFullYear() === parseInt(año) && 
-             fechaMovimiento.getMonth() === parseInt(mes) - 1
+      return añoFecha === año && mesFecha === mes
     })
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
 
@@ -237,7 +197,7 @@ export default function ResumenPage() {
     })
     
     // Calcular Saldo del Día y Saldo Acumulado
-    const saldoDelDia = totalVentas - totalCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
+    const saldoDelDia = totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
     const saldoAcumulado = saldoDelDia - totalDepositos
 
     return {
@@ -281,9 +241,11 @@ export default function ResumenPage() {
   }
 
   // Mapa lookup O(1): fechaKey → movimiento
+  // BUG-10 FIX: usar el string ISO directamente para evitar desfase UTC→local
   const _movPorFechaMap = new Map<string, MovimientoDiario>()
   movimientosDelMes.forEach(mov => {
-    _movPorFechaMap.set(_normalizarFecha(new Date(mov.fecha)), mov)
+    const fechaKey = (mov.fecha as unknown as string).split('T')[0]
+    _movPorFechaMap.set(fechaKey, mov)
   })
 
   // Generar los días del mes con saldo acumulado encadenado
@@ -303,7 +265,7 @@ export default function ResumenPage() {
     const totalEfectivo      = movimiento?.efectivo        ?? 0
     const totalDepositos     = movimiento?.depositos       ?? 0
 
-    const saldoDelDiaCalculado = totalVentas - totalCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
+    const saldoDelDiaCalculado = totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
     const saldoAcumulado = _saldoAcumAnterior + saldoDelDiaCalculado - totalDepositos
     _saldoAcumAnterior = saldoAcumulado
 
@@ -428,7 +390,7 @@ export default function ResumenPage() {
                     const mesActual = mesSeleccionado.split('-')[1]
                     setMesSeleccionado(`${nuevoAño}-${mesActual}`)
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-black focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" style={{ colorScheme: 'light', color: '#111827' }}
                 >
                   {Array.from({ length: 10 }, (_, i) => {
                     const año = new Date().getFullYear() - 5 + i
@@ -452,7 +414,7 @@ export default function ResumenPage() {
                     const añoActual = mesSeleccionado.split('-')[0]
                     setMesSeleccionado(`${añoActual}-${nuevoMes}`)
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-black focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" style={{ colorScheme: 'light', color: '#111827' }}
                 >
                   <option value="01" className="bg-white text-black">Enero</option>
                   <option value="02" className="bg-white text-black">Febrero</option>
@@ -499,7 +461,7 @@ export default function ResumenPage() {
               )}
             </div>
             
-            {/* Totales del Mes Seleccionado */}
+            {/* Promedio del Mes Seleccionado */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 <div className="text-center">
