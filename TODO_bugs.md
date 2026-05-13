@@ -1,303 +1,110 @@
-# TODO_bugs — Sincronización de MovimientoDiario
-> Diagnóstico: 2026-05-12 | Proyecto: `gestion`
-> Este archivo trackea los bugs de sincronización entre tablas fuente y `MovimientoDiario`.
+# TODO_bugs — Proyecto `gestion`
+> Última actualización: 2026-05-13
+> TypeScript: 0 errores ✅ · 11 bugs resueltos ✅
 
 ---
 
-## Contexto y causa raíz
+## ✅ Checklist completa — todos los bugs del proyecto
 
-`MovimientoDiario` tiene **4 campos que se calculan automáticamente** desde otras tablas:
+| # | Bug | Archivo(s) | Impacto | Estado |
+|---|-----|-----------|---------|--------|
+| BUG-05 | Resumen — tabla mostraba solo días con registros, faltaban días sin movimiento | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-12 |
+| BUG-06 | TPV — `pagoTarjeta` del MovimientoDiario no se recalculaba al editar/borrar un cobro | `api/tpv/[id]/route.ts` | 🔴 Alto | ✅ 2026-05-12 |
+| BUG-07 | Control — totales del mes no cambiaban al seleccionar otro mes desde el selector | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-12 |
+| BUG-08 | Sincronización MovimientoDiario — 12 operaciones sin recálculo de campos derivados | múltiples `api/` routes | 🔴 Crítico | ✅ 2026-05-12 |
+| BUG-09 | Días futuros del mes actual aparecían con saldo acumulado arrastrado | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-12 |
+| BUG-10 | Fechas UTC desfasadas — último día del mes siempre aparecía en cero | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-13 |
+| BUG-11 | AbonosCredito no sumaba al Saldo del Día — 3 fórmulas incorrectas | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-13 |
+| BUG-12 | Contador "gastos totales" incluía ventas en el conteo | `movimientos-individuales/page.tsx` | 🟡 Medio | ✅ 2026-05-13 |
+| BUG-13 | Fondo de Caja Inicial mostraba suma acumulada en vez del último valor del mes | `fondo-caja-inicial/page.tsx` | 🟡 Medio | ✅ 2026-05-13 |
+| BUG-14 | Imágenes de comprobantes sin zoom en tablas de TPV y Depósitos | `tpv/page.tsx` | 🔵 UI | ✅ 2026-05-13 |
+| BUG-15 | Excel exportado: fechas -1 día y saldo acumulado incorrecto | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-13 |
+| BUG-16 | Selectores de Mes/Año — texto blanco invisible sobre fondo blanco (modo dark) | `globals.css` + todos los dashboards | 🔵 UI | ✅ 2026-05-13 |
+| BUG-17 | Etiqueta "Totales del Mes" incorrecta — debía decir "Promedio del Mes" | `resumen`, `movimientos`, `depositos` | 🔵 UI | ✅ 2026-05-13 |
 
-| Campo | Tabla fuente | Operaciones que lo afectan |
-|-------|-------------|---------------------------|
-| `gastos` | `Movimiento` (tipo = GASTO) | POST, PUT, DELETE |
-| `pagoTarjeta` | `Tpv` (estado = exitoso) | POST, PUT, DELETE |
-| `depositos` | `Deposito` | POST, PATCH, DELETE |
-| `fondoInicial` | `FondoCajaInicial` | POST, PUT, DELETE |
-
-**El problema:** cuando una de esas tablas cambia (se crea, edita o borra un registro), `MovimientoDiario` NO se actualiza automáticamente. El campo queda desactualizado hasta que el usuario edita el registro diario de forma manual.
-
-Esto afecta a **todas las sucursales** actuales y futuras porque el bug está en las rutas API, no en los datos.
-
-**La solución correcta (SOLID):** crear una única función centralizada `recalcularMovimientoDiario(fecha, sucursalId, prisma)` en `src/lib/` que recalcule los 4 campos de una sola vez. Cada ruta la llama con una línea. Hay un solo lugar para mantener.
-
----
-
-## Estado de cada operación antes del fix
-
-| Ruta | Método | Campo afectado | Recalcula hoy |
-|------|--------|---------------|---------------|
-| `POST /api/movimientos` | Crear gasto | `gastos` | ✅ BUG-08b |
-| `PUT /api/movimientos/[id]` | Editar gasto | `gastos` | ✅ BUG-08c |
-| `DELETE /api/movimientos/[id]` | Borrar gasto | `gastos` | ✅ BUG-08d |
-| `POST /api/tpv` | Crear cobro TPV | `pagoTarjeta` | ✅ BUG-08e |
-| `PUT /api/tpv/[id]` | Editar cobro TPV | `pagoTarjeta` | ✅ BUG-08f |
-| `DELETE /api/tpv/[id]` | Borrar cobro TPV | `pagoTarjeta` | ✅ BUG-08f |
-| `POST /api/depositos` | Crear depósito | `depositos` | ✅ BUG-08g |
-| `PATCH /api/depositos/[id]` | Editar depósito | `depositos` | ✅ BUG-08h |
-| `DELETE /api/depositos/[id]` | Borrar depósito | `depositos` | ✅ BUG-08i |
-| `POST /api/fondo-caja-inicial` | Crear fondo inicial | `fondoInicial` | ✅ BUG-08j |
-| `PUT /api/fondo-caja-inicial/[id]` | Editar fondo inicial | `fondoInicial` | ✅ BUG-08k |
-| `DELETE /api/fondo-caja-inicial/[id]` | Borrar fondo inicial | `fondoInicial` | ✅ BUG-08l |
-
-**12/12 operaciones sincronizadas. ✅ — Completado 2026-05-12**
+**11/11 bugs resueltos ✅ — TypeScript: 0 errores ✅**
 
 ---
 
-## Checklist de tareas
+## Resumen por bug
 
-| # | Tarea | Tipo | Prioridad | Estado | Responsable |
-|---|-------|------|-----------|--------|-------------|
-| BUG-08a | Crear helper centralizado `recalcularMovimientoDiario.ts` | Nuevo archivo | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08b | Conectar helper en `POST /api/movimientos` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08c | Conectar helper en `PUT /api/movimientos/[id]` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08d | Conectar helper en `DELETE /api/movimientos/[id]` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08e | Conectar helper en `POST /api/tpv` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08f | Refactorizar `PUT/DELETE /api/tpv/[id]` para usar el helper (reemplaza fix inline de BUG-06) | API | 🟡 Limpieza | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08g | Conectar helper en `POST /api/depositos` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08h | Conectar helper en `PATCH /api/depositos/[id]` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08i | Conectar helper en `DELETE /api/depositos/[id]` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08j | Conectar helper en `POST /api/fondo-caja-inicial` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08k | Conectar helper en `PUT /api/fondo-caja-inicial/[id]` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
-| BUG-08l | Conectar helper en `DELETE /api/fondo-caja-inicial/[id]` | API | 🔴 Crítico | ✅ Completado 2026-05-12 | Alber/Claude |
+### BUG-05 — Tabla de resumen sin días vacíos
+- **Problema:** La tabla de resumen mensual solo mostraba los días que tenían registros. Los días sin movimiento (domingos, feriados, etc.) no aparecían en la tabla.
+- **Causa:** La tabla se construía iterando `movimientosDelMes` (solo los que venían de BD), sin generar todos los días del mes.
+- **Fix:** `Array.from({ length: diasEnMes })` genera los 30/31 días; los días sin registro muestran ceros.
 
-**Dependencias:** BUG-08a debe completarse primero. El resto (b–l) son independientes entre sí y pueden hacerse en cualquier orden una vez que el helper existe.
+### BUG-06 — TPV: pagoTarjeta no se recalculaba
+- **Problema:** Al editar o borrar un cobro TPV, el campo `pagoTarjeta` del MovimientoDiario correspondiente no se actualizaba. El resumen seguía mostrando el valor anterior.
+- **Causa:** Las rutas `PUT /api/tpv/[id]` y `DELETE /api/tpv/[id]` no llamaban ningún recálculo después de modificar el cobro.
+- **Fix:** Se agregó `recalcularPagoTarjetaDia()` en ambas rutas (luego consolidado en BUG-08 con el helper centralizado).
 
-**Leyenda:** ⬜ Pendiente · 🔄 En progreso · ✅ Completado · ❌ Bloqueado
+### BUG-07 — Selector de mes no actualizaba totales
+- **Problema:** Al cambiar el mes desde el selector en la pantalla de resumen, los totales de las cards superiores no cambiaban. Seguían mostrando los datos del mes anterior.
+- **Causa:** El `useEffect` que recargaba datos no tenía `mesSeleccionado` en su array de dependencias.
+- **Fix:** Se agregó `mesSeleccionado` al array de dependencias del `useEffect` de carga de datos.
 
----
+### BUG-08 — Sincronización MovimientoDiario (12 operaciones)
+- **Problema:** Al crear/editar/borrar un gasto, cobro TPV, depósito o fondo inicial, el registro diario MovimientoDiario no se actualizaba. Los totales quedaban desactualizados.
+- **Causa:** Las 12 rutas de API no llamaban ningún recálculo después de cada operación.
+- **Fix:** Función centralizada `recalcularMovimientoDiario.ts` en `src/lib/`. Las 12 rutas la llaman con una línea. Patrón SOLID: un único lugar de mantenimiento.
 
-## Detalle de cada tarea
+### BUG-09 — Días futuros con saldo arrastrado
+- **Problema:** El mes actual mostraba días futuros (ej: 13/05 a 31/05 cuando hoy es 12/05) con ceros en ventas pero con el saldo acumulado del último día real.
+- **Causa:** El generador de días no distinguía entre mes actual y meses pasados — generaba siempre todos los días del mes.
+- **Fix:** `_diasAMostrar = esMesActual ? Math.min(hoy.getDate(), diasEnMes) : diasEnMes`
 
----
+### BUG-10 — Fechas UTC desfasadas
+- **Problema:** El último día de cada mes aparecía en cero aunque tuviera datos. En meses de 31 días el día 31 nunca mostraba datos.
+- **Causa:** `new Date(isoString).getMonth()` convierte UTC a hora local (UTC-6) → desfase de -1 día. Una fecha "2026-04-01T00:00:00.000Z" se leía como 31 de marzo.
+- **Fix:** `(mov.fecha as string).split('T')[0]` — extrae la fecha del string ISO directamente, sin conversión de zona horaria.
 
-### BUG-08a — Crear helper centralizado `recalcularMovimientoDiario.ts`
+### BUG-11 — AbonosCredito no sumaba al Saldo del Día
+- **Problema:** Saldo del Día más bajo de lo real cuando había abonos de crédito (pagos de clientes a su deuda).
+- **Causa:** La fórmula omitía `+ totalAbonosCredito` en los 3 puntos de cálculo del archivo.
+- **Fix:** Fórmula corregida: `ventas - credito + abonos - recargas - tarjeta - transf - gastos` aplicada en `movimientosPorDia`, `calcularResumen()` y `exportarAExcel()`.
 
-**Archivo a crear:** `src/lib/recalcularMovimientoDiario.ts`
+### BUG-12 — Contador de gastos incluía ventas
+- **Problema:** "Mostrando 9 de 12 gastos" cuando solo había 9 gastos reales (12 = ventas + gastos).
+- **Causa:** `movimientos.length` contaba todos los tipos de movimiento.
+- **Fix:** `gastos.length` — variable ya definida como `movimientos.filter(m => m.tipo === 'GASTO')`.
 
-**Qué hace:**
-1. Recibe `fecha: Date` y `sucursalId: number`
-2. Consulta los 4 campos derivados para ese día y sucursal:
-   - `gastos` → suma de `Movimiento` donde `tipo = 'GASTO'`
-   - `pagoTarjeta` → suma de `Tpv` donde `estado = 'exitoso'`
-   - `depositos` → suma de `Deposito`
-   - `fondoInicial` → valor de `FondoCajaInicial` del día (o 0 si no existe)
-3. Actualiza `MovimientoDiario` con esos 4 valores usando `updateMany`
-4. Si no existe `MovimientoDiario` para esa fecha+sucursal, no hace nada (no crea uno vacío)
+### BUG-13 — Fondo de Caja Inicial mostraba suma acumulada
+- **Problema:** Con 12 registros de $2,000 en el mes, la card mostraba $24,000 en vez de $2,000.
+- **Causa:** `.reduce((sum, f) => sum + f.monto, 0)` sumaba todos los registros del mes.
+- **Fix:** Ordenar desc por fecha y tomar `fondosOrdenados[0].monto` (el más reciente). Label: "Total del Mes" → "Último monto registrado".
 
-**Firma esperada:**
-```typescript
-export async function recalcularMovimientoDiario(
-  fecha: Date,
-  sucursalId: number,
-  prisma: PrismaClient
-): Promise<void>
-```
+### BUG-14 — Imágenes sin zoom en TPV
+- **Problema:** Miniaturas de comprobantes de pago en la tabla no se podían ampliar para verificar.
+- **Causa:** Los `<img>` en la tabla no tenían handler de click.
+- **Fix:** `onClick={(e) => { e.stopPropagation(); handleRowClick(tpv) }}` en miniaturas desktop y mobile de TPV. Depósitos ya lo tenía.
 
-**Usa:** `createDateRange(fechaStr)` de `src/lib/dateUtils.ts` para el rango del día (patrón ya establecido en BUG-06)
+### BUG-15 — Excel: fechas -1 día y saldo incorrecto
+- **Problema:** Todas las fechas del Excel aparecían un día antes; el Saldo Acumulado no coincidía con la tabla en pantalla.
+- **Causa:** `new Date(dia.fecha)` en `exportarAExcel` causaba el mismo desfase UTC de BUG-10. Además dependía del array `movimientosPorDia` que podía estar muteado por `.sort()`.
+- **Fix:** Refactorizado `exportarAExcel` para leer desde `movimientosDelMes` con `split('T')[0]`. Fechas construidas como strings puros `"YYYY-MM-DD"` sin objetos `Date`. Campos leídos directamente del registro DB.
 
-**Test:**
-```
-[ ] Crear un gasto nuevo → MovimientoDiario.gastos aumenta el monto correcto
-[ ] Editar ese gasto a otro monto → MovimientoDiario.gastos refleja el nuevo monto
-[ ] Borrar ese gasto → MovimientoDiario.gastos vuelve al valor anterior
-[ ] Crear un depósito → MovimientoDiario.depositos se actualiza
-[ ] Borrar ese depósito → MovimientoDiario.depositos vuelve al valor anterior
-[ ] Crear cobro TPV → MovimientoDiario.pagoTarjeta se actualiza
-[ ] Crear fondo inicial → MovimientoDiario.fondoInicial se actualiza
-[ ] Si no existe MovimientoDiario para esa fecha → no se crea ningún registro nuevo (no rompe)
-```
+### BUG-16 — Texto blanco invisible en selectores de Mes/Año
+- **Problema:** En todos los dashboards, el selector de mes (input type="month") mostraba texto blanco sobre fondo blanco — la selección no se podía leer.
+- **Causa:** El navegador en modo oscuro aplicaba `color-scheme: dark` a los inputs, haciendo el texto blanco. La clase `.input-field` no forzaba colores explícitos.
+- **Fix:** Una sola línea en `globals.css` cubre todos los dashboards: `.input-field { @apply ... bg-white text-gray-900; color-scheme: light; }`. El `resumen/page.tsx` usa `<select>` separados con `style={{ colorScheme: 'light', color: '#111827' }}` inline.
 
----
-
-### BUG-08b — Conectar en `POST /api/movimientos`
-
-**Archivo:** `src/app/api/movimientos/route.ts`
-
-**Cuándo:** solo si `tipo === 'GASTO'` (las ventas no afectan campos derivados de MovimientoDiario)
-
-**Dónde:** después del `prisma.movimiento.create(...)`, antes del `return`
-
-**Test:**
-```
-[ ] Registrar un gasto de $500 en FK01 para el día 15/01
-[ ] Verificar que MovimientoDiario del 15/01 FK01 tiene gastos += $500
-[ ] Registrar una VENTA → MovimientoDiario.gastos NO cambia (ventas no deben tocarlo)
-```
+### BUG-17 — Etiqueta "Totales del Mes" incorrecta
+- **Problema:** Las cards de estadísticas decían "Totales del Mes" pero mostraban promedios, no sumas totales.
+- **Causa:** Etiqueta incorrecta desde el diseño inicial.
+- **Fix:** Cambiado a "Promedio del Mes" en `resumen/page.tsx`, `movimientos/page.tsx` y `depositos/page.tsx`.
 
 ---
 
-### BUG-08c — Conectar en `PUT /api/movimientos/[id]`
+## Corrupción de archivos pre-existente (detectada y reparada 2026-05-13)
 
-**Archivo:** `src/app/api/movimientos/[id]/route.ts`
+Durante el test de compilación se encontraron 3 archivos corruptos en el repositorio:
 
-**Cuándo:** si el movimiento era GASTO o si el tipo cambió a/desde GASTO
-
-**Consideración:** si se cambió la fecha del movimiento, recalcular ambas fechas (la anterior y la nueva), igual que en `tpv/[id]`
-
-**Test:**
-```
-[ ] Editar un gasto de $500 a $800 → MovimientoDiario.gastos aumenta $300
-[ ] Editar la fecha del gasto al día siguiente → ambos días recalculados correctamente
-```
+| Archivo | Problema | Reparación |
+|---------|---------|-----------|
+| `tpv/page.tsx` | Truncado dentro del modal de Error (mid-tag) | Completado el modal + cierre del componente |
+| `fondo-caja-inicial/page.tsx` | Truncado en modal de confirmación de borrado | Completado botón Eliminar + cierre del modal |
+| `movimientos-individuales/page.tsx` | Bytes nulos (`^@`) al final del archivo | Eliminados con `tr -d '\000'` |
 
 ---
 
-### BUG-08d — Conectar en `DELETE /api/movimientos/[id]`
-
-**Archivo:** `src/app/api/movimientos/[id]/route.ts`
-
-**Cuándo:** solo si el movimiento borrado era GASTO
-
-**Dónde:** obtener `fecha` y `sucursalId` del registro antes de borrar, luego borrar, luego recalcular
-
-**Test:**
-```
-[ ] Borrar un gasto de $500 → MovimientoDiario.gastos disminuye $500
-[ ] Borrar una VENTA → MovimientoDiario.gastos NO cambia
-```
-
----
-
-### BUG-08e — Conectar en `POST /api/tpv`
-
-**Archivo:** `src/app/api/tpv/route.ts`
-
-**Nota:** el PUT y DELETE ya fueron fixeados en BUG-06 pero el POST fue omitido
-
-**Cuándo:** solo si `estado === 'exitoso'`
-
-**Test:**
-```
-[ ] Crear un cobro TPV exitoso de $300 → MovimientoDiario.pagoTarjeta += $300
-[ ] Crear un cobro TPV en_proceso de $300 → MovimientoDiario.pagoTarjeta NO cambia
-```
-
----
-
-### BUG-08f — Refactorizar `PUT/DELETE /api/tpv/[id]` para usar el helper
-
-**Archivo:** `src/app/api/tpv/[id]/route.ts`
-
-**Qué hacer:** reemplazar la función `recalcularPagoTarjetaDia` inline definida en ese archivo por una llamada al nuevo helper centralizado `recalcularMovimientoDiario`. El comportamiento es idéntico, solo se consolida el código.
-
-**Test:**
-```
-[ ] Editar cobro TPV → MovimientoDiario.pagoTarjeta se actualiza (mismo comportamiento que antes)
-[ ] Borrar cobro TPV → MovimientoDiario.pagoTarjeta se actualiza (mismo comportamiento que antes)
-```
-
----
-
-### BUG-08g — Conectar en `POST /api/depositos`
-
-**Archivo:** `src/app/api/depositos/route.ts`
-
-**Nota:** este archivo también tiene un `upsert` de `MovimientoDiario` pero no recalcula desde la tabla `Deposito` — lo reemplaza el helper
-
-**Test:**
-```
-[ ] Crear un depósito de $2,000 → MovimientoDiario.depositos += $2,000
-```
-
----
-
-### BUG-08h — Conectar en `PATCH /api/depositos/[id]`
-
-**Archivo:** `src/app/api/depositos/[id]/route.ts`
-
-**Consideración:** si se cambió la fecha del depósito, recalcular ambas fechas
-
-**Test:**
-```
-[ ] Editar un depósito de $2,000 a $3,000 → MovimientoDiario.depositos refleja el nuevo total
-[ ] Editar la fecha del depósito → ambos días recalculados
-```
-
----
-
-### BUG-08i — Conectar en `DELETE /api/depositos/[id]`
-
-**Archivo:** `src/app/api/depositos/[id]/route.ts`
-
-**Test:**
-```
-[ ] Borrar un depósito de $2,000 → MovimientoDiario.depositos disminuye $2,000
-```
-
----
-
-### BUG-08j — Conectar en `POST /api/fondo-caja-inicial`
-
-**Archivo:** `src/app/api/fondo-caja-inicial/route.ts`
-
-**Test:**
-```
-[ ] Crear fondo inicial de $500 → MovimientoDiario.fondoInicial = $500
-```
-
----
-
-### BUG-08k — Conectar en `PUT /api/fondo-caja-inicial/[id]`
-
-**Archivo:** `src/app/api/fondo-caja-inicial/[id]/route.ts`
-
-**Test:**
-```
-[ ] Editar fondo inicial de $500 a $800 → MovimientoDiario.fondoInicial = $800
-```
-
----
-
-### BUG-08l — Conectar en `DELETE /api/fondo-caja-inicial/[id]`
-
-**Archivo:** `src/app/api/fondo-caja-inicial/[id]/route.ts`
-
-**Test:**
-```
-[ ] Borrar fondo inicial → MovimientoDiario.fondoInicial = 0
-```
-
----
-
-## Orden de implementación recomendado
-
-```
-1. BUG-08a  ← helper (bloquea todo lo demás)
-2. BUG-08b, 08c, 08d  ← gastos (mayor impacto, directamente visible en resumen)
-3. BUG-08e, 08f  ← TPV (completa BUG-06 + limpieza)
-4. BUG-08g, 08h, 08i  ← depósitos
-5. BUG-08j, 08k, 08l  ← fondo inicial
-```
-
----
-
----
-
-## BUG-09 — Resumen: días futuros aparecen con saldo acumulado arrastrado
-
-**Detectado:** 2026-05-12 | **Estado:** ✅ Completado 2026-05-12
-
-**Síntoma:** en el mes actual, la tabla mostraba días futuros (ej: 13/05 a 31/05 cuando hoy es 12/05) todos con $0 en ventas/gastos pero con el saldo acumulado del último día real (ej: -$1,631.4). Visualmente parecía un error de datos.
-
-**Root cause:** el fix de BUG-05 generaba `Array.from({ length: diasEnMes })` sin distinción entre mes actual y meses pasados. Para mayo con 31 días, generaba los 31 aunque solo existieran 12.
-
-**Fix aplicado (`resumen/page.tsx`):**
-```typescript
-const _esMesActual = _añoNum === _hoy.getFullYear() && _mesNum === (_hoy.getMonth() + 1)
-const _diasAMostrar = _esMesActual ? Math.min(_hoy.getDate(), _diasEnMes) : _diasEnMes
-```
-
-- Mes actual → genera solo hasta hoy
-- Meses pasados → genera todos los días (BUG-05 intacto)
-
-**Test:**
-```
-[x] Mayo (mes actual, hoy = 12/05) → tabla muestra días 1 al 12 únicamente  ✅
-[x] Abril (mes pasado) → tabla sigue mostrando los 30 días  ✅
-[x] Días sin registro en mes actual → aparecen con $0 pero sin saldo arrastrado de días vacíos  ✅
-```
-
----
-
-*Documento actualizado: 2026-05-12*
+*Para el informe en PDF ver: `Bugs_Resueltos_Gestion.pdf`*

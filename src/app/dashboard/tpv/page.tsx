@@ -820,7 +820,9 @@ export default function TpvPage() {
                             <img
                               src={tpv.foto}
                               alt="Foto de cobro TPV"
-                              className="h-12 w-12 object-cover rounded border border-gray-300"
+                              className="h-12 w-12 object-cover rounded border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); handleRowClick(tpv) }}
+                              title="Click para ver imagen completa"
                             />
                           </div>
                         )}
@@ -913,7 +915,9 @@ export default function TpvPage() {
                             <img
                               src={tpv.foto}
                               alt="Foto de cobro TPV"
-                              className="h-8 w-8 object-cover rounded"
+                              className="h-10 w-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
+                              onClick={(e) => { e.stopPropagation(); handleRowClick(tpv) }}
+                              title="Click para ver imagen completa"
                             />
                           ) : (
                             <span className="text-gray-400">Sin foto</span>

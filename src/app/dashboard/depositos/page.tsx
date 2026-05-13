@@ -365,7 +365,7 @@ export default function DepositosPage() {
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total del Mes</p>
+                <p className="text-sm font-medium text-gray-500">Promedio del Mes</p>
                 <p className="text-2xl font-semibold text-green-600">${stats.totalMonto.toLocaleString('en-US')}</p>
               </div>
             </div>
