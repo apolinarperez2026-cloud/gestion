@@ -16,6 +16,8 @@ export default function ResumenPage() {
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<{id: number, nombre: string}[]>([])
+  const [sucursalFiltro, setSucursalFiltro] = useState<string>('')
   const itemsPerPage = 10
   const router = useRouter()
 
@@ -36,7 +38,18 @@ export default function ResumenPage() {
         if (response.ok) {
           const userData = await response.json()
           setUser(userData.user)
-          fetchMovimientosDiarios()
+          // Si es admin, cargar lista de sucursales para el selector
+          if (userData.user?.rol?.nombre === 'Administrador') {
+            const tok = localStorage.getItem('token')
+            const sucResp = await fetch('/api/sucursales', {
+              headers: { 'Authorization': `Bearer ${tok}` }
+            })
+            if (sucResp.ok) {
+              const sucData = await sucResp.json()
+              setSucursalesDisponibles(sucData.sucursales || [])
+            }
+          }
+          fetchMovimientosDiarios('')
         } else {
           router.push('/auth/login')
         }
@@ -50,15 +63,15 @@ export default function ResumenPage() {
 
   useEffect(() => {
     if (user) {
-      fetchMovimientosDiarios()
+      fetchMovimientosDiarios(sucursalFiltro)
     }
-  }, [mesSeleccionado, user])
+  }, [mesSeleccionado, sucursalFiltro, user])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm])
 
-  const fetchMovimientosDiarios = async () => {
+  const fetchMovimientosDiarios = async (filtroSucursal?: string) => {
     try {
       const token = localStorage.getItem('token')
       if (!token) {
@@ -66,7 +79,13 @@ export default function ResumenPage() {
         return
       }
 
-      const response = await fetch('/api/movimientos-diarios', {
+      // Usar el filtro pasado como parámetro para evitar stale closure
+      const filtroActivo = filtroSucursal !== undefined ? filtroSucursal : sucursalFiltro
+      const url = filtroActivo
+        ? `/api/movimientos-diarios?sucursalId=${filtroActivo}`
+        : '/api/movimientos-diarios'
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -150,7 +169,10 @@ export default function ResumenPage() {
     const ws = XLSX.utils.json_to_sheet(datosExcel)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Resumen Mensual')
-    const nombreArchivo = `Resumen_${obtenerNombreMes(mesSeleccionado)}_${año}.xlsx`
+    const sucursalNombre = sucursalFiltro
+      ? (sucursalesDisponibles.find(s => String(s.id) === sucursalFiltro)?.nombre ?? sucursalFiltro)
+      : (user?.sucursal?.nombre ?? 'Todas')
+    const nombreArchivo = `Resumen_${sucursalNombre}_${obtenerNombreMes(mesSeleccionado)}_${año}.xlsx`
     XLSX.writeFile(wb, nombreArchivo)
   }
 
@@ -431,6 +453,28 @@ export default function ResumenPage() {
                 </select>
               </div>
               
+              {/* Selector de sucursal — solo visible para Administrador */}
+              {user?.rol?.nombre === 'Administrador' && sucursalesDisponibles.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sucursal
+                  </label>
+                  <select
+                    value={sucursalFiltro}
+                    onChange={(e) => { setSucursalFiltro(e.target.value); setCurrentPage(1) }}
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    style={{ colorScheme: 'light', color: '#111827' }}
+                  >
+                    <option value="">Todas las sucursales</option>
+                    {sucursalesDisponibles.map(s => (
+                      <option key={s.id} value={String(s.id)} className="bg-white text-black">
+                        {s.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Seleccionado

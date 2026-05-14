@@ -1,6 +1,6 @@
 # TODO_bugs — Proyecto `gestion`
-> Última actualización: 2026-05-13
-> TypeScript: 0 errores ✅ · 11 bugs resueltos ✅
+> Última actualización: 2026-05-14
+> TypeScript: 0 errores ✅ · 14 bugs resueltos ✅
 
 ---
 
@@ -21,8 +21,9 @@
 | BUG-15 | Excel exportado: fechas -1 día y saldo acumulado incorrecto | `resumen/page.tsx` | 🔴 Alto | ✅ 2026-05-13 |
 | BUG-16 | Selectores de Mes/Año — texto blanco invisible sobre fondo blanco (modo dark) | `globals.css` + todos los dashboards | 🔵 UI | ✅ 2026-05-13 |
 | BUG-17 | Etiqueta "Totales del Mes" incorrecta — debía decir "Promedio del Mes" | `resumen`, `movimientos`, `depositos` | 🔵 UI | ✅ 2026-05-13 |
+| BUG-18 | Admin veía todas las sucursales combinadas — Excel exportaba datos mezclados | `resumen/page.tsx` + `api/movimientos-diarios/route.ts` | 🔴 Alto | ✅ 2026-05-14 |
 
-**11/11 bugs resueltos ✅ — TypeScript: 0 errores ✅**
+**14/14 bugs resueltos ✅ — TypeScript: 0 errores ✅**
 
 ---
 

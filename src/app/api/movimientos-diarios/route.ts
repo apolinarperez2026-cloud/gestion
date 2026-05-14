@@ -16,15 +16,16 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
-    // Obtener parámetro de mes de la URL
+    // Obtener parámetros de la URL
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get('month')
+    const sucursalIdParam = searchParams.get('sucursalId')
 
-    // Si es administrador sin sucursal específica, mostrar todos los movimientos diarios
-    // Si tiene sucursal específica, filtrar por esa sucursal
-    let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId 
-      ? {} 
-      : decoded.sucursalId 
+    // Si es administrador sin sucursal específica: respetar ?sucursalId= del query param si lo hay
+    // Si tiene sucursal específica en el JWT: filtrar siempre por esa sucursal
+    let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId
+      ? (sucursalIdParam ? { sucursalId: parseInt(sucursalIdParam) } : {})
+      : decoded.sucursalId
         ? { sucursalId: decoded.sucursalId }
         : {}
 
