@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
-import { parseDateOnly } from '@/lib/dateUtils'
+import { createMonthRange, parseDateOnly } from '@/lib/dateUtils'
 import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 // GET - Obtener todos los cobros TPV
@@ -18,21 +18,24 @@ export async function GET(request: NextRequest) {
     // Obtener parámetro de mes de la URL
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get('month')
+    const sucursalIdParam = searchParams.get('sucursalId')
+    const sucursalIdFiltro = sucursalIdParam ? parseInt(sucursalIdParam, 10) : null
 
-    let whereClause: any = {
-      sucursalId: decoded.sucursalId
-    }
+    let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId
+      ? (sucursalIdFiltro ? { sucursalId: sucursalIdFiltro } : {})
+      : decoded.sucursalId
+        ? { sucursalId: decoded.sucursalId }
+        : {}
 
     // Si se proporciona un mes, agregar filtro por fecha
     if (monthParam) {
       const [year, month] = monthParam.split('-')
       if (year && month) {
-        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        const { fechaInicio, fechaFin } = createMonthRange(parseInt(year), parseInt(month))
         
         whereClause.fecha = {
-          gte: startDate,
-          lte: endDate
+          gte: fechaInicio,
+          lte: fechaFin
         }
       }
     }
@@ -66,7 +69,8 @@ export async function POST(request: NextRequest) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
     const body = await request.json()
-    const { fecha, quienCobro, monto, estado, foto, usuarioRegistro } = body
+    const { fecha, quienCobro, monto, estado, foto, usuarioRegistro, sucursalId } = body
+    const sucursalObjetivo = decoded.sucursalId || (sucursalId ? parseInt(String(sucursalId), 10) : null)
 
     // Validar datos requeridos
     if (!fecha || !quienCobro || monto === undefined || !estado || !usuarioRegistro) {
@@ -93,6 +97,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear fecha específica para evitar problemas de zona horaria
+    if (!sucursalObjetivo) {
+      return NextResponse.json(
+        { error: 'Debes seleccionar una sucursal' },
+        { status: 400 }
+      )
+    }
+
     const fechaEspecifica = parseDateOnly(fecha)
     
     const tpv = await prisma.tpv.create({
@@ -103,14 +114,14 @@ export async function POST(request: NextRequest) {
         estado,
         foto: foto || null,
         usuarioRegistro,
-        sucursalId: decoded.sucursalId,
+        sucursalId: sucursalObjetivo,
         usuarioId: decoded.userId
       }
     })
 
     // Recalcular MovimientoDiario si el cobro es exitoso
     if (estado === 'exitoso') {
-      await recalcularMovimientoDiario(fechaEspecifica, decoded.sucursalId, prisma)
+      await recalcularMovimientoDiario(fechaEspecifica, sucursalObjetivo, prisma)
     }
 
     return NextResponse.json({ tpv }, { status: 201 })

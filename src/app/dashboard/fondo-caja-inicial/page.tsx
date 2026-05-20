@@ -6,6 +6,7 @@ import { AuthUser } from "@/types/database";
 import SuccessModal from "@/components/SuccessModal";
 import NotificationModal from "@/components/NotificationModal";
 import { displayDateOnly } from "@/lib/dateUtils";
+import { formatNumberMX } from "@/lib/formatters";
 
 interface FondoCajaInicial {
   id: number;
@@ -26,7 +27,15 @@ interface FondoCajaInicial {
 }
 
 export default function FondoCajaInicialPage() {
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  type SuccessAction = "create" | "update" | "delete" | null;
+
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<
+    { id: number; nombre: string }[]
+  >([]);
+  const [sucursalFiltro, setSucursalFiltro] = useState("");
   const [fondosCajaInicial, setFondosCajaInicial] = useState<
     FondoCajaInicial[]
   >([]);
@@ -38,6 +47,7 @@ export default function FondoCajaInicialPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successAction, setSuccessAction] = useState<SuccessAction>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [editingFondo, setEditingFondo] = useState<FondoCajaInicial | null>(
@@ -57,6 +67,14 @@ export default function FondoCajaInicialPage() {
     countFondos: 0,
   });
   const router = useRouter();
+  const activeSucursalId =
+    user?.sucursalId || (sucursalFiltro ? parseInt(sucursalFiltro, 10) : null);
+  const activeSucursalNombre =
+    user?.sucursal?.nombre ||
+    (sucursalFiltro
+      ? (sucursalesDisponibles.find((s) => String(s.id) === sucursalFiltro)
+          ?.nombre ?? "Libro Diario")
+      : "Libro Diario");
 
   const fetchUser = async () => {
     try {
@@ -75,6 +93,21 @@ export default function FondoCajaInicialPage() {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData.user);
+        if (userData.user.rol?.nombre === "Administrador" && !userData.user.sucursalId) {
+          const sucResponse = await fetch("/api/sucursales", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (sucResponse.ok) {
+            const sucData = await sucResponse.json();
+            const sucursales = sucData.sucursales || [];
+            setSucursalesDisponibles(sucursales);
+            if (sucursales.length > 0) {
+              setSucursalFiltro((prev) => prev || String(sucursales[0].id));
+            }
+          }
+        }
       } else {
         router.push("/auth/login");
       }
@@ -104,14 +137,16 @@ export default function FondoCajaInicialPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const response = await fetch(
-        `/api/fondo-caja-inicial?month=${selectedMonth}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const query = new URLSearchParams({ month: selectedMonth });
+      if (activeSucursalId) {
+        query.set("sucursalId", String(activeSucursalId));
+      }
+
+      const response = await fetch(`/api/fondo-caja-inicial?${query.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -129,8 +164,13 @@ export default function FondoCajaInicialPage() {
 
   useEffect(() => {
     fetchUser();
-    fetchFondosCajaInicial();
-  }, [selectedMonth]);
+  }, [router]);
+
+  useEffect(() => {
+    if (user) {
+      fetchFondosCajaInicial();
+    }
+  }, [selectedMonth, sucursalFiltro, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,16 +180,26 @@ export default function FondoCajaInicialPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
+      if (!activeSucursalId) {
+        setErrorMessage("Debes seleccionar una sucursal");
+        setShowErrorModal(true);
+        return;
+      }
+
       const response = await fetch("/api/fondo-caja-inicial", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          sucursalId: activeSucursalId,
+        }),
       });
 
       if (response.ok) {
+        setSuccessAction("create");
         setFormData({
           monto: "",
           fecha: new Date().toISOString().split("T")[0],
@@ -259,6 +309,7 @@ export default function FondoCajaInicialPage() {
       );
 
       if (response.ok) {
+        setSuccessAction("update");
         setFormData({
           monto: "",
           fecha: new Date().toISOString().split("T")[0],
@@ -317,6 +368,7 @@ export default function FondoCajaInicialPage() {
       );
 
       if (response.ok) {
+        setSuccessAction("delete");
         fetchFondosCajaInicial();
         setShowDeleteModal(false);
         setFondoToDelete(null);
@@ -378,7 +430,7 @@ export default function FondoCajaInicialPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {user.sucursal ? user.sucursal.nombre : "Libro Diario"}
+                  {activeSucursalNombre}
                 </h1>
                 <p className="text-sm text-gray-600">Fondo de Caja Inicial</p>
               </div>
@@ -416,6 +468,25 @@ export default function FondoCajaInicialPage() {
                 className="input-field"
               />
             </div>
+            {user?.rol?.nombre === "Administrador" &&
+              sucursalesDisponibles.length > 0 && (
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Sucursal
+                  </label>
+                  <select
+                    value={sucursalFiltro}
+                    onChange={(e) => setSucursalFiltro(e.target.value)}
+                    className="input-field bg-white text-gray-900"
+                  >
+                    {sucursalesDisponibles.map((sucursal) => (
+                      <option key={sucursal.id} value={sucursal.id}>
+                        {sucursal.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             <button
               onClick={() => setShowForm(!showForm)}
               className="mt-6 btn-primary h-fit"
@@ -451,7 +522,7 @@ export default function FondoCajaInicialPage() {
                   Último monto registrado
                 </p>
                 <p className="text-2xl font-semibold text-green-600">
-                  ${stats.totalMonto.toLocaleString("en-US")}
+                  ${formatMoney(stats.totalMonto)}
                 </p>
               </div>
             </div>
@@ -599,7 +670,7 @@ export default function FondoCajaInicialPage() {
                         {displayDateOnly(fondo.fecha)}
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-blue-600 whitespace-nowrap">
-                        ${fondo.monto.toLocaleString("en-US")}
+                        ${formatMoney(fondo.monto)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                         {fondo.usuario ? (
@@ -648,16 +719,23 @@ export default function FondoCajaInicialPage() {
       {/* Modal de éxito */}
       <SuccessModal
         isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
+        onClose={() => {
+          setShowSuccessModal(false);
+          setSuccessAction(null);
+        }}
         title={
-          isEditing
-            ? "¡Fondo Inicial Actualizado!"
-            : "¡Fondo Inicial Eliminado!"
+          successAction === "create"
+            ? "¡Fondo Inicial Registrado!"
+            : successAction === "update"
+              ? "¡Fondo Inicial Actualizado!"
+              : "¡Fondo Inicial Eliminado!"
         }
         message={
-          isEditing
-            ? "El fondo de caja inicial se ha actualizado exitosamente."
-            : "El fondo de caja inicial se ha eliminado exitosamente."
+          successAction === "create"
+            ? "El fondo de caja inicial se ha registrado exitosamente."
+            : successAction === "update"
+              ? "El fondo de caja inicial se ha actualizado exitosamente."
+              : "El fondo de caja inicial se ha eliminado exitosamente."
         }
       />
 
@@ -679,7 +757,7 @@ export default function FondoCajaInicialPage() {
             </h3>
             <p className="mb-6 text-sm text-gray-600">
               ¿Estás seguro que deseas eliminar el fondo de caja inicial de $
-              {fondoToDelete.monto.toLocaleString("en-US")} del{" "}
+              {formatMoney(fondoToDelete.monto)} del{" "}
               {displayDateOnly(fondoToDelete.fecha)}? Esta acción no se puede
               deshacer.
             </p>

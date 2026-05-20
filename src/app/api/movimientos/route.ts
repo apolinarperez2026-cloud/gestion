@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
-import { parseDateOnly } from '@/lib/dateUtils'
+import { createMonthRange, parseDateOnly } from '@/lib/dateUtils'
 import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 const prisma = new PrismaClient()
@@ -20,11 +20,12 @@ export async function GET(request: NextRequest) {
     // Obtener parámetro de mes de la URL
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get('month')
+    const sucursalIdParam = searchParams.get('sucursalId')
 
     // Si es administrador sin sucursal específica, mostrar todos los movimientos
     // Si tiene sucursal específica, filtrar por esa sucursal
     let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId 
-      ? {} 
+      ? (sucursalIdParam ? { sucursalId: parseInt(sucursalIdParam, 10) } : {}) 
       : decoded.sucursalId 
         ? { sucursalId: decoded.sucursalId }
         : {}
@@ -33,12 +34,11 @@ export async function GET(request: NextRequest) {
     if (monthParam) {
       const [year, month] = monthParam.split('-')
       if (year && month) {
-        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        const { fechaInicio, fechaFin } = createMonthRange(parseInt(year), parseInt(month))
         
         whereClause.fecha = {
-          gte: startDate,
-          lte: endDate
+          gte: fechaInicio,
+          lte: fechaFin
         }
       }
     }

@@ -6,9 +6,20 @@ import { AuthUser, MovimientoDiario, MovimientoDiarioForm } from '@/types/databa
 import ConfirmModal from '@/components/ConfirmModal'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
 import { displayDateOnly } from '@/lib/dateUtils'
+import { formatDateTimeMX, formatNumberMX, roundCurrency } from '@/lib/formatters'
 
 export default function MovimientosPage() {
+  const getEfectivoDisponible = (
+    efectivo: number = 0,
+    gastos: number = 0,
+    depositos: number = 0,
+  ) => Math.max(0, efectivo - gastos - depositos)
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<{ id: number; nombre: string }[]>([])
+  const [sucursalFiltro, setSucursalFiltro] = useState('')
   const [movimientosDiarios, setMovimientosDiarios] = useState<MovimientoDiario[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -61,6 +72,8 @@ export default function MovimientosPage() {
     saldo: 0
   })
   const router = useRouter()
+  const activeSucursalId = user?.sucursalId || (sucursalFiltro ? parseInt(sucursalFiltro, 10) : null)
+  const canOperate = !!activeSucursalId
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -79,8 +92,21 @@ export default function MovimientosPage() {
         if (response.ok) {
           const userData = await response.json()
           setUser(userData.user)
-          fetchMovimientosDiarios()
-          fetchMonthlyTotals()
+          if (userData.user.rol?.nombre === 'Administrador' && !userData.user.sucursalId) {
+            const sucResponse = await fetch('/api/sucursales', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            if (sucResponse.ok) {
+              const sucData = await sucResponse.json()
+              const sucursales = sucData.sucursales || []
+              setSucursalesDisponibles(sucursales)
+              if (sucursales.length > 0) {
+                setSucursalFiltro(prev => prev || String(sucursales[0].id))
+              }
+            }
+          }
         } else {
           router.push('/auth/login')
         }
@@ -92,12 +118,15 @@ export default function MovimientosPage() {
     }
 
     fetchUser()
-  }, [router, selectedMonth])
+  }, [router])
 
   // Función para calcular estadísticas
   const calculateStats = (movimientosDiarios: MovimientoDiario[]) => {
     const totalVentas = movimientosDiarios.reduce((sum, m) => sum + (m.ventasBrutas || 0), 0)
-    const totalEfectivo = movimientosDiarios.reduce((sum, m) => sum + (m.efectivo || 0), 0)
+    const totalEfectivo = movimientosDiarios.reduce(
+      (sum, m) => sum + getEfectivoDisponible(m.efectivo, m.gastos, m.depositos || 0),
+      0,
+    )
     const totalTarjeta = movimientosDiarios.reduce((sum, m) => sum + (m.pagoTarjeta || 0), 0)
     const totalTransferencias = movimientosDiarios.reduce((sum, m) => sum + (m.transferencias || 0), 0)
     const totalRecargas = movimientosDiarios.reduce((sum, m) => sum + (m.recargas || 0), 0)
@@ -117,7 +146,12 @@ export default function MovimientosPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch(`/api/movimientos-diarios?month=${selectedMonth}`, {
+      const query = new URLSearchParams({ month: selectedMonth })
+      if (activeSucursalId) {
+        query.set('sucursalId', String(activeSucursalId))
+      }
+
+      const response = await fetch(`/api/movimientos-diarios?${query.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -142,7 +176,12 @@ export default function MovimientosPage() {
 
       const [year, month] = selectedMonth.split('-')
 
-      const response = await fetch(`/api/movimientos-diarios/monthly-totals?year=${year}&month=${month}`, {
+      const query = new URLSearchParams({ year, month })
+      if (activeSucursalId) {
+        query.set('sucursalId', String(activeSucursalId))
+      }
+
+      const response = await fetch(`/api/movimientos-diarios/monthly-totals?${query.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -156,6 +195,13 @@ export default function MovimientosPage() {
       console.error('Error al obtener totales del mes:', error)
     }
   }
+
+  useEffect(() => {
+    if (user) {
+      fetchMovimientosDiarios()
+      fetchMonthlyTotals()
+    }
+  }, [selectedMonth, sucursalFiltro, user])
 
 
   const fetchHistorial = async (movimientoId: number) => {
@@ -191,7 +237,7 @@ export default function MovimientosPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user?.sucursalId) {
+    if (!activeSucursalId) {
       showConfirm({
         title: 'Sucursal Requerida',
         message: 'Los administradores deben seleccionar una sucursal antes de registrar movimientos',
@@ -231,8 +277,8 @@ export default function MovimientosPage() {
         // pagoTarjeta se calcula automáticamente en el backend desde cobros TPV
         transferencias: parseFloat(formData.transferencias) || 0,
         observaciones: formData.observaciones,
-        sucursalId: user.sucursalId,
-        usuarioId: user.id
+        sucursalId: activeSucursalId,
+        usuarioId: user?.id || null
       }
 
       console.log('Enviando datos:', requestData)
@@ -269,7 +315,7 @@ export default function MovimientosPage() {
         
         showConfirm({
           title: 'Movimiento Guardado',
-          message: `El movimiento diario se ha registrado exitosamente. Se encontraron ${data.gastosEncontrados} gastos del día por un total de $${data.totalGastosCalculado.toLocaleString('en-US')}`,
+          message: `El movimiento diario se ha registrado exitosamente. Se encontraron ${data.gastosEncontrados} gastos del día por un total de $${formatMoney(data.totalGastosCalculado)}`,
           confirmText: 'Entendido',
           cancelText: '',
           type: 'success'
@@ -356,17 +402,18 @@ export default function MovimientosPage() {
     
     setEditingMovimiento(movimiento)
     setIsEditing(true)
+    setShowForm(true)
     setFormData({
       fecha: new Date(movimiento.fecha).toISOString().split('T')[0],
-      ventasBrutas: movimiento.ventasBrutas.toString(),
-      efectivo: (movimiento.efectivo - (movimiento.fondoInicial || 0)).toString(),
-      credito: movimiento.credito.toString(),
-      abonosCredito: movimiento.abonosCredito.toString(),
-      recargas: movimiento.recargas.toString(),
-      pagoTarjeta: movimiento.pagoTarjeta.toString(),
-      transferencias: movimiento.transferencias.toString(),
+      ventasBrutas: roundCurrency(movimiento.ventasBrutas).toString(),
+      efectivo: roundCurrency(movimiento.efectivo).toString(),
+      credito: roundCurrency(movimiento.credito).toString(),
+      abonosCredito: roundCurrency(movimiento.abonosCredito).toString(),
+      recargas: roundCurrency(movimiento.recargas).toString(),
+      pagoTarjeta: roundCurrency(movimiento.pagoTarjeta).toString(),
+      transferencias: roundCurrency(movimiento.transferencias).toString(),
       observaciones: movimiento.observaciones || '',
-      fondoInicial: (movimiento.fondoInicial || 0).toString()
+      fondoInicial: roundCurrency(movimiento.fondoInicial || 0).toString()
     })
   }
 
@@ -460,6 +507,7 @@ export default function MovimientosPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          fecha: formData.fecha,
           ventasBrutas: parseFloat(formData.ventasBrutas) || 0,
           efectivo: parseFloat(formData.efectivo) || 0,
           credito: parseFloat(formData.credito) || 0,
@@ -484,6 +532,7 @@ export default function MovimientosPage() {
             fetchMovimientosDiarios()
             fetchMonthlyTotals()
             setIsEditing(false)
+            setShowForm(false)
             setEditingMovimiento(null)
             setFormData({
               fecha: new Date().toISOString().split('T')[0],
@@ -659,7 +708,7 @@ export default function MovimientosPage() {
                   Movimientos Diarios
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal?.nombre}
+                  {user.sucursal?.nombre || (sucursalFiltro ? (sucursalesDisponibles.find(s => String(s.id) === sucursalFiltro)?.nombre || 'Sin sucursal') : 'Sin sucursal')}
                 </p>
               </div>
             </div>
@@ -698,6 +747,27 @@ export default function MovimientosPage() {
                 className="input-field"
               />
             </div>
+            {user?.rol?.nombre === 'Administrador' && sucursalesDisponibles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sucursal
+                </label>
+                <select
+                  value={sucursalFiltro}
+                  onChange={(e) => {
+                    setSucursalFiltro(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="input-field bg-white text-gray-900"
+                >
+                  {sucursalesDisponibles.map((sucursal) => (
+                    <option key={sucursal.id} value={sucursal.id}>
+                      {sucursal.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={() => setShowForm(!showForm)}
               className="btn-primary h-fit mt-6"
@@ -726,7 +796,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Ventas Brutas</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.ventasBrutas || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.ventasBrutas || 0)}
                   </p>
                 </div>
               </div>
@@ -745,7 +815,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Efectivo</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${((monthlyTotals.efectivo || 0) - (monthlyTotals.depositos || 0)).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.efectivo || 0)}
                   </p>
                 </div>
               </div>
@@ -764,7 +834,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Crédito</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.credito || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.credito || 0)}
                   </p>
                 </div>
               </div>
@@ -783,7 +853,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Abonos Crédito</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.abonosCredito || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.abonosCredito || 0)}
                   </p>
                 </div>
               </div>
@@ -802,7 +872,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Recargas</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.recargas || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.recargas || 0)}
                   </p>
                 </div>
               </div>
@@ -821,7 +891,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Pago con Tarjeta</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.pagoTarjeta || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.pagoTarjeta || 0)}
                   </p>
                 </div>
               </div>
@@ -840,7 +910,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Transferencias</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.transferencias || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.transferencias || 0)}
                   </p>
                 </div>
               </div>
@@ -859,7 +929,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Gastos</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.gastos || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.gastos || 0)}
                   </p>
                 </div>
               </div>
@@ -878,7 +948,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Depósitos</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.depositos || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.depositos || 0)}
                   </p>
                 </div>
               </div>
@@ -897,7 +967,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Fondo de Caja Inicial</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(monthlyTotals.fondoInicial || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.fondoInicial || 0)}
                   </p>
                 </div>
               </div>
@@ -916,7 +986,7 @@ export default function MovimientosPage() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Saldo Acumulado</p>
                   <p className={`text-lg font-semibold ${(monthlyTotals.saldo || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${(monthlyTotals.saldo || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${formatMoney(monthlyTotals.saldo || 0)}
                   </p>
                 </div>
               </div>
@@ -931,7 +1001,7 @@ export default function MovimientosPage() {
             {isEditing ? 'Editar Movimiento Diario' : 'Nuevo Movimiento Diario'}
           </h3>
           
-          {!user?.sucursalId ? (
+          {!canOperate ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -964,7 +1034,7 @@ export default function MovimientosPage() {
                   onChange={handleChange}
                   className="input-field"
                   required
-                  disabled={!user?.sucursalId || isEditing}
+                  disabled={!canOperate}
                 />
               </div>
 
@@ -981,7 +1051,7 @@ export default function MovimientosPage() {
                   className="input-field"
                   placeholder="0.00"
                   required
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
             </div>
@@ -999,7 +1069,7 @@ export default function MovimientosPage() {
                   onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
 
@@ -1015,7 +1085,7 @@ export default function MovimientosPage() {
                   onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
 
@@ -1031,7 +1101,7 @@ export default function MovimientosPage() {
                   onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
 
@@ -1047,7 +1117,7 @@ export default function MovimientosPage() {
                   onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
             </div>
@@ -1065,7 +1135,7 @@ export default function MovimientosPage() {
                   onKeyPress={handleKeyPress}
                   className="input-field"
                   placeholder="0.00"
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
             </div>
@@ -1081,7 +1151,7 @@ export default function MovimientosPage() {
                 className="input-field"
                 placeholder="Observaciones adicionales..."
                 rows={3}
-                disabled={!user?.sucursalId}
+                disabled={!canOperate}
               />
             </div>
 
@@ -1119,8 +1189,8 @@ export default function MovimientosPage() {
               )}
               <button
                 type="submit"
-                className={`btn-primary ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!user?.sucursalId}
+                className={`btn-primary ${!canOperate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!canOperate}
               >
                 {isEditing ? 'Actualizar Movimiento' : 'Registrar Movimiento'}
               </button>
@@ -1227,46 +1297,46 @@ export default function MovimientosPage() {
                         <div className="grid grid-cols-2 gap-3 mb-3">
                           <div className="bg-green-50 rounded-lg p-3">
                             <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Ventas Brutas</p>
-                            <p className="text-lg font-bold text-green-900">${movimiento.ventasBrutas.toLocaleString('en-US')}</p>
+                            <p className="text-lg font-bold text-green-900">${formatMoney(movimiento.ventasBrutas)}</p>
                           </div>
                           <div className="bg-red-50 rounded-lg p-3">
                             <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Gastos</p>
-                            <p className="text-lg font-bold text-red-900">${movimiento.gastos.toLocaleString('en-US')}</p>
+                            <p className="text-lg font-bold text-red-900">${formatMoney(movimiento.gastos)}</p>
                           </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Efectivo:</span>
-                            <span className="font-medium">${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString('en-US')}</span>
+                            <span className="font-medium">${formatMoney(movimiento.efectivo)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Crédito:</span>
-                            <span className="font-medium">${movimiento.credito.toLocaleString('en-US')}</span>
+                            <span className="font-medium">${formatMoney(movimiento.credito)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Abonos:</span>
-                            <span className="font-medium">${movimiento.abonosCredito.toLocaleString('en-US')}</span>
+                            <span className="font-medium">${formatMoney(movimiento.abonosCredito)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Recargas:</span>
-                            <span className="font-medium">${movimiento.recargas.toLocaleString('en-US')}</span>
+                            <span className="font-medium">${formatMoney(movimiento.recargas)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Tarjeta:</span>
-                            <span className="font-medium">${movimiento.pagoTarjeta.toLocaleString('en-US')}</span>
+                            <span className="font-medium">${formatMoney(movimiento.pagoTarjeta)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Transferencias:</span>
-                            <span className="font-medium">${movimiento.transferencias.toLocaleString('en-US')}</span>
+                            <span className="font-medium">${formatMoney(movimiento.transferencias)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Depósitos:</span>
-                            <span className="font-medium text-teal-600">${(movimiento.depositos || 0).toLocaleString('en-US')}</span>
+                            <span className="font-medium text-teal-600">${formatMoney(movimiento.depositos || 0)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Fondo de Caja:</span>
-                            <span className="font-medium text-blue-600">${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString('en-US')}</span>
+                            <span className="font-medium text-blue-600">${formatMoney(Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)))}</span>
                           </div>
                         </div>
                         
@@ -1280,7 +1350,7 @@ export default function MovimientosPage() {
                         
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <p className="text-xs text-gray-400">
-                            Última edición: {movimiento.updatedAt ? new Date(movimiento.updatedAt).toLocaleString('en-US') : 'N/A'}
+                            Última edición: {movimiento.updatedAt ? formatDateTimeMX(movimiento.updatedAt) : 'N/A'}
                           </p>
                         </div>
                       </div>
@@ -1343,34 +1413,34 @@ export default function MovimientosPage() {
                             {displayDateOnly(movimiento.fecha)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                            ${movimiento.ventasBrutas.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.ventasBrutas)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${Math.max(0, movimiento.efectivo - (movimiento.depositos || 0)).toLocaleString('en-US')}
+                            ${formatMoney(movimiento.efectivo)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.credito.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.credito)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.abonosCredito.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.abonosCredito)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.recargas.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.recargas)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.pagoTarjeta.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.pagoTarjeta)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${movimiento.transferencias.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.transferencias)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                            ${movimiento.gastos.toLocaleString('en-US')}
+                            ${formatMoney(movimiento.gastos)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-teal-600">
-                            ${(movimiento.depositos || 0).toLocaleString('en-US')}
+                            ${formatMoney(movimiento.depositos || 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                            ${Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)).toLocaleString('en-US')}
+                            ${formatMoney(Math.max(0, (movimiento.fondoInicial || 0) - Math.max(0, (movimiento.depositos || 0) - movimiento.efectivo)))}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.usuario ? (
@@ -1599,7 +1669,7 @@ export default function MovimientosPage() {
                             </span>
                           </div>
                           <span className="text-sm text-gray-500">
-                            {new Date(cambio.fechaCambio).toLocaleString('en-US')}
+                            {formatDateTimeMX(cambio.fechaCambio)}
                           </span>
                         </div>
                         <div className="text-sm text-gray-700">

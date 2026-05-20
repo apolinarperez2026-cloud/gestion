@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { createDateRange, parseDateOnly } from '@/lib/dateUtils'
+import { roundCurrency } from '@/lib/formatters'
+import { calculateSaldoDia, getMovimientoDiarioAssociatedTotals } from '@/lib/movimientoDiarioCalculations'
 
 const prisma = new PrismaClient()
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: NextRequest,
@@ -11,10 +15,10 @@ export async function GET(
   try {
     const { id: idParam } = await params
     const id = parseInt(idParam)
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
-        { error: 'ID inválido' },
+        { error: 'ID invalido' },
         { status: 400 }
       )
     }
@@ -55,28 +59,27 @@ export async function PUT(
   try {
     const { id: idParam } = await params
     const id = parseInt(idParam)
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
-        { error: 'ID inválido' },
+        { error: 'ID invalido' },
         { status: 400 }
       )
     }
 
-    const { 
+    const {
+      fecha,
       ventasBrutas,
       efectivo,
       credito,
       abonosCredito,
       recargas,
-      pagoTarjeta,
       transferencias,
       observaciones,
       fondoInicial,
       usuarioId
     } = await request.json()
 
-    // Obtener el movimiento diario actual completo
     const movimientoActual = await prisma.movimientoDiario.findUnique({
       where: { id }
     })
@@ -88,121 +91,86 @@ export async function PUT(
       )
     }
 
-    // Calcular gastos del día desde la tabla movimientos
-    const fechaInicio = new Date(movimientoActual.fecha)
-    fechaInicio.setHours(0, 0, 0, 0)
-    
-    const fechaFin = new Date(movimientoActual.fecha)
-    fechaFin.setHours(23, 59, 59, 999)
-    
-    console.log('Calculando gastos para fecha:', {
-      fechaOriginal: movimientoActual.fecha,
-      fechaInicio: fechaInicio.toISOString(),
-      fechaFin: fechaFin.toISOString(),
-      sucursalId: movimientoActual.sucursalId
-    })
+    const fechaObjetivo = fecha ? parseDateOnly(fecha) : movimientoActual.fecha
+    const fechaObjetivoStr = fechaObjetivo.toISOString().split('T')[0]
+    const fechaActualStr = movimientoActual.fecha.toISOString().split('T')[0]
 
-    const gastosDelDia = await prisma.movimiento.findMany({
-      where: {
-        tipo: 'GASTO',
-        sucursalId: movimientoActual.sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
+    if (fechaObjetivoStr !== fechaActualStr) {
+      const { fechaInicio: nuevaFechaInicio, fechaFin: nuevaFechaFin } = createDateRange(fechaObjetivoStr)
+      const movimientoExistenteEnFecha = await prisma.movimientoDiario.findFirst({
+        where: {
+          id: { not: id },
+          sucursalId: movimientoActual.sucursalId,
+          fecha: {
+            gte: nuevaFechaInicio,
+            lte: nuevaFechaFin
+          }
         }
+      })
+
+      if (movimientoExistenteEnFecha) {
+        return NextResponse.json(
+          { error: 'Ya existe un movimiento diario para esa fecha en esta sucursal' },
+          { status: 409 }
+        )
       }
-    })
-
-    const totalGastos = gastosDelDia.reduce((sum, gasto) => sum + gasto.monto, 0)
-    
-    console.log('Gastos encontrados:', {
-      cantidad: gastosDelDia.length,
-      gastos: gastosDelDia.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, descripcion: g.descripcion })),
-      totalGastos
-    })
-
-    // Calcular total de cobros TPV del día
-    const cobrosTpvDelDia = await prisma.tpv.findMany({
-      where: {
-        sucursalId: movimientoActual.sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        },
-        estado: 'exitoso' // Solo contar cobros exitosos
-      }
-    })
-
-    const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
-
-    // Buscar depósitos del día
-    const depositosDelDia = await prisma.deposito.findMany({
-      where: {
-        sucursalId: movimientoActual.sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    const totalDepositosDelDia = depositosDelDia.reduce((sum, deposito) => sum + deposito.monto, 0)
-
-    console.log('Depósitos encontrados:', {
-      cantidad: depositosDelDia.length,
-      depositos: depositosDelDia.map(d => ({ id: d.id, fecha: d.fecha, monto: d.monto })),
-      totalDepositos: totalDepositosDelDia
-    })
-
-    // Buscar fondo de caja inicial del día
-    const fondoInicialDelDia = await prisma.fondoCajaInicial.findFirst({
-      where: {
-        sucursalId: movimientoActual.sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    console.log('Fondo inicial encontrado:', {
-      existe: !!fondoInicialDelDia,
-      monto: fondoInicialDelDia?.monto || 0,
-      fecha: fondoInicialDelDia?.fecha
-    })
-
-    // Calcular el saldo del día
-    const ventasBrutasFinal = ventasBrutas !== undefined ? parseFloat(ventasBrutas) : movimientoActual.ventasBrutas
-    const saldoDia = ventasBrutasFinal - totalGastos
-
-    // Preparar datos para actualización
-    const nuevosDatos = {
-      ventasBrutas: ventasBrutasFinal,
-      efectivo: efectivo !== undefined ? parseFloat(efectivo) : movimientoActual.efectivo,
-      credito: credito !== undefined ? parseFloat(credito) : movimientoActual.credito,
-      abonosCredito: abonosCredito !== undefined ? parseFloat(abonosCredito) : movimientoActual.abonosCredito,
-      recargas: recargas !== undefined ? parseFloat(recargas) : movimientoActual.recargas,
-      pagoTarjeta: totalTpvDelDia, // Siempre recalculado desde cobros TPV
-      transferencias: transferencias !== undefined ? parseFloat(transferencias) : movimientoActual.transferencias,
-      gastos: totalGastos, // Siempre recalculado desde movimientos
-      depositos: totalDepositosDelDia, // Siempre recalculado desde depósitos
-      saldoDia,
-      observaciones: observaciones !== undefined ? observaciones : movimientoActual.observaciones,
-      fondoInicial: fondoInicialDelDia ? fondoInicialDelDia.monto : (fondoInicial !== undefined ? parseFloat(fondoInicial) : movimientoActual.fondoInicial)
     }
 
-    // Detectar cambios y crear registros de historial
+    const associatedTotals = await getMovimientoDiarioAssociatedTotals(
+      prisma,
+      fechaObjetivo,
+      movimientoActual.sucursalId
+    )
+
+    const ventasBrutasFinal =
+      ventasBrutas !== undefined ? roundCurrency(ventasBrutas) : roundCurrency(movimientoActual.ventasBrutas)
+    const efectivoFinal =
+      efectivo !== undefined ? roundCurrency(efectivo) : roundCurrency(movimientoActual.efectivo)
+    const creditoFinal =
+      credito !== undefined ? roundCurrency(credito) : roundCurrency(movimientoActual.credito)
+    const abonosCreditoFinal =
+      abonosCredito !== undefined ? roundCurrency(abonosCredito) : roundCurrency(movimientoActual.abonosCredito)
+    const recargasFinal =
+      recargas !== undefined ? roundCurrency(recargas) : roundCurrency(movimientoActual.recargas)
+    const transferenciasFinal =
+      transferencias !== undefined ? roundCurrency(transferencias) : roundCurrency(movimientoActual.transferencias)
+    const fondoInicialAplicado = associatedTotals.fondoInicialEncontrado
+      ? associatedTotals.totalFondoInicial
+      : (fondoInicial !== undefined ? roundCurrency(fondoInicial) : roundCurrency(movimientoActual.fondoInicial))
+
+    const nuevosDatos = {
+      fecha: fechaObjetivo,
+      ventasBrutas: ventasBrutasFinal,
+      efectivo: efectivoFinal,
+      credito: creditoFinal,
+      abonosCredito: abonosCreditoFinal,
+      recargas: recargasFinal,
+      pagoTarjeta: associatedTotals.totalPagoTarjeta,
+      transferencias: transferenciasFinal,
+      gastos: associatedTotals.totalGastos,
+      depositos: associatedTotals.totalDepositos,
+      saldoDia: calculateSaldoDia(
+        ventasBrutasFinal,
+        associatedTotals.totalGastos,
+        associatedTotals.totalDepositos,
+        fondoInicialAplicado
+      ),
+      observaciones: observaciones !== undefined ? observaciones : movimientoActual.observaciones,
+      fondoInicial: fondoInicialAplicado
+    }
+
     const cambios = []
     const campos = [
+      { nombre: 'fecha', etiqueta: 'Fecha' },
       { nombre: 'ventasBrutas', etiqueta: 'Ventas Brutas' },
       { nombre: 'efectivo', etiqueta: 'Efectivo' },
-      { nombre: 'credito', etiqueta: 'Crédito' },
-      { nombre: 'abonosCredito', etiqueta: 'Abonos de Crédito' },
+      { nombre: 'credito', etiqueta: 'Credito' },
+      { nombre: 'abonosCredito', etiqueta: 'Abonos de Credito' },
       { nombre: 'recargas', etiqueta: 'Recargas' },
       { nombre: 'pagoTarjeta', etiqueta: 'Pago con Tarjeta' },
       { nombre: 'transferencias', etiqueta: 'Transferencias' },
       { nombre: 'gastos', etiqueta: 'Gastos' },
-      { nombre: 'depositos', etiqueta: 'Depósitos' },
+      { nombre: 'depositos', etiqueta: 'Depositos' },
       { nombre: 'observaciones', etiqueta: 'Observaciones' },
       { nombre: 'fondoInicial', etiqueta: 'Fondo Inicial' }
     ]
@@ -210,19 +178,21 @@ export async function PUT(
     for (const campo of campos) {
       const valorAnterior = (movimientoActual as any)[campo.nombre]
       const valorNuevo = (nuevosDatos as any)[campo.nombre]
-      
-      if (valorAnterior !== valorNuevo) {
+
+      const valorAnteriorComparable = valorAnterior instanceof Date ? valorAnterior.toISOString().split('T')[0] : valorAnterior
+      const valorNuevoComparable = valorNuevo instanceof Date ? valorNuevo.toISOString().split('T')[0] : valorNuevo
+
+      if (valorAnteriorComparable !== valorNuevoComparable) {
         cambios.push({
           movimientoDiarioId: id,
           usuarioId: usuarioId || movimientoActual.usuarioId,
           campoModificado: campo.etiqueta,
-          valorAnterior: valorAnterior?.toString() || '',
-          valorNuevo: valorNuevo?.toString() || ''
+          valorAnterior: valorAnteriorComparable?.toString() || '',
+          valorNuevo: valorNuevoComparable?.toString() || ''
         })
       }
     }
 
-    // Actualizar el movimiento diario
     const movimientoDiario = await prisma.movimientoDiario.update({
       where: { id },
       data: nuevosDatos,
@@ -236,34 +206,35 @@ export async function PUT(
       }
     })
 
-    // Crear registros de historial si hay cambios
     if (cambios.length > 0) {
       await prisma.movimientoDiarioHistorial.createMany({
         data: cambios
       })
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       movimientoDiario,
-      gastosEncontrados: gastosDelDia.length,
-      totalGastosCalculado: totalGastos,
-      cobrosTpvEncontrados: cobrosTpvDelDia.length,
-      totalTpvCalculado: totalTpvDelDia,
-      depositosEncontrados: depositosDelDia.length,
-      totalDepositosCalculado: totalDepositosDelDia,
+      gastosEncontrados: associatedTotals.gastosEncontrados,
+      totalGastosCalculado: associatedTotals.totalGastos,
+      cobrosTpvEncontrados: associatedTotals.cobrosTpvEncontrados,
+      totalTpvCalculado: associatedTotals.totalPagoTarjeta,
+      depositosEncontrados: associatedTotals.depositosEncontrados,
+      totalDepositosCalculado: associatedTotals.totalDepositos,
       cambiosRegistrados: cambios.length,
-      fondoInicialAplicado: fondoInicialDelDia ? {
-        existe: true,
-        monto: fondoInicialDelDia.monto,
-        fecha: fondoInicialDelDia.fecha
-      } : {
-        existe: false,
-        monto: 0
-      }
+      fondoInicialAplicado: associatedTotals.fondoInicialEncontrado
+        ? {
+            existe: true,
+            monto: associatedTotals.totalFondoInicial,
+            fecha: fechaObjetivo
+          }
+        : {
+            existe: false,
+            monto: 0
+          }
     })
   } catch (error) {
     console.error('Error al actualizar movimiento diario:', error)
-    
+
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
@@ -278,37 +249,34 @@ export async function DELETE(
   try {
     const { id: idParam } = await params
     const id = parseInt(idParam)
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
-        { error: 'ID inválido' },
+        { error: 'ID invalido' },
         { status: 400 }
       )
     }
 
-    // Verificar autenticación
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Token de autorización requerido' },
+        { error: 'Token de autorizacion requerido' },
         { status: 401 }
       )
     }
 
     const token = authHeader.split(' ')[1]
-    
-    // Verificar el token directamente sin fetch interno
+
     let decoded: any
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || '')
     } catch (error) {
       return NextResponse.json(
-        { error: 'Token inválido' },
+        { error: 'Token invalido' },
         { status: 401 }
       )
     }
 
-    // Obtener el usuario de la base de datos
     const user = await prisma.usuario.findUnique({
       where: { id: decoded.userId },
       include: {
@@ -323,15 +291,12 @@ export async function DELETE(
       )
     }
 
-    // Verificar que el usuario sea administrador
     if (user.rol.nombre !== 'Administrador') {
       return NextResponse.json(
         { error: 'Solo los administradores pueden eliminar movimientos diarios' },
         { status: 403 }
       )
     }
-
-    console.log('Eliminando movimiento diario:', { id, usuario: user.nombre })
 
     await prisma.movimientoDiario.delete({
       where: { id }

@@ -7,6 +7,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
 import { displayDateOnly } from '@/lib/dateUtils'
 import UploadThingComponent from '@/components/UploadThing'
+import { formatDateTimeMX, formatNumberMX } from '@/lib/formatters'
 
 interface MovimientoForm {
   fecha: string
@@ -19,7 +20,11 @@ interface MovimientoForm {
 }
 
 export default function MovimientosIndividualesPage() {
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<{ id: number; nombre: string }[]>([])
+  const [sucursalFiltro, setSucursalFiltro] = useState('')
   const [formasDePago, setFormasDePago] = useState<FormaDePago[]>([])
   const [tiposGasto, setTiposGasto] = useState<TipoGasto[]>([])
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
@@ -54,6 +59,8 @@ export default function MovimientosIndividualesPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedMovimiento, setSelectedMovimiento] = useState<Movimiento | null>(null)
   const router = useRouter()
+  const activeSucursalId = user?.sucursalId || (sucursalFiltro ? parseInt(sucursalFiltro, 10) : null)
+  const canOperate = !!activeSucursalId
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -72,10 +79,24 @@ export default function MovimientosIndividualesPage() {
         if (response.ok) {
           const userData = await response.json()
           setUser(userData.user)
+          if (userData.user.rol?.nombre === 'Administrador' && !userData.user.sucursalId) {
+            const sucResponse = await fetch('/api/sucursales', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            if (sucResponse.ok) {
+              const sucData = await sucResponse.json()
+              const sucursales = sucData.sucursales || []
+              setSucursalesDisponibles(sucursales)
+              if (sucursales.length > 0) {
+                setSucursalFiltro(prev => prev || String(sucursales[0].id))
+              }
+            }
+          }
           await Promise.all([
             fetchFormasDePago(),
             fetchTiposGasto(),
-            fetchMovimientos()
           ])
         } else {
           router.push('/auth/login')
@@ -88,7 +109,7 @@ export default function MovimientosIndividualesPage() {
     }
 
     fetchUser()
-  }, [router, selectedMonth])
+  }, [router])
 
   const fetchFormasDePago = async () => {
     try {
@@ -151,7 +172,12 @@ export default function MovimientosIndividualesPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch(`/api/movimientos?month=${selectedMonth}`, {
+      const query = new URLSearchParams({ month: selectedMonth })
+      if (activeSucursalId) {
+        query.set('sucursalId', String(activeSucursalId))
+      }
+
+      const response = await fetch(`/api/movimientos?${query.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -165,6 +191,12 @@ export default function MovimientosIndividualesPage() {
       console.error('Error al cargar movimientos:', error)
     }
   }
+
+  useEffect(() => {
+    if (user) {
+      fetchMovimientos()
+    }
+  }, [selectedMonth, sucursalFiltro, user])
 
   const handleImageUploadComplete = (url: string) => {
     setFormData(prev => ({
@@ -220,7 +252,7 @@ export default function MovimientosIndividualesPage() {
       return
     }
 
-    if (!user?.sucursalId) {
+    if (!activeSucursalId) {
       showConfirm({
         title: 'Sucursal Requerida',
         message: 'Los administradores deben seleccionar una sucursal antes de registrar movimientos',
@@ -246,8 +278,8 @@ export default function MovimientosIndividualesPage() {
         imagen: formData.imagen || null,
         formaDePagoId: formData.tipo === MovimientoTipo.VENTA ? parseInt(formData.formaDePagoId) : null,
         tipoGastoId: formData.tipo === MovimientoTipo.GASTO ? parseInt(formData.tipoGastoId) : null,
-        sucursalId: user.sucursalId,
-        usuarioId: user.id
+        sucursalId: activeSucursalId,
+        usuarioId: user?.id || null
       }
 
       console.log('Enviando datos:', requestData)
@@ -673,7 +705,7 @@ export default function MovimientosIndividualesPage() {
                   Gastos Individuales
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal?.nombre}
+                  {user.sucursal?.nombre || (sucursalFiltro ? (sucursalesDisponibles.find(s => String(s.id) === sucursalFiltro)?.nombre || 'Sin sucursal') : 'Sin sucursal')}
                 </p>
               </div>
             </div>
@@ -689,6 +721,27 @@ export default function MovimientosIndividualesPage() {
                 Cerrar Sesión
               </button>
             </div>
+            {user?.rol?.nombre === 'Administrador' && sucursalesDisponibles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sucursal
+                </label>
+                <select
+                  value={sucursalFiltro}
+                  onChange={(e) => {
+                    setSucursalFiltro(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="input-field bg-white text-gray-900"
+                >
+                  {sucursalesDisponibles.map((sucursal) => (
+                    <option key={sucursal.id} value={sucursal.id}>
+                      {sucursal.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -700,7 +753,7 @@ export default function MovimientosIndividualesPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900">Resumen de Gastos por Categoría</h2>
             <div className="text-right">
-              <p className="text-2xl font-bold text-gray-800">${getTotalGastos().toLocaleString('en-US')}</p>
+              <p className="text-2xl font-bold text-gray-800">${formatMoney(getTotalGastos())}</p>
               <p className="text-xs text-gray-500">
                 {movimientos.filter(m => m.tipo === MovimientoTipo.GASTO).length} gastos totales
               </p>
@@ -715,7 +768,7 @@ export default function MovimientosIndividualesPage() {
                     {categoria.nombre}
                   </h3>
                   <p className={`text-lg font-bold ${categoria.total === 0 ? 'text-gray-400' : 'text-red-600'}`}>
-                    ${categoria.total.toLocaleString('en-US')}
+                    ${formatMoney(categoria.total)}
                   </p>
                   <p className="text-xs text-gray-500">
                     {categoria.cantidad} {categoria.cantidad === 1 ? 'gasto' : 'gastos'}
@@ -759,7 +812,7 @@ export default function MovimientosIndividualesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Ingresos</p>
-                <p className="text-2xl font-semibold text-green-600">${stats.totalIngresos.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-green-600">${formatMoney(stats.totalIngresos)}</p>
               </div>
             </div>
           </div>
@@ -775,7 +828,7 @@ export default function MovimientosIndividualesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Gastos</p>
-                <p className="text-2xl font-semibold text-red-600">${stats.totalGastos.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-red-600">${formatMoney(stats.totalGastos)}</p>
               </div>
             </div>
           </div>
@@ -792,7 +845,7 @@ export default function MovimientosIndividualesPage() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Balance</p>
                 <p className={`text-2xl font-semibold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${stats.balance.toLocaleString('en-US')}
+                  ${formatMoney(stats.balance)}
                 </p>
               </div>
             </div>
@@ -821,7 +874,7 @@ export default function MovimientosIndividualesPage() {
             {isEditing ? 'Editar Gasto' : 'Nuevo Gasto'}
           </h3>
           
-          {!user?.sucursalId ? (
+          {!canOperate ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -854,7 +907,7 @@ export default function MovimientosIndividualesPage() {
                   onChange={handleChange}
                   className="input-field"
                   required
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
 
@@ -868,7 +921,7 @@ export default function MovimientosIndividualesPage() {
                   onChange={handleChange}
                   className="input-field"
                   required
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 >
                   <option value="GASTO">Gasto</option>
                 </select>
@@ -884,7 +937,7 @@ export default function MovimientosIndividualesPage() {
                   onChange={handleChange}
                   className="input-field"
                   required
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 >
                   <option value="">Seleccionar...</option>
                   {tiposGasto.map((tipo) => (
@@ -908,7 +961,7 @@ export default function MovimientosIndividualesPage() {
                   className="input-field"
                   placeholder="0.00"
                   required
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                 />
               </div>
             </div>
@@ -925,7 +978,7 @@ export default function MovimientosIndividualesPage() {
                 className="input-field"
                 placeholder="Descripción del movimiento"
                 required
-                disabled={!user?.sucursalId}
+                disabled={!canOperate}
               />
             </div>
 
@@ -938,7 +991,7 @@ export default function MovimientosIndividualesPage() {
                 <UploadThingComponent
                   onUploadComplete={handleImageUploadComplete}
                   onUploadError={handleImageUploadError}
-                  disabled={!user?.sucursalId}
+                  disabled={!canOperate}
                   resetKey={uploadResetKey}
                 />
                 
@@ -973,8 +1026,8 @@ export default function MovimientosIndividualesPage() {
               )}
               <button
                 type="submit"
-                className={`btn-primary bg-red-600 hover:bg-red-700 ${!user?.sucursalId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!user?.sucursalId}
+                className={`btn-primary bg-red-600 hover:bg-red-700 ${!canOperate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!canOperate}
               >
                 {isEditing ? 'Actualizar Gasto' : 'Registrar Gasto'}
               </button>
@@ -1022,6 +1075,30 @@ export default function MovimientosIndividualesPage() {
               )}
             </div>
           </div>
+
+          {totalPages > 1 && (
+            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-600">
+                Página {currentPage} de {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
           
           {movimientos.length > 0 ? (
             <>
@@ -1076,7 +1153,7 @@ export default function MovimientosIndividualesPage() {
                                 : movimiento.tipo === MovimientoTipo.GASTO
                                 ? '-'
                                 : ''
-                              }${movimiento.monto.toLocaleString('en-US')}
+                              }${formatMoney(movimiento.monto)}
                             </p>
                             <div className="flex space-x-2 mt-2">
                               <button
@@ -1218,7 +1295,7 @@ export default function MovimientosIndividualesPage() {
                               : movimiento.tipo === MovimientoTipo.GASTO
                               ? '-'
                               : ''
-                            }${movimiento.monto.toLocaleString('en-US')}
+                            }${formatMoney(movimiento.monto)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movimiento.imagen ? (
@@ -1434,7 +1511,7 @@ export default function MovimientosIndividualesPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Monto</label>
                     <p className="mt-1 text-sm font-bold text-red-600">
-                      -${selectedMovimiento.monto.toLocaleString('en-US')}
+                      -${formatMoney(selectedMovimiento.monto)}
                     </p>
                   </div>
                   
@@ -1480,14 +1557,14 @@ export default function MovimientosIndividualesPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha de Creación</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedMovimiento.createdAt).toLocaleString('en-US')}
+                      {formatDateTimeMX(selectedMovimiento.createdAt)}
                     </p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Última Actualización</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedMovimiento.updatedAt).toLocaleString('en-US')}
+                      {formatDateTimeMX(selectedMovimiento.updatedAt)}
                     </p>
                   </div>
                 </div>

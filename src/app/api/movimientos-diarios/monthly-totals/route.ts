@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import { createMonthRange } from '@/lib/dateUtils'
 
 const prisma = new PrismaClient()
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,17 +19,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString())
     const month = parseInt(searchParams.get('month') || (new Date().getMonth() + 1).toString())
+    const sucursalIdParam = searchParams.get('sucursalId')
 
-    // Crear fechas de inicio y fin del mes
     const { fechaInicio, fechaFin } = createMonthRange(year, month)
 
-    const whereClause = decoded.rol === 'Administrador' && !decoded.sucursalId 
-      ? {} 
-      : decoded.sucursalId 
-        ? { sucursalId: decoded.sucursalId }
-        : {}
+    const whereClause =
+      decoded.rol === 'Administrador' && !decoded.sucursalId
+        ? (sucursalIdParam ? { sucursalId: parseInt(sucursalIdParam, 10) } : {})
+        : decoded.sucursalId
+          ? { sucursalId: decoded.sucursalId }
+          : {}
 
-    // Obtener todos los movimientos diarios del mes
     const movimientosDelMes = await prisma.movimientoDiario.findMany({
       where: {
         ...whereClause,
@@ -39,7 +40,6 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Calcular totales de movimientos diarios
     const totals = movimientosDelMes.reduce((acc, movimiento) => {
       acc.ventasBrutas += movimiento.ventasBrutas
       acc.efectivo += movimiento.efectivo
@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
       acc.pagoTarjeta += movimiento.pagoTarjeta
       acc.transferencias += movimiento.transferencias
       acc.gastos += movimiento.gastos
+      acc.depositos += movimiento.depositos
+      acc.fondoInicial += movimiento.fondoInicial
       acc.saldo += movimiento.saldoDia
       return acc
     }, {
@@ -64,40 +66,6 @@ export async function GET(request: NextRequest) {
       fondoInicial: 0,
       saldo: 0
     })
-
-    // Calcular total de depósitos bancarios del mes desde movimientos de tipo DEPOSITO
-    // Temporalmente incluir también FONDO_CAJA para depósitos creados antes del cambio
-    const depositosDelMes = await prisma.movimiento.findMany({
-      where: {
-        tipo: {
-          in: ['DEPOSITO', 'FONDO_CAJA'] // Incluir ambos tipos temporalmente
-        },
-        ...whereClause,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    const totalDepositos = depositosDelMes.reduce((sum, deposito) => sum + deposito.monto, 0)
-
-    // Calcular total de fondos iniciales del mes
-    const fondosInicialesDelMes = await prisma.fondoCajaInicial.findMany({
-      where: {
-        ...whereClause,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    const totalFondosIniciales = fondosInicialesDelMes.reduce((sum, fondo) => sum + fondo.monto, 0)
-
-    // Asignar los totales calculados
-    totals.depositos = totalDepositos
-    totals.fondoInicial = totalFondosIniciales
 
     return NextResponse.json({ totals })
   } catch (error) {

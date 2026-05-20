@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AuthUser } from '@/types/database'
 import { displayDateOnly } from '@/lib/dateUtils'
+import { formatNumberMX } from '@/lib/formatters'
 
 interface MercaderiaData {
   fecha: string
@@ -15,6 +16,8 @@ interface MercaderiaData {
 }
 
 export default function MercaderiasPage() {
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -473,7 +476,7 @@ export default function MercaderiasPage() {
               <div className="ml-4">
                 <h3 className="text-lg font-medium text-gray-900">Total Entradas</h3>
                 <p className="text-2xl font-bold text-green-600">
-                  ${filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0).toLocaleString('en-US')}
+                  ${formatMoney(filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0))}
                 </p>
               </div>
             </div>
@@ -491,7 +494,7 @@ export default function MercaderiasPage() {
               <div className="ml-4">
                 <h3 className="text-lg font-medium text-gray-900">Total Salidas</h3>
                 <p className="text-2xl font-bold text-red-600">
-                  ${filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0).toLocaleString('en-US')}
+                  ${formatMoney(filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0))}
                 </p>
               </div>
             </div>
@@ -513,8 +516,10 @@ export default function MercaderiasPage() {
                    filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0)) >= 0 
                     ? 'text-green-600' : 'text-red-600'
                 }`}>
-                  ${(filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0) - 
-                     filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0)).toLocaleString('en-US')}
+                  ${formatMoney(
+                    filteredMercaderias.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0) -
+                    filteredMercaderias.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0)
+                  )}
                 </p>
               </div>
             </div>
@@ -562,7 +567,7 @@ export default function MercaderiasPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Entradas</p>
-                <p className="text-2xl font-semibold text-green-600">${stats.totalEntradas.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-green-600">${formatMoney(stats.totalEntradas)}</p>
               </div>
             </div>
           </div>
@@ -578,7 +583,7 @@ export default function MercaderiasPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Salidas</p>
-                <p className="text-2xl font-semibold text-red-600">${stats.totalSalidas.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-red-600">${formatMoney(stats.totalSalidas)}</p>
               </div>
             </div>
           </div>
@@ -595,7 +600,7 @@ export default function MercaderiasPage() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Balance</p>
                 <p className={`text-2xl font-semibold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${stats.balance.toLocaleString('en-US')}
+                  ${formatMoney(stats.balance)}
                 </p>
               </div>
             </div>
@@ -913,7 +918,7 @@ export default function MercaderiasPage() {
                           </div>
                           <div className="text-right ml-4">
                             <p className="text-lg font-bold text-blue-600">
-                              ${mercaderia.monto.toLocaleString('en-US')}
+                              ${formatMoney(mercaderia.monto)}
                             </p>
                           </div>
                         </div>
@@ -1095,7 +1100,7 @@ export default function MercaderiasPage() {
                               {mercaderia.recibe}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                              ${mercaderia.monto.toLocaleString('en-US')}
+                              ${formatMoney(mercaderia.monto)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
@@ -1268,7 +1273,7 @@ export default function MercaderiasPage() {
               Confirmar Eliminación
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              ¿Estás seguro que deseas eliminar esta mercadería de {mercaderiaToDelete.tipo} por ${mercaderiaToDelete.monto.toLocaleString('en-US')}? 
+              ¿Estás seguro que deseas eliminar esta mercadería de {mercaderiaToDelete.tipo} por ${formatMoney(mercaderiaToDelete.monto)}? 
               Esta acción no se puede deshacer.
             </p>
             <div className="flex justify-end space-x-3">

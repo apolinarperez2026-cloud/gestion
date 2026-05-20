@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
-import { parseDateOnly } from '@/lib/dateUtils'
+import { createMonthRange, parseDateOnly } from '@/lib/dateUtils'
 import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 // GET - Obtener todos los fondos de caja iniciales
@@ -19,13 +19,15 @@ export async function GET(request: NextRequest) {
     // Obtener parámetro de mes de la URL
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get('month')
+    const sucursalIdParam = searchParams.get('sucursalId')
+    const sucursalIdFiltro = sucursalIdParam ? parseInt(sucursalIdParam, 10) : null
 
     // Construir whereClause dinámicamente según rol, sucursal y mes
     let whereClause: any = {}
 
     // Base según rol y sucursal
     if (decoded.rol === 'Administrador' && !decoded.sucursalId) {
-      whereClause = {}
+      whereClause = sucursalIdFiltro ? { sucursalId: sucursalIdFiltro } : {}
     } else if (decoded.sucursalId) {
       whereClause = { sucursalId: decoded.sucursalId }
     }
@@ -34,12 +36,11 @@ export async function GET(request: NextRequest) {
     if (monthParam) {
       const [year, month] = monthParam.split('-')
       if (year && month) {
-        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        const { fechaInicio, fechaFin } = createMonthRange(parseInt(year), parseInt(month))
         
         whereClause.fecha = {
-          gte: startDate,
-          lte: endDate
+          gte: fechaInicio,
+          lte: fechaFin
         }
       }
     }
@@ -82,7 +83,8 @@ export async function POST(request: NextRequest) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
     const body = await request.json()
-    const { monto, fecha } = body
+    const { monto, fecha, sucursalId } = body
+    const sucursalObjetivo = decoded.sucursalId || (sucursalId ? parseInt(String(sucursalId), 10) : null)
 
     // Validar datos requeridos
     if (!monto || monto <= 0) {
@@ -92,9 +94,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!decoded.sucursalId) {
+    if (!sucursalObjetivo) {
       return NextResponse.json(
-        { error: 'No se puede determinar la sucursal' },
+        { error: 'Debes seleccionar una sucursal' },
         { status: 400 }
       )
     }
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
       data: {
         monto: parseFloat(monto),
         fecha: fechaEspecifica,
-        sucursalId: decoded.sucursalId,
+        sucursalId: sucursalObjetivo,
         usuarioId: decoded.userId
       },
       include: {
@@ -123,7 +125,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Recalcular campos derivados de MovimientoDiario para el día
-    await recalcularMovimientoDiario(fechaEspecifica, decoded.sucursalId, prisma)
+    await recalcularMovimientoDiario(fechaEspecifica, sucursalObjetivo, prisma)
 
     return NextResponse.json({
       message: 'Fondo de caja inicial creado exitosamente',

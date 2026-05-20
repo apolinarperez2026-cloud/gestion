@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
-import { parseDateOnly, createDateRange } from '@/lib/dateUtils'
+import { parseDateOnly, createDateRange, createMonthRange } from '@/lib/dateUtils'
+import { roundCurrency } from '@/lib/formatters'
+import { calculateSaldoDia, getMovimientoDiarioAssociatedTotals } from '@/lib/movimientoDiarioCalculations'
 
 const prisma = new PrismaClient()
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,12 +36,11 @@ export async function GET(request: NextRequest) {
     if (monthParam) {
       const [year, month] = monthParam.split('-')
       if (year && month) {
-        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        const { fechaInicio, fechaFin } = createMonthRange(parseInt(year), parseInt(month))
         
         whereClause.fecha = {
-          gte: startDate,
-          lte: endDate
+          gte: fechaInicio,
+          lte: fechaFin
         }
       }
     }
@@ -113,122 +115,37 @@ export async function POST(request: NextRequest) {
     // Crear fecha específica sin horario
     const fechaEspecifica = parseDateOnly(fecha)
     
-    // Crear rango de fechas para el día
-    const { fechaInicio, fechaFin } = createDateRange(fecha)
-
-    const gastosDelDia = await prisma.movimiento.findMany({
-      where: {
-        tipo: 'GASTO',
-        sucursalId: sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    const totalGastos = gastosDelDia.reduce((sum, gasto) => sum + gasto.monto, 0)
-    
-    console.log('Gastos encontrados:', {
-      cantidad: gastosDelDia.length,
-      gastos: gastosDelDia.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, descripcion: g.descripcion })),
-      totalGastos
-    })
-
-    // Calcular total de depósitos bancarios del día desde movimientos de tipo DEPOSITO
-    // Temporalmente incluir también FONDO_CAJA para depósitos creados antes del cambio
-    const depositosDelDia = await prisma.movimiento.findMany({
-      where: {
-        tipo: {
-          in: ['DEPOSITO', 'FONDO_CAJA'] // Incluir ambos tipos temporalmente
-        },
-        sucursalId: sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    // Debug: Verificar todos los movimientos del día para ver qué tipos hay
-    const todosLosMovimientosDelDia = await prisma.movimiento.findMany({
-      where: {
-        sucursalId: sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-    
-    console.log('Todos los movimientos del día:', {
-      cantidad: todosLosMovimientosDelDia.length,
-      movimientos: todosLosMovimientosDelDia.map(m => ({ 
-        id: m.id, 
-        tipo: m.tipo, 
-        monto: m.monto, 
-        descripcion: m.descripcion,
-        fecha: m.fecha 
-      }))
-    })
-
-    const totalDepositos = depositosDelDia.reduce((sum, deposito) => sum + deposito.monto, 0)
-    
-    console.log('Depósitos bancarios encontrados:', {
-      cantidad: depositosDelDia.length,
-      depositos: depositosDelDia.map(d => ({ id: d.id, fecha: d.fecha, monto: d.monto, descripcion: d.descripcion })),
+    const associatedTotals = await getMovimientoDiarioAssociatedTotals(prisma, fechaEspecifica, sucursalId)
+    const {
+      totalGastos,
+      totalPagoTarjeta,
       totalDepositos,
-      fechaInicio,
-      fechaFin,
-      sucursalId
-    })
-
-    // Calcular fondo inicial de caja del día
-    const fondoInicialDelDia = await prisma.fondoCajaInicial.findFirst({
-      where: {
-        sucursalId: sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
-      }
-    })
-
-    const totalFondoInicial = fondoInicialDelDia ? fondoInicialDelDia.monto : 0
-    
-    console.log('Fondo inicial encontrado:', {
-      existe: !!fondoInicialDelDia,
-      fondo: fondoInicialDelDia ? { id: fondoInicialDelDia.id, fecha: fondoInicialDelDia.fecha, monto: fondoInicialDelDia.monto } : null,
-      totalFondoInicial
-    })
-
-    // Calcular total de cobros TPV del día
-    const cobrosTpvDelDia = await prisma.tpv.findMany({
-      where: {
-        sucursalId: sucursalId,
-        fecha: {
-          gte: fechaInicio,
-          lte: fechaFin
-        },
-        estado: 'exitoso' // Solo contar cobros exitosos
-      }
-    })
-
-    const totalTpvDelDia = cobrosTpvDelDia.reduce((sum, tpv) => sum + tpv.monto, 0)
+      totalFondoInicial,
+      gastosEncontrados,
+      cobrosTpvEncontrados,
+      depositosEncontrados,
+      fondoInicialEncontrado,
+    } = associatedTotals
 
     // Calcular el saldo del día (incluyendo depósitos como ingreso y fondo inicial)
-    const saldoDia = parseFloat(ventasBrutas) - totalGastos + totalDepositos + totalFondoInicial
+    const ventasBrutasFinal = roundCurrency(ventasBrutas)
+    const efectivoFinal = roundCurrency(efectivo)
+    const creditoFinal = roundCurrency(credito)
+    const abonosCreditoFinal = roundCurrency(abonosCredito)
+    const recargasFinal = roundCurrency(recargas)
+    const transferenciasFinal = roundCurrency(transferencias)
+    const saldoDia = calculateSaldoDia(ventasBrutasFinal, totalGastos, totalDepositos, totalFondoInicial)
     
     const movimientoDiario = await prisma.movimientoDiario.create({
       data: {
         fecha: fechaEspecifica,
-        ventasBrutas: parseFloat(ventasBrutas) || 0,
-        efectivo: parseFloat(efectivo) || 0,
-        credito: parseFloat(credito) || 0,
-        abonosCredito: parseFloat(abonosCredito) || 0,
-        recargas: parseFloat(recargas) || 0,
-        pagoTarjeta: totalTpvDelDia, // Cargado automáticamente desde cobros TPV
-        transferencias: parseFloat(transferencias) || 0,
+        ventasBrutas: ventasBrutasFinal,
+        efectivo: efectivoFinal,
+        credito: creditoFinal,
+        abonosCredito: abonosCreditoFinal,
+        recargas: recargasFinal,
+        pagoTarjeta: totalPagoTarjeta, // Cargado automáticamente desde cobros TPV
+        transferencias: transferenciasFinal,
         gastos: totalGastos, // Cargado automáticamente desde movimientos
         depositos: totalDepositos, // Suma de depósitos del día
         fondoInicial: totalFondoInicial, // Fondo inicial de caja del día
@@ -249,14 +166,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       movimientoDiario,
-      gastosEncontrados: gastosDelDia.length,
+      gastosEncontrados,
       totalGastosCalculado: totalGastos,
-      depositosEncontrados: depositosDelDia.length,
+      depositosEncontrados,
       totalDepositosCalculado: totalDepositos,
-      fondoInicialEncontrado: !!fondoInicialDelDia,
+      fondoInicialEncontrado,
       totalFondoInicialCalculado: totalFondoInicial,
-      cobrosTpvEncontrados: cobrosTpvDelDia.length,
-      totalTpvCalculado: totalTpvDelDia
+      cobrosTpvEncontrados,
+      totalTpvCalculado: totalPagoTarjeta
     }, { status: 201 })
   } catch (error: any) {
     // Si es un error de constraint único (fecha + sucursal)

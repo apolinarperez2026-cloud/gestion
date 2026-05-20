@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AuthUser } from '@/types/database'
 import UploadThingComponent from '@/components/UploadThing'
-import { displayDateOnly } from '@/lib/dateUtils'
+import { displayDateOnly, getCurrentDateOnly } from '@/lib/dateUtils'
+import { formatDateTimeMX, formatNumberMX } from '@/lib/formatters'
 
 interface TpvData {
   fecha: string
@@ -16,7 +17,11 @@ interface TpvData {
 }
 
 export default function TpvPage() {
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<{ id: number; nombre: string }[]>([])
+  const [sucursalFiltro, setSucursalFiltro] = useState('')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<TpvData>({
@@ -41,40 +46,35 @@ export default function TpvPage() {
   const [showEditForm, setShowEditForm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [tpvToDelete, setTpvToDelete] = useState<any>(null)
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const date = new Date()
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
   })
   const router = useRouter()
+  const activeSucursalId = user?.sucursalId || (sucursalFiltro ? parseInt(sucursalFiltro, 10) : null)
+  const activeSucursalNombre = user?.sucursal?.nombre || (sucursalFiltro ? (sucursalesDisponibles.find(s => String(s.id) === sucursalFiltro)?.nombre || 'Sin sucursal') : 'Sin sucursal')
 
   // Calcular resúmenes de cobros TPV
   const calculateSummary = () => {
-    const today = new Date()
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    
-    // Filtrar TPVs del mes seleccionado
-    const [year, month] = selectedMonth.split('-')
-    const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1)
-    const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+    const todayKey = getCurrentDateOnly()
+    const tpvsDelDia = tpvs.filter(tpv => tpv.fecha.split('T')[0] === todayKey)
 
-    const tpvsDelDia = tpvs.filter(tpv => {
-      const tpvDate = new Date(tpv.fecha)
-      return tpvDate >= startOfDay && tpvDate.toDateString() === today.toDateString()
-    })
+    const totalDelDia = tpvsDelDia.reduce((sum, tpv) => {
+      const monto = typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0
+      return sum + monto
+    }, 0)
 
-    const tpvsDelMes = tpvs.filter(tpv => {
-      const tpvDate = new Date(tpv.fecha)
-      return tpvDate >= startOfMonth && tpvDate <= endOfMonth
-    })
-
-    const totalDelDia = tpvsDelDia.reduce((sum, tpv) => sum + (typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0), 0)
-    const totalDelMes = tpvsDelMes.reduce((sum, tpv) => sum + (typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0), 0)
+    const totalDelMes = tpvs.reduce((sum, tpv) => {
+      const monto = typeof tpv.monto === 'number' ? tpv.monto : parseFloat(tpv.monto) || 0
+      return sum + monto
+    }, 0)
 
     return {
       totalDelDia,
       totalDelMes,
       cantidadDelDia: tpvsDelDia.length,
-      cantidadDelMes: tpvsDelMes.length
+      cantidadDelMes: tpvs.length
     }
   }
 
@@ -97,6 +97,21 @@ export default function TpvPage() {
       if (response.ok) {
         const userData = await response.json()
         setUser(userData.user)
+        if (userData.user.rol?.nombre === 'Administrador' && !userData.user.sucursalId) {
+          const sucResponse = await fetch('/api/sucursales', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          if (sucResponse.ok) {
+            const sucData = await sucResponse.json()
+            const sucursales = sucData.sucursales || []
+            setSucursalesDisponibles(sucursales)
+            if (sucursales.length > 0) {
+              setSucursalFiltro(prev => prev || String(sucursales[0].id))
+            }
+          }
+        }
         // Establecer el nombre del usuario logueado en el campo "usuarioRegistro"
         setFormData(prev => ({
           ...prev,
@@ -117,7 +132,12 @@ export default function TpvPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const response = await fetch(`/api/tpv?month=${selectedMonth}`, {
+      const query = new URLSearchParams({ month: selectedMonth })
+      if (activeSucursalId) {
+        query.set('sucursalId', String(activeSucursalId))
+      }
+
+      const response = await fetch(`/api/tpv?${query.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -134,8 +154,13 @@ export default function TpvPage() {
 
   useEffect(() => {
     fetchUser()
-    fetchTpvs()
-  }, [selectedMonth])
+  }, [router])
+
+  useEffect(() => {
+    if (user) {
+      fetchTpvs()
+    }
+  }, [selectedMonth, sucursalFiltro, user])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -200,6 +225,12 @@ export default function TpvPage() {
         return
       }
 
+      if (!activeSucursalId) {
+        setModalMessage('Debes seleccionar una sucursal')
+        setShowErrorModal(true)
+        return
+      }
+
       const response = await fetch('/api/tpv', {
         method: 'POST',
         headers: {
@@ -208,7 +239,8 @@ export default function TpvPage() {
         },
         body: JSON.stringify({
           ...formData,
-          monto: typeof formData.monto === 'string' ? parseFloat(formData.monto) || 0 : formData.monto
+          monto: typeof formData.monto === 'string' ? parseFloat(formData.monto) || 0 : formData.monto,
+          sucursalId: activeSucursalId
         })
       })
 
@@ -420,7 +452,7 @@ export default function TpvPage() {
                   Cobros TPV
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal?.nombre || 'Sin sucursal'}
+                  {activeSucursalNombre}
                 </p>
               </div>
             </div>
@@ -449,7 +481,7 @@ export default function TpvPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Cobros TPV del Día</h3>
                 <p className="text-3xl font-bold text-green-600 mt-2">
-                  ${summary.totalDelDia.toLocaleString('en-US')}
+                  ${formatMoney(summary.totalDelDia)}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {summary.cantidadDelDia} cobro{summary.cantidadDelDia !== 1 ? 's' : ''}
@@ -466,7 +498,7 @@ export default function TpvPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Cobros TPV del Mes</h3>
                 <p className="text-3xl font-bold text-blue-600 mt-2">
-                  ${summary.totalDelMes.toLocaleString('en-US')}
+                  ${formatMoney(summary.totalDelMes)}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {summary.cantidadDelMes} cobro{summary.cantidadDelMes !== 1 ? 's' : ''}
@@ -496,6 +528,27 @@ export default function TpvPage() {
                 className="input-field"
               />
             </div>
+            {user?.rol?.nombre === 'Administrador' && sucursalesDisponibles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sucursal
+                </label>
+                <select
+                  value={sucursalFiltro}
+                  onChange={(e) => {
+                    setSucursalFiltro(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="input-field bg-white text-gray-900"
+                >
+                  {sucursalesDisponibles.map((sucursal) => (
+                    <option key={sucursal.id} value={sucursal.id}>
+                      {sucursal.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={() => setShowForm(!showForm)}
               className="btn-primary h-fit mt-6"
@@ -813,7 +866,7 @@ export default function TpvPage() {
                       </div>
                       <div className="text-right ml-4">
                         <p className="text-lg font-bold text-blue-600">
-                          ${tpv.monto.toLocaleString('en-US')}
+                          ${formatMoney(tpv.monto)}
                         </p>
                         {tpv.foto && (
                           <div className="mt-2">
@@ -897,7 +950,7 @@ export default function TpvPage() {
                           {tpv.quienCobro}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${tpv.monto.toLocaleString('en-US')}
+                          ${formatMoney(tpv.monto)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1055,7 +1108,7 @@ export default function TpvPage() {
                     <strong>Quien Cobró:</strong> {tpvToDelete.quienCobro}
                   </p>
                   <p className="text-sm text-gray-700">
-                    <strong>Monto:</strong> ${tpvToDelete.monto.toLocaleString('en-US')}
+                    <strong>Monto:</strong> ${formatMoney(tpvToDelete.monto)}
                   </p>
                 </div>
                 <p className="text-xs text-red-600 mt-2">
@@ -1112,7 +1165,7 @@ export default function TpvPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Monto</label>
                     <p className="mt-1 text-sm font-bold text-blue-600">
-                      ${selectedTpv.monto.toLocaleString('en-US')}
+                      ${formatMoney(selectedTpv.monto)}
                     </p>
                   </div>
                   
@@ -1147,12 +1200,20 @@ export default function TpvPage() {
                 {selectedTpv.foto && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Comprobante</label>
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-2">
                       <img
                         src={selectedTpv.foto}
                         alt="Comprobante del cobro TPV"
-                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300"
+                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300 cursor-zoom-in"
+                        onClick={() => setZoomedImageUrl(selectedTpv.foto)}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setZoomedImageUrl(selectedTpv.foto)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        Ver imagen ampliada
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1162,14 +1223,14 @@ export default function TpvPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha de Creación</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedTpv.createdAt).toLocaleString('en-US')}
+                      {formatDateTimeMX(selectedTpv.createdAt)}
                     </p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Última Actualización</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedTpv.updatedAt).toLocaleString('en-US')}
+                      {formatDateTimeMX(selectedTpv.updatedAt)}
                     </p>
                   </div>
                 </div>
@@ -1189,6 +1250,30 @@ export default function TpvPage() {
       )}
 
       {/* Modal de Éxito */}
+      {zoomedImageUrl && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoomedImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoomedImageUrl(null)}
+            className="absolute right-4 top-4 text-white hover:text-gray-300"
+            aria-label="Cerrar imagen ampliada"
+          >
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={zoomedImageUrl}
+            alt="Comprobante ampliado"
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {showSuccessModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">

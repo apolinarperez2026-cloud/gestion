@@ -7,6 +7,7 @@ import UploadThing from '@/components/UploadThing'
 import SuccessModal from '@/components/SuccessModal'
 import NotificationModal from '@/components/NotificationModal'
 import { displayDateOnly } from '@/lib/dateUtils'
+import { formatNumberMX } from '@/lib/formatters'
 
 interface Deposito {
   id: number
@@ -28,6 +29,8 @@ interface Deposito {
 }
 
 export default function DepositosPage() {
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   // Estado para borrar
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -366,7 +369,7 @@ export default function DepositosPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Promedio del Mes</p>
-                <p className="text-2xl font-semibold text-green-600">${stats.totalMonto.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-green-600">${formatMoney(stats.totalMonto)}</p>
               </div>
             </div>
           </div>
@@ -519,7 +522,7 @@ export default function DepositosPage() {
                         {displayDateOnly(deposito.fecha)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        ${deposito.monto.toLocaleString('en-US')}
+                        ${formatMoney(deposito.monto)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {deposito.usuario ? (
@@ -609,7 +612,7 @@ export default function DepositosPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Monto</label>
                     <p className="mt-1 text-sm font-bold text-green-600">
-                      ${selectedDeposito.monto.toLocaleString('en-US')}
+                      ${formatMoney(selectedDeposito.monto)}
                     </p>
                   </div>
                   

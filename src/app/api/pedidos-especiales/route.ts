@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { CreatePedidoEspecialData } from '@/types/database'
+import { createMonthRange } from '@/lib/dateUtils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,11 +17,16 @@ export async function GET(request: NextRequest) {
     // Obtener parámetro de mes de la URL
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get('month')
+    const sucursalIdParam = searchParams.get('sucursalId')
 
 // Determinar qué pedidos puede ver el usuario
     let whereClause: any = {}
     
-    if (decoded.rol !== 'Administrador') {
+    if (decoded.rol === 'Administrador' && !decoded.sucursalId) {
+      if (sucursalIdParam) {
+        whereClause.sucursalId = parseInt(sucursalIdParam, 10)
+      }
+    } else if (decoded.rol !== 'Administrador') {
       if (decoded.sucursalId) {
         whereClause.sucursalId = decoded.sucursalId
       } else {
@@ -46,12 +52,11 @@ export async function GET(request: NextRequest) {
     if (monthParam) {
       const [year, month] = monthParam.split('-')
       if (year && month) {
-        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999)
+        const { fechaInicio, fechaFin } = createMonthRange(parseInt(year), parseInt(month))
         
         whereClause.fechaPedido = {
-          gte: startDate,
-          lte: endDate
+          gte: fechaInicio,
+          lte: fechaFin
         }
       }
     }
@@ -102,7 +107,15 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const body: CreatePedidoEspecialData = await request.json()
+    const body: CreatePedidoEspecialData & { sucursalId?: number } = await request.json()
+    const sucursalObjetivo = decoded.sucursalId || body.sucursalId || null
+
+    if (!sucursalObjetivo) {
+      return NextResponse.json(
+        { error: 'Debes seleccionar una sucursal' },
+        { status: 400 }
+      )
+    }
 
     // Usar transacción para crear pedido y registro de auditoría
     const result = await prisma.$transaction(async (tx) => {
@@ -120,7 +133,7 @@ export async function POST(request: NextRequest) {
           fechaEntrega: null,
           estado: body.estado || 'Pendiente',
           usuarioId: decoded.userId,
-          sucursalId: decoded.sucursalId,
+          sucursalId: sucursalObjetivo,
           creadoPor: decoded.userId,
           actualizadoPor: decoded.userId
         }

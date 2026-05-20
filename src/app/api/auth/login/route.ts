@@ -60,6 +60,21 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' }
     )
 
+    const sucursalPrincipalAsignada = usuario.sucursal
+      ? {
+          id: usuario.sucursal.id,
+          nombre: usuario.sucursal.nombre
+        }
+      : (() => {
+          const sucursalAsignada = usuario.sucursales.find(us => us.sucursalId === sucursalIdParaToken)?.sucursal
+          return sucursalAsignada
+            ? {
+                id: sucursalAsignada.id,
+                nombre: sucursalAsignada.nombre
+              }
+            : null
+        })()
+
     // Crear respuesta con datos del usuario (sin contraseña)
     const authUser: AuthUser = {
       id: usuario.id,
@@ -69,10 +84,7 @@ export async function POST(request: NextRequest) {
         id: usuario.rol.id,
         nombre: usuario.rol.nombre
       },
-      sucursal: sucursalIdParaToken ? {
-        id: usuario.sucursal!.id,
-        nombre: usuario.sucursal!.nombre
-      } : null,
+      sucursal: sucursalIdParaToken ? sucursalPrincipalAsignada : null,
       sucursalId: sucursalIdParaToken,
       sucursalesAsignadas: usuario.sucursales.map(us => ({
         id: us.sucursal.id,

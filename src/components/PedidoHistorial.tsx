@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PedidoEspecialHistorial } from '@/types/database'
+import { formatDateTimeMX, formatNumberMX } from '@/lib/formatters'
 
 interface PedidoHistorialProps {
   pedidoId: number
@@ -163,7 +164,7 @@ export default function PedidoHistorial({ pedidoId, isOpen, onClose }: PedidoHis
                             {item.accion}
                           </span>
                           <span className="text-sm text-gray-500">
-                            {new Date(item.fechaAccion).toLocaleString('en-US')}
+                            {formatDateTimeMX(item.fechaAccion)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-900 mb-2">{getAccionDescription(item)}</p>
@@ -215,7 +216,7 @@ export default function PedidoHistorial({ pedidoId, isOpen, onClose }: PedidoHis
                                     return value ? new Date(value).toLocaleDateString() : 'N/A'
                                   }
                                   if (field === 'precioVenta' || field === 'total' || field === 'anticipo') {
-                                    return `$${Number(value).toLocaleString('en-US')}`
+                                    return `$${formatNumberMX(value)}`
                                   }
                                   if (field === 'cantidad') {
                                     return Number(value).toString()

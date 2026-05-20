@@ -5,9 +5,14 @@ import { useRouter } from 'next/navigation'
 import { PedidoEspecial, AuthUser } from '@/types/database'
 import UploadThingComponent from '@/components/UploadThing'
 import PedidoHistorial from '@/components/PedidoHistorial'
+import { formatNumberMX } from '@/lib/formatters'
 
 export default function PedidosEspecialesPage() {
+  const formatMoney = (value: number) =>
+    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<{ id: number; nombre: string }[]>([])
+  const [sucursalFiltro, setSucursalFiltro] = useState('')
   const [pedidos, setPedidos] = useState<PedidoEspecial[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -58,15 +63,41 @@ export default function PedidosEspecialesPage() {
     fechaPedido: new Date().toISOString().split('T')[0]
   })
   const router = useRouter()
+  const activeSucursalId = user?.sucursalId || (sucursalFiltro ? parseInt(sucursalFiltro, 10) : null)
+  const activeSucursalNombre = user?.sucursal?.nombre || (sucursalFiltro ? (sucursalesDisponibles.find(s => String(s.id) === sucursalFiltro)?.nombre || 'Sin sucursal') : 'Sin sucursal')
 
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch('/api/auth/me')
+        const token = localStorage.getItem('token')
+        if (!token) {
+          router.push('/auth/login')
+          return
+        }
+
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
         if (response.ok) {
           const userData = await response.json()
           setUser(userData.user)
-          fetchPedidos()
+          if (userData.user.rol?.nombre === 'Administrador' && !userData.user.sucursalId) {
+            const sucResponse = await fetch('/api/sucursales', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            if (sucResponse.ok) {
+              const sucData = await sucResponse.json()
+              const sucursales = sucData.sucursales || []
+              setSucursalesDisponibles(sucursales)
+              if (sucursales.length > 0) {
+                setSucursalFiltro(prev => prev || String(sucursales[0].id))
+              }
+            }
+          }
         } else {
           router.push('/auth/login')
         }
@@ -76,7 +107,7 @@ export default function PedidosEspecialesPage() {
     }
 
     fetchUser()
-  }, [router, selectedMonth])
+  }, [router])
 
   // Función para calcular estadísticas
   const calculateStats = (pedidos: PedidoEspecial[]) => {
@@ -100,7 +131,12 @@ export default function PedidosEspecialesPage() {
         return
       }
 
-      const response = await fetch(`/api/pedidos-especiales?month=${selectedMonth}`, {
+      const query = new URLSearchParams({ month: selectedMonth })
+      if (activeSucursalId) {
+        query.set('sucursalId', String(activeSucursalId))
+      }
+
+      const response = await fetch(`/api/pedidos-especiales?${query.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -117,12 +153,23 @@ export default function PedidosEspecialesPage() {
     }
   }
 
+  useEffect(() => {
+    if (user) {
+      fetchPedidos()
+    }
+  }, [selectedMonth, sucursalFiltro, user])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       const token = localStorage.getItem('token')
       if (!token) {
         router.push('/auth/login')
+        return
+      }
+
+      if (!activeSucursalId) {
+        showModal('Debes seleccionar una sucursal')
         return
       }
 
@@ -139,7 +186,8 @@ export default function PedidosEspecialesPage() {
           total: calculateTotal(),
           anticipo: parseFloat(formData.anticipo),
           fechaPedido: new Date(formData.fechaPedido),
-          estado: 'Pendiente'
+          estado: 'Pendiente',
+          sucursalId: activeSucursalId
         }),
       })
 
@@ -602,7 +650,7 @@ export default function PedidosEspecialesPage() {
                   Pedidos Especiales
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {user.sucursal?.nombre || 'Sin sucursal'}
+                  {activeSucursalNombre}
                 </p>
               </div>
             </div>
@@ -724,6 +772,27 @@ export default function PedidosEspecialesPage() {
                 className="input-field"
               />
             </div>
+            {user?.rol?.nombre === 'Administrador' && sucursalesDisponibles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sucursal
+                </label>
+                <select
+                  value={sucursalFiltro}
+                  onChange={(e) => {
+                    setSucursalFiltro(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="input-field bg-white text-gray-900"
+                >
+                  {sucursalesDisponibles.map((sucursal) => (
+                    <option key={sucursal.id} value={sucursal.id}>
+                      {sucursal.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={() => setShowForm(!showForm)}
               className="btn-primary h-fit mt-6"
@@ -762,7 +831,7 @@ export default function PedidosEspecialesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Anticipos</p>
-                <p className="text-2xl font-semibold text-green-600">${stats.totalAnticipos.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-green-600">${formatMoney(stats.totalAnticipos)}</p>
               </div>
             </div>
           </div>
@@ -778,7 +847,7 @@ export default function PedidosEspecialesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Ventas</p>
-                <p className="text-2xl font-semibold text-purple-600">${stats.totalVentas.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-purple-600">${formatMoney(stats.totalVentas)}</p>
               </div>
             </div>
           </div>
@@ -794,7 +863,7 @@ export default function PedidosEspecialesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Restante</p>
-                <p className="text-2xl font-semibold text-orange-600">${stats.totalRestante.toLocaleString('en-US')}</p>
+                <p className="text-2xl font-semibold text-orange-600">${formatMoney(stats.totalRestante)}</p>
               </div>
             </div>
           </div>
@@ -986,6 +1055,9 @@ export default function PedidosEspecialesPage() {
                         Marca
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Código
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Descripción
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1027,6 +1099,9 @@ export default function PedidosEspecialesPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {pedido.marca}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {pedido.codigo}
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {pedido.descripcion}
                         </td>
@@ -1034,7 +1109,7 @@ export default function PedidosEspecialesPage() {
                           {pedido.cantidad}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${pedido.total.toLocaleString('en-US')}
+                          ${formatMoney(pedido.total)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1210,7 +1285,7 @@ export default function PedidosEspecialesPage() {
                       </div>
                       <div>
                         <span className="text-gray-500">Total:</span>
-                        <span className="ml-1 font-medium text-blue-600">${pedido.total.toLocaleString('en-US')}</span>
+                        <span className="ml-1 font-medium text-blue-600">${formatMoney(pedido.total)}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Creado por:</span>
@@ -1650,15 +1725,15 @@ export default function PedidosEspecialesPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">Precio de Venta</label>
-                      <p className="text-sm text-gray-900">${selectedPedido.precioVenta.toLocaleString('en-US')}</p>
+                      <p className="text-sm text-gray-900">${formatMoney(selectedPedido.precioVenta)}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">Total</label>
-                      <p className="text-sm font-bold text-blue-600">${selectedPedido.total.toLocaleString('en-US')}</p>
+                      <p className="text-sm font-bold text-blue-600">${formatMoney(selectedPedido.total)}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">Anticipo</label>
-                      <p className="text-sm text-gray-900">${selectedPedido.anticipo.toLocaleString('en-US')}</p>
+                      <p className="text-sm text-gray-900">${formatMoney(selectedPedido.anticipo)}</p>
                     </div>
                   </div>
                   
