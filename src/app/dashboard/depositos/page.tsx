@@ -47,6 +47,7 @@ export default function DepositosPage() {
   // Estado para modal de detalles
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDeposito, setSelectedDeposito] = useState<Deposito | null>(null);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Abre el modal de confirmación y almacena el id
   const handleOpenDeleteModal = (id: number) => {
@@ -646,7 +647,8 @@ export default function DepositosPage() {
                       <img
                         src={selectedDeposito.imagen}
                         alt="Comprobante del depósito"
-                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300"
+                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300 cursor-zoom-in"
+                        onClick={() => setZoomedImageUrl(selectedDeposito.imagen!)}
                       />
                     </div>
                   </div>
@@ -780,6 +782,30 @@ export default function DepositosPage() {
               >Borrar definitivamente</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {zoomedImageUrl && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoomedImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoomedImageUrl(null)}
+            className="absolute right-4 top-4 text-white hover:text-gray-300"
+            aria-label="Cerrar imagen ampliada"
+          >
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={zoomedImageUrl}
+            alt="Comprobante ampliado"
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 

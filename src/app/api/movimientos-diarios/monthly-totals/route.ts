@@ -40,6 +40,20 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const ultimoFondoInicialDelMes = await prisma.fondoCajaInicial.findFirst({
+      where: {
+        ...whereClause,
+        fecha: {
+          gte: fechaInicio,
+          lte: fechaFin
+        }
+      },
+      orderBy: [
+        { fecha: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    })
+
     const totals = movimientosDelMes.reduce((acc, movimiento) => {
       acc.ventasBrutas += movimiento.ventasBrutas
       acc.efectivo += movimiento.efectivo
@@ -50,7 +64,6 @@ export async function GET(request: NextRequest) {
       acc.transferencias += movimiento.transferencias
       acc.gastos += movimiento.gastos
       acc.depositos += movimiento.depositos
-      acc.fondoInicial += movimiento.fondoInicial
       acc.saldo += movimiento.saldoDia
       return acc
     }, {
@@ -66,6 +79,8 @@ export async function GET(request: NextRequest) {
       fondoInicial: 0,
       saldo: 0
     })
+
+    totals.fondoInicial = ultimoFondoInicialDelMes?.monto || 0
 
     return NextResponse.json({ totals })
   } catch (error) {

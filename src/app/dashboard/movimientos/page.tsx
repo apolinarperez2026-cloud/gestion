@@ -965,7 +965,7 @@ export default function MovimientosPage() {
                   </div>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Fondo de Caja Inicial</p>
+                  <p className="text-sm font-medium text-gray-500">Último Fondo de Caja Inicial</p>
                   <p className="text-lg font-semibold text-gray-900">
                     ${formatMoney(monthlyTotals.fondoInicial || 0)}
                   </p>
