@@ -3,27 +3,31 @@ export function formatNumberMX(
   options: Intl.NumberFormatOptions = {}
 ): string {
   const amount = Number(value ?? 0)
+  const safeAmount = Number.isFinite(amount) ? amount : 0
+  const roundedAmount = roundCurrency(safeAmount)
+  const minimumFractionDigits = options.minimumFractionDigits ?? 0
+  const maximumFractionDigits = options.maximumFractionDigits ?? 2
+  const isNegative = roundedAmount < 0
+  const absoluteAmount = Math.abs(roundedAmount)
+  const fixedValue = absoluteAmount.toFixed(maximumFractionDigits)
+  const [integerPart, decimalPart = ''] = fixedValue.split('.')
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  const trimmedDecimal = decimalPart.replace(/0+$/, '')
+  const shouldShowDecimals =
+    maximumFractionDigits > 0 &&
+    (trimmedDecimal.length > 0 || minimumFractionDigits > 0)
+  const paddedDecimal = shouldShowDecimals
+    ? decimalPart.slice(0, Math.max(trimmedDecimal.length, minimumFractionDigits))
+    : ''
 
-  return new Intl.NumberFormat('es-MX', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-    ...options,
-  }).format(Number.isFinite(amount) ? amount : 0)
+  return `${isNegative ? '-' : ''}${groupedInteger}${shouldShowDecimals ? `.${paddedDecimal}` : ''}`
 }
 
 export function formatCurrencyMX(
   value: number | string | null | undefined,
   options: Intl.NumberFormatOptions = {}
 ): string {
-  const amount = Number(value ?? 0)
-
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-    ...options,
-  }).format(Number.isFinite(amount) ? amount : 0)
+  return `$${formatNumberMX(value, options)}`
 }
 
 export function formatDateTimeMX(value: Date | string | null | undefined): string {
