@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { MovimientoDiario, AuthUser } from '@/types/database'
 import SummaryCards from '@/components/SummaryCards'
 import * as XLSX from 'xlsx'
-import { formatNumberMX } from '@/lib/formatters'
+import { formatNumberMX, roundCurrency } from '@/lib/formatters'
 
 export default function ResumenPage() {
   const formatMoney = (value: number) =>
@@ -149,9 +149,9 @@ export default function ResumenPage() {
       const depositos    = mov?.depositos       ?? 0
 
       // Saldo del Día: Ventas - Crédito + Abonos - Recargas - Tarjeta - Transf - Gastos
-      const saldoDia = ventas - credito + abonos - recargas - tarjeta - transf - gastos
+      const saldoDia = roundCurrency(ventas - credito + abonos - recargas - tarjeta - transf - gastos)
       // Saldo Acumulado: acumula día a día, los depósitos salen del efectivo
-      const saldoAcum = saldoAcumAnterior + saldoDia - depositos
+      const saldoAcum = roundCurrency(saldoAcumAnterior + saldoDia - depositos)
       saldoAcumAnterior = saldoAcum
 
       datosExcel.push({
@@ -213,7 +213,7 @@ export default function ResumenPage() {
       totalTransferencias += movimiento.transferencias
     })
 
-    const totalSaldo = totalVentas - totalGastos
+    const totalSaldo = roundCurrency(totalVentas - totalGastos)
     
     // Calcular depósitos
     let totalDepositos = 0
@@ -222,8 +222,8 @@ export default function ResumenPage() {
     })
     
     // Calcular Saldo del Día y Saldo Acumulado
-    const saldoDelDia = totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
-    const saldoAcumulado = saldoDelDia - totalDepositos
+    const saldoDelDia = roundCurrency(totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos)
+    const saldoAcumulado = roundCurrency(saldoDelDia - totalDepositos)
 
     return {
       totalVentas,
@@ -290,8 +290,8 @@ export default function ResumenPage() {
     const totalEfectivo      = movimiento?.efectivo        ?? 0
     const totalDepositos     = movimiento?.depositos       ?? 0
 
-    const saldoDelDiaCalculado = totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos
-    const saldoAcumulado = _saldoAcumAnterior + saldoDelDiaCalculado - totalDepositos
+    const saldoDelDiaCalculado = roundCurrency(totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos)
+    const saldoAcumulado = roundCurrency(_saldoAcumAnterior + saldoDelDiaCalculado - totalDepositos)
     _saldoAcumAnterior = saldoAcumulado
 
     return {

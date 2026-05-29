@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 import { createMonthRange } from '@/lib/dateUtils'
+import { roundCurrency } from '@/lib/formatters'
 
 const prisma = new PrismaClient()
 export const dynamic = 'force-dynamic'
@@ -80,7 +81,17 @@ export async function GET(request: NextRequest) {
       saldo: 0
     })
 
-    totals.fondoInicial = ultimoFondoInicialDelMes?.monto || 0
+    totals.ventasBrutas = roundCurrency(totals.ventasBrutas)
+    totals.efectivo = roundCurrency(totals.efectivo)
+    totals.credito = roundCurrency(totals.credito)
+    totals.abonosCredito = roundCurrency(totals.abonosCredito)
+    totals.recargas = roundCurrency(totals.recargas)
+    totals.pagoTarjeta = roundCurrency(totals.pagoTarjeta)
+    totals.transferencias = roundCurrency(totals.transferencias)
+    totals.gastos = roundCurrency(totals.gastos)
+    totals.depositos = roundCurrency(totals.depositos)
+    totals.fondoInicial = roundCurrency(ultimoFondoInicialDelMes?.monto || 0)
+    totals.saldo = roundCurrency(totals.saldo)
 
     return NextResponse.json({ totals })
   } catch (error) {

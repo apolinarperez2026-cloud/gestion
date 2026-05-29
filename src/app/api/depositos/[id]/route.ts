@@ -1,109 +1,117 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
-import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import jwt from 'jsonwebtoken'
+import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
+import { parseDateOnly } from '@/lib/dateUtils'
+import { findLegacyDepositMovementForDeposito } from '@/lib/depositoLegacySync'
 
-// PATCH - Editar un depósito bancario por ID
 export async function PATCH(
   request: NextRequest,
   context: any
 ) {
   try {
-    // Validar el header de autorización
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 });
-    }
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-    let idValue;
-    if (typeof context.params?.then === 'function') {
-      const awaited = await context.params;
-      idValue = awaited.id;
-    } else {
-      idValue = context.params.id;
-    }
-    const idNum = parseInt(idValue, 10);
-    if (isNaN(idNum)) {
-      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
     }
 
-    // Buscar el depósito
-    const deposito = await prisma.deposito.findUnique({ where: { id: idNum } });
+    const token = authHeader.substring(7)
+    jwt.verify(token, process.env.JWT_SECRET!) as any
+
+    const params = typeof context.params?.then === 'function'
+      ? await context.params
+      : context.params
+
+    const idNum = parseInt(params.id, 10)
+    if (Number.isNaN(idNum)) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    }
+
+    const deposito = await prisma.deposito.findUnique({ where: { id: idNum } })
     if (!deposito) {
-      return NextResponse.json({ error: 'Depósito no encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Depósito no encontrado' }, { status: 404 })
     }
 
-    // Obtener los datos a actualizar
-    const body = await request.json();
-    const data: any = {};
-    if (body.monto !== undefined) data.monto = parseFloat(body.monto);
-    if (body.fecha) data.fecha = new Date(body.fecha);
-    if (body.imagen !== undefined) data.imagen = body.imagen;
+    const body = await request.json()
+    const data: { monto?: number; fecha?: Date; imagen?: string | null } = {}
 
-    // Actualizar el depósito
+    if (body.monto !== undefined) data.monto = parseFloat(body.monto)
+    if (body.fecha) data.fecha = parseDateOnly(body.fecha)
+    if (body.imagen !== undefined) data.imagen = body.imagen
+
+    const legacyMovimiento = await findLegacyDepositMovementForDeposito(deposito, prisma)
+
     const updated = await prisma.deposito.update({
       where: { id: idNum },
-      data
-    });
+      data,
+    })
 
-    // Recalcular MovimientoDiario para la fecha original y la nueva si cambió
-    await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma);
-    if (data.fecha && data.fecha.toISOString().split('T')[0] !== deposito.fecha.toISOString().split('T')[0]) {
-      await recalcularMovimientoDiario(data.fecha, deposito.sucursalId, prisma);
+    if (legacyMovimiento) {
+      await prisma.movimiento.update({
+        where: { id: legacyMovimiento.id },
+        data: {
+          fecha: data.fecha ?? deposito.fecha,
+          monto: data.monto ?? deposito.monto,
+          imagen: data.imagen !== undefined ? data.imagen : legacyMovimiento.imagen,
+        },
+      })
     }
 
-    return NextResponse.json({ message: 'Depósito actualizado correctamente', deposito: updated });
+    await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma)
+    if (data.fecha && data.fecha.toISOString().slice(0, 10) !== deposito.fecha.toISOString().slice(0, 10)) {
+      await recalcularMovimientoDiario(data.fecha, deposito.sucursalId, prisma)
+    }
+
+    return NextResponse.json({
+      message: 'Depósito actualizado correctamente',
+      deposito: updated,
+    })
   } catch (error) {
-    console.error('Error al actualizar depósito:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    console.error('Error al actualizar depósito:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
 
-// DELETE - Eliminar un depósito bancario por ID
 export async function DELETE(
   request: NextRequest,
   context: any
 ) {
   try {
-    // Validar el header de autorización
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 });
-    }
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    // Se puede agregar validación extra aquí según los roles, si lo deseas
-
-    let idValue;
-    if (typeof context.params?.then === 'function') {
-      // Si params es una promesa, hay que await
-      const awaited = await context.params;
-      idValue = awaited.id;
-    } else {
-      idValue = context.params.id;
-    }
-    const idNum = parseInt(idValue, 10);
-    if (isNaN(idNum)) {
-      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
     }
 
-    // Verificar si el depósito existe
-    const deposito = await prisma.deposito.findUnique({ where: { id: idNum } });
+    const token = authHeader.substring(7)
+    jwt.verify(token, process.env.JWT_SECRET!) as any
+
+    const params = typeof context.params?.then === 'function'
+      ? await context.params
+      : context.params
+
+    const idNum = parseInt(params.id, 10)
+    if (Number.isNaN(idNum)) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    }
+
+    const deposito = await prisma.deposito.findUnique({ where: { id: idNum } })
     if (!deposito) {
-      return NextResponse.json({ error: 'Depósito no encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Depósito no encontrado' }, { status: 404 })
     }
-    // Eliminar el depósito
-    await prisma.deposito.delete({ where: { id: idNum } });
 
-    // Recalcular MovimientoDiario para el día afectado
-    await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma);
+    const legacyMovimiento = await findLegacyDepositMovementForDeposito(deposito, prisma)
 
-    return NextResponse.json({ message: 'Depósito eliminado correctamente' });
+    await prisma.deposito.delete({ where: { id: idNum } })
+
+    if (legacyMovimiento) {
+      await prisma.movimiento.delete({ where: { id: legacyMovimiento.id } })
+    }
+
+    await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma)
+
+    return NextResponse.json({ message: 'Depósito eliminado correctamente' })
   } catch (error) {
-    console.error('Error al eliminar depósito:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    console.error('Error al eliminar depósito:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
-

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { roundCurrency } from '@/lib/formatters'
 
 const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar token de autenticación
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
-    // Obtener usuario
     const user = await prisma.usuario.findUnique({
       where: { id: decoded.userId },
       include: { sucursal: true, rol: true }
@@ -25,16 +24,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
     }
 
-    // Usar la sucursal del token JWT (si está disponible) o la de la base de datos
     const sucursalId = decoded.sucursalId || user.sucursalId
 
     if (!sucursalId) {
       return NextResponse.json({ error: 'No se puede determinar la sucursal' }, { status: 400 })
     }
 
-    // Obtener movimientos de la sucursal con relaciones
     const movimientos = await prisma.movimiento.findMany({
-      where: { sucursalId: sucursalId },
+      where: { sucursalId },
       include: {
         formaDePago: true,
         tipoGasto: true
@@ -42,15 +39,12 @@ export async function GET(request: NextRequest) {
       orderBy: { fecha: 'desc' }
     })
 
-    // Calcular totales por tipo de movimiento
-    let saldoAcumulado = 0
     let ventasBrutas = 0
     let credito = 0
     let abonosCredito = 0
     let recargas = 0
     let pagoTarjeta = 0
     let gastos = 0
-    let deposito = 0
 
     movimientos.forEach(movimiento => {
       if (movimiento.tipo === 'VENTA') {
@@ -67,36 +61,45 @@ export async function GET(request: NextRequest) {
         }
       } else if (movimiento.tipo === 'GASTO') {
         gastos += movimiento.monto
-      } else if (movimiento.tipo === 'DEPOSITO') {
-        deposito += movimiento.monto
       }
     })
 
-    // Calcular saldo acumulado (ventas - gastos + depósitos)
-    saldoAcumulado = ventasBrutas - gastos + deposito
+    const [depositosTabla, depositosLegacy] = await Promise.all([
+      prisma.deposito.findMany({
+        where: { sucursalId }
+      }),
+      prisma.movimiento.findMany({
+        where: {
+          sucursalId,
+          tipo: 'DEPOSITO'
+        }
+      })
+    ])
 
-    // Obtener el último movimiento diario para el saldo del día
+    const deposito = depositosTabla.length > 0
+      ? depositosTabla.reduce((sum, item) => sum + item.monto, 0)
+      : depositosLegacy.reduce((sum, item) => sum + item.monto, 0)
+
+    const saldoAcumulado = roundCurrency(ventasBrutas - gastos + deposito)
+
     const ultimoMovimientoDiario = await prisma.movimientoDiario.findFirst({
-      where: { sucursalId: sucursalId },
+      where: { sucursalId },
       orderBy: { fecha: 'desc' }
     })
 
-    const saldoDia = ultimoMovimientoDiario?.saldoDia || 0
+    const saldoDia = roundCurrency(ultimoMovimientoDiario?.saldoDia || 0)
 
-    const summary = {
+    return NextResponse.json({
       saldoAcumulado,
-      ventasBrutas,
-      credito,
-      abonosCredito,
-      recargas,
-      pagoTarjeta,
-      gastos,
+      ventasBrutas: roundCurrency(ventasBrutas),
+      credito: roundCurrency(credito),
+      abonosCredito: roundCurrency(abonosCredito),
+      recargas: roundCurrency(recargas),
+      pagoTarjeta: roundCurrency(pagoTarjeta),
+      gastos: roundCurrency(gastos),
       saldoDia,
-      deposito
-    }
-
-    return NextResponse.json(summary)
-
+      deposito: roundCurrency(deposito)
+    })
   } catch (error) {
     console.error('Error al obtener resumen de movimientos:', error)
     return NextResponse.json(
