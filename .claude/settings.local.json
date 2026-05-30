@@ -15,7 +15,8 @@
       "mcp__Claude_in_Chrome__browser_batch",
       "Bash(npx next *)",
       "mcp__Claude_in_Chrome__list_connected_browsers",
-      "mcp__Claude_in_Chrome__select_browser"
+      "mcp__Claude_in_Chrome__select_browser",
+      "Bash(npx ts-node *)"
     ]
   }
 }
