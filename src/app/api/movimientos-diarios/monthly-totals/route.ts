@@ -65,7 +65,9 @@ export async function GET(request: NextRequest) {
       acc.transferencias += movimiento.transferencias
       acc.gastos += movimiento.gastos
       acc.depositos += movimiento.depositos
-      acc.saldo += movimiento.saldoDia
+      // Calcular con la misma fórmula que Resumen para que cuadren
+      const saldoDiaCalculado = movimiento.ventasBrutas - movimiento.credito + movimiento.abonosCredito - movimiento.recargas - movimiento.pagoTarjeta - movimiento.transferencias - movimiento.gastos
+      acc.saldo += saldoDiaCalculado - movimiento.depositos
       return acc
     }, {
       ventasBrutas: 0,

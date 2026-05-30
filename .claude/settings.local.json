@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/alber/Downloads/**)",
+      "Bash(python -c ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(py -c ' *)",
+      "Bash(where node *)",
+      "Bash(node -e ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\alber\\\\Documents\\\\FREELO\\\\gestion\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(xargs grep -l \"restante\\\\|remaining\\\\|saldo del pedido\")",
+      "Bash(npx tsc *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__browser_batch",
+      "Bash(npx next *)",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "mcp__Claude_in_Chrome__select_browser"
+    ]
+  }
+}

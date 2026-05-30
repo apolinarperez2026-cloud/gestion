@@ -42,7 +42,8 @@ export default function PedidosEspecialesPage() {
     totalRestante: 0
   })
   const [deliveryData, setDeliveryData] = useState({
-    comprobante: ''
+    comprobante: '',
+    pagoRestante: ''
   })
   const [editData, setEditData] = useState({
     marca: '',
@@ -379,7 +380,7 @@ export default function PedidosEspecialesPage() {
 
   const handleEntregar = (pedido: PedidoEspecial) => {
     setSelectedPedido(pedido)
-    setDeliveryData({ comprobante: '' })
+    setDeliveryData({ comprobante: '', pagoRestante: '' })
     setShowDeliveryModal(true)
   }
 
@@ -403,14 +404,15 @@ export default function PedidosEspecialesPage() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          comprobante: deliveryData.comprobante
+          comprobante: deliveryData.comprobante,
+          pagoRestante: deliveryData.pagoRestante || 0
         }),
       })
 
       if (response.ok) {
         setShowDeliveryModal(false)
         setSelectedPedido(null)
-        setDeliveryData({ comprobante: '' })
+        setDeliveryData({ comprobante: '', pagoRestante: '' })
         fetchPedidos()
         showModal('Pedido entregado exitosamente', 'success')
       } else {
@@ -1538,6 +1540,32 @@ export default function PedidosEspecialesPage() {
               </h3>
               
               <div className="space-y-4">
+                {/* Resumen del pedido */}
+                {(() => {
+                  const restante = (selectedPedido.total ?? 0) - (selectedPedido.anticipo ?? 0)
+                  return restante > 0 ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                      <p className="text-sm text-yellow-800 font-medium">Saldo pendiente: ${formatMoney(restante)}</p>
+                      <div className="mt-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Pago recibido al entregar
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={restante}
+                          step="0.01"
+                          placeholder={`Máx. $${formatMoney(restante)}`}
+                          value={deliveryData.pagoRestante}
+                          onChange={(e) => setDeliveryData(prev => ({ ...prev, pagoRestante: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Se sumará automáticamente a Abonos Crédito en Control de hoy</p>
+                      </div>
+                    </div>
+                  ) : null
+                })()}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Comprobante de Entrega

@@ -22,7 +22,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { comprobante } = body
+    const { comprobante, pagoRestante } = body
 
     // Validar que se proporcione el comprobante
     if (!comprobante) {
@@ -31,6 +31,8 @@ export async function PUT(
         { status: 400 }
       )
     }
+
+    const montoPago = pagoRestante ? parseFloat(pagoRestante) : 0
 
     // Verificar que el pedido existe
     // Si el usuario es administrador, puede ver cualquier pedido
@@ -84,6 +86,9 @@ export async function PUT(
         throw new Error('Pedido no encontrado')
       }
 
+      // Calcular nuevo anticipo: sumar el pago recibido al entregar
+      const nuevoAnticipo = pedidoActual.anticipo + montoPago
+
       // Actualizar el pedido con la información de entrega
       const pedidoActualizado = await tx.pedidoEspecial.update({
         where: { id },
@@ -91,6 +96,7 @@ export async function PUT(
           estado: 'Entregado',
           fechaEntrega: new Date(),
           comprobante,
+          anticipo: nuevoAnticipo,
           actualizadoPor: decoded.userId,
           actualizadoEn: new Date()
         },
@@ -104,21 +110,48 @@ export async function PUT(
         }
       })
 
+      // Si hay pago del restante, sumarlo a abonosCredito del movimientoDiario del día
+      if (montoPago > 0 && pedidoActual.sucursalId) {
+        const hoy = new Date()
+        const fechaStr = hoy.toISOString().split('T')[0]
+        const fechaInicio = new Date(fechaStr + 'T00:00:00.000Z')
+        const fechaFin = new Date(fechaStr + 'T23:59:59.999Z')
+
+        const movDiario = await tx.movimientoDiario.findFirst({
+          where: {
+            sucursalId: pedidoActual.sucursalId,
+            fecha: { gte: fechaInicio, lte: fechaFin }
+          }
+        })
+
+        if (movDiario) {
+          await tx.movimientoDiario.update({
+            where: { id: movDiario.id },
+            data: { abonosCredito: { increment: montoPago } }
+          })
+        }
+      }
+
       // Crear registro de auditoría
       await tx.pedidoEspecialHistorial.create({
         data: {
           pedidoId: id,
           accion: 'ENTREGADO',
-          descripcion: `Pedido entregado con comprobante`,
-          datosAnteriores: { 
+          descripcion: montoPago > 0
+            ? `Pedido entregado con comprobante. Pago restante recibido: $${montoPago}`
+            : `Pedido entregado con comprobante`,
+          datosAnteriores: {
             estado: pedidoActual.estado,
             fechaEntrega: pedidoActual.fechaEntrega,
-            comprobante: pedidoActual.comprobante
+            comprobante: pedidoActual.comprobante,
+            anticipo: pedidoActual.anticipo
           },
-          datosNuevos: { 
+          datosNuevos: {
             estado: 'Entregado',
             fechaEntrega: new Date(),
-            comprobante
+            comprobante,
+            anticipo: nuevoAnticipo,
+            pagoRestanteRegistrado: montoPago
           },
           usuarioId: decoded.userId
         }
