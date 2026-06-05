@@ -29,6 +29,7 @@ export default function MovimientosIndividualesPage() {
   const [tiposGasto, setTiposGasto] = useState<TipoGasto[]>([])
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadResetKey, setUploadResetKey] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
@@ -226,7 +227,7 @@ export default function MovimientosIndividualesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+    if (isSubmitting) return
     // Validaciones del frontend
     if (!formData.descripcion || !formData.monto) {
       showConfirm({
@@ -264,6 +265,7 @@ export default function MovimientosIndividualesPage() {
     }
 
     try {
+      setIsSubmitting(true)
       const token = localStorage.getItem('token')
       if (!token) {
         router.push('/auth/login')
@@ -338,6 +340,8 @@ export default function MovimientosIndividualesPage() {
         cancelText: '',
         type: 'error'
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -907,7 +911,7 @@ export default function MovimientosIndividualesPage() {
                   onChange={handleChange}
                   className="input-field"
                   required
-                  disabled={!canOperate}
+                  disabled={!canOperate || isSubmitting}
                 />
               </div>
 
@@ -1029,7 +1033,7 @@ export default function MovimientosIndividualesPage() {
                 className={`btn-primary bg-red-600 hover:bg-red-700 ${!canOperate ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={!canOperate}
               >
-                {isEditing ? 'Actualizar Gasto' : 'Registrar Gasto'}
+                {isSubmitting ? 'Guardando...' : (isEditing ? 'Actualizar Gasto' : 'Registrar Gasto')}
               </button>
             </div>
           </form>
