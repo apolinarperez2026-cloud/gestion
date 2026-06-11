@@ -59,6 +59,7 @@ export default function MovimientosIndividualesPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedMovimiento, setSelectedMovimiento] = useState<Movimiento | null>(null)
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null)
   const router = useRouter()
   const activeSucursalId = user?.sucursalId || (sucursalFiltro ? parseInt(sucursalFiltro, 10) : null)
   const canOperate = !!activeSucursalId
@@ -1048,7 +1049,7 @@ export default function MovimientosIndividualesPage() {
                 {searchTerm ? (
                   <>Mostrando {movimientosPaginados.length} de {movimientosFiltrados.length} resultados (de {movimientos.length} total)</>
                 ) : (
-                  <>Mostrando {movimientosPaginados.length} de {movimientos.length} gastos</>
+                  <>Mostrando {movimientosPaginados.length} de {movimientosFiltrados.length} gastos</>
                 )}
               </p>
             </div>
@@ -1546,12 +1547,20 @@ export default function MovimientosIndividualesPage() {
                 {selectedMovimiento.imagen && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Comprobante</label>
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-2">
                       <img
                         src={selectedMovimiento.imagen}
                         alt="Comprobante del gasto"
-                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300"
+                        className="max-w-full h-auto max-h-96 object-contain rounded-lg border border-gray-300 cursor-zoom-in"
+                        onClick={() => setZoomedImageUrl(selectedMovimiento.imagen!)}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setZoomedImageUrl(selectedMovimiento.imagen!)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        Ver imagen ampliada
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1584,6 +1593,31 @@ export default function MovimientosIndividualesPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Zoom de imagen */}
+      {zoomedImageUrl && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoomedImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoomedImageUrl(null)}
+            className="absolute right-4 top-4 text-white hover:text-gray-300"
+            aria-label="Cerrar imagen ampliada"
+          >
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={zoomedImageUrl}
+            alt="Comprobante ampliado"
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 

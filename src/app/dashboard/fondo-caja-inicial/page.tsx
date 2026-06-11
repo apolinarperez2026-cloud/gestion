@@ -728,14 +728,18 @@ export default function FondoCajaInicialPage() {
             ? "¡Fondo Inicial Registrado!"
             : successAction === "update"
               ? "¡Fondo Inicial Actualizado!"
-              : "¡Fondo Inicial Eliminado!"
+              : successAction === "delete"
+                ? "¡Fondo Inicial Eliminado!"
+                : "¡Operación Exitosa!"
         }
         message={
           successAction === "create"
             ? "El fondo de caja inicial se ha registrado exitosamente."
             : successAction === "update"
               ? "El fondo de caja inicial se ha actualizado exitosamente."
-              : "El fondo de caja inicial se ha eliminado exitosamente."
+              : successAction === "delete"
+                ? "El fondo de caja inicial se ha eliminado exitosamente."
+                : "La operación se completó exitosamente."
         }
       />
 

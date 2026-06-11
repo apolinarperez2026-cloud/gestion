@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { createDateRange } from '@/lib/dateUtils'
+import { roundCurrency } from '@/lib/formatters'
 import { calculateSaldoDia, getMovimientoDiarioAssociatedTotals } from '@/lib/movimientoDiarioCalculations'
 
 /**
@@ -33,6 +34,12 @@ export async function recalcularMovimientoDiario(
           pagoTarjeta: associatedTotals.totalPagoTarjeta,
           depositos: associatedTotals.totalDepositos,
           fondoInicial: associatedTotals.totalFondoInicial,
+          efectivo: roundCurrency(
+            movimiento.ventasBrutas -
+            associatedTotals.totalPagoTarjeta -
+            movimiento.transferencias -
+            associatedTotals.totalGastos
+          ),
           saldoDia: calculateSaldoDia(
             movimiento.ventasBrutas,
             associatedTotals.totalGastos,
