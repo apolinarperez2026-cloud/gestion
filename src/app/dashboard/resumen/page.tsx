@@ -1,947 +1,714 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { MovimientoDiario, AuthUser } from '@/types/database'
-import SummaryCards from '@/components/SummaryCards'
 import * as XLSX from 'xlsx'
 import { formatNumberMX, roundCurrency } from '@/lib/formatters'
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts'
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
+const fmt = (v: number) => formatNumberMX(v, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+const fmtCurrency = (v: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(v)
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+const COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4']
+
+function mesLabel(yyyy_mm: string) {
+  const [y, m] = yyyy_mm.split('-')
+  return `${MESES[parseInt(m) - 1]} ${y}`
+}
+
+function firstDayOfMonth(yyyy_mm: string) {
+  return `${yyyy_mm}-01`
+}
+
+function lastDayOfMonth(yyyy_mm: string) {
+  const [y, m] = yyyy_mm.split('-')
+  const last = new Date(parseInt(y), parseInt(m), 0).getDate()
+  return `${yyyy_mm}-${String(last).padStart(2, '0')}`
+}
+
+// Genera array de YYYY-MM entre dos meses inclusive
+function rangoMeses(desde: string, hasta: string): string[] {
+  const result: string[] = []
+  let [y, m] = desde.split('-').map(Number)
+  const [fy, fm] = hasta.split('-').map(Number)
+  while (y < fy || (y === fy && m <= fm)) {
+    result.push(`${y}-${String(m).padStart(2, '0')}`)
+    m++
+    if (m > 12) { m = 1; y++ }
+  }
+  return result
+}
+
+// ─── tipos ────────────────────────────────────────────────────────────────────
+interface MesAgregado {
+  mes: string         // YYYY-MM
+  label: string       // 'Ene 2026'
+  ventas: number
+  gastos: number
+  depositos: number
+  tarjeta: number
+  transferencias: number
+  efectivoCalculado: number
+  credito: number
+  abonos: number
+}
+
+// ─── componente principal ─────────────────────────────────────────────────────
 export default function ResumenPage() {
-  const formatMoney = (value: number) =>
-    formatNumberMX(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [movimientosDiarios, setMovimientosDiarios] = useState<MovimientoDiario[]>([])
-  const [loading, setLoading] = useState(true)
-  const [mesSeleccionado, setMesSeleccionado] = useState(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })
-  const [searchTerm, setSearchTerm] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<{id: number, nombre: string}[]>([])
-  const [sucursalFiltro, setSucursalFiltro] = useState<string>('')
-  const itemsPerPage = 10
   const router = useRouter()
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [movimientos, setMovimientos] = useState<MovimientoDiario[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sucursales, setSucursales] = useState<{ id: number; nombre: string }[]>([])
+  const [sucursalFiltro, setSucursalFiltro] = useState('')
 
+  const nowMes = () => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
+  }
+  const [desde, setDesde] = useState(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-01`
+  })
+  const [hasta, setHasta] = useState(nowMes)
+
+  // tabs: 'ceo' | 'comercial' | 'tienda'
+  const [activeTab, setActiveTab] = useState<'ceo' | 'comercial' | 'tienda'>('ceo')
+
+  // P&L sliders
+  const [simCogs, setSimCogs] = useState(60)
+  const [simFixed, setSimFixed] = useState(45000)
+
+  // tabla
+  const [currentPage, setCurrentPage] = useState(1)
+  const [searchTerm, setSearchTerm] = useState('')
+  const itemsPerPage = 15
+
+  // ── carga inicial ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem('token')
-        if (!token) {
-          router.push('/auth/login')
-          return
-        }
+    const init = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) { router.push('/auth/login'); return }
 
-        const response = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        if (response.ok) {
-          const userData = await response.json()
-          setUser(userData.user)
-          // Si es admin, cargar lista de sucursales para el selector
-          if (userData.user?.rol?.nombre === 'Administrador') {
-            const tok = localStorage.getItem('token')
-            const sucResp = await fetch('/api/sucursales', {
-              headers: { 'Authorization': `Bearer ${tok}` }
-            })
-            if (sucResp.ok) {
-              const sucData = await sucResp.json()
-              setSucursalesDisponibles(sucData.sucursales || [])
-            }
-          }
-          fetchMovimientosDiarios('')
-        } else {
-          router.push('/auth/login')
+      const r = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      if (!r.ok) { router.push('/auth/login'); return }
+
+      const { user: u } = await r.json()
+      setUser(u)
+
+      if (u?.rol?.nombre === 'Administrador') {
+        const sr = await fetch('/api/sucursales', { headers: { Authorization: `Bearer ${token}` } })
+        if (sr.ok) {
+          const sd = await sr.json()
+          setSucursales(sd.sucursales || [])
         }
-      } catch (error) {
-        router.push('/auth/login')
       }
     }
-
-    fetchUser()
+    init()
   }, [router])
 
+  // ── fetch datos ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (user) {
-      fetchMovimientosDiarios(sucursalFiltro)
+    if (!user) return
+    fetchData()
+  }, [user, desde, hasta, sucursalFiltro])
+
+  const fetchData = async () => {
+    setLoading(true)
+    const token = localStorage.getItem('token')
+    const params = new URLSearchParams({
+      fechaInicio: firstDayOfMonth(desde),
+      fechaFin: lastDayOfMonth(hasta),
+    })
+    if (sucursalFiltro) params.set('sucursalId', sucursalFiltro)
+
+    const r = await fetch(`/api/movimientos-diarios?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (r.ok) {
+      const d = await r.json()
+      setMovimientos(d.movimientosDiarios || [])
     }
-  }, [mesSeleccionado, sucursalFiltro, user])
+    setLoading(false)
+  }
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm])
-
-  const fetchMovimientosDiarios = async (filtroSucursal?: string) => {
-    try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        router.push('/auth/login')
-        return
+  // ── agregados por mes ────────────────────────────────────────────────────────
+  const mesesAgregados = useMemo<MesAgregado[]>(() => {
+    const mapa: Record<string, MesAgregado> = {}
+    movimientos.forEach(m => {
+      const mes = (m.fecha as unknown as string).split('T')[0].substring(0, 7)
+      if (!mapa[mes]) mapa[mes] = {
+        mes, label: mesLabel(mes),
+        ventas: 0, gastos: 0, depositos: 0, tarjeta: 0,
+        transferencias: 0, efectivoCalculado: 0, credito: 0, abonos: 0
       }
+      const a = mapa[mes]
+      a.ventas += m.ventasBrutas
+      a.gastos += m.gastos
+      a.depositos += m.depositos || 0
+      a.tarjeta += m.pagoTarjeta
+      a.transferencias += m.transferencias
+      a.credito += m.credito
+      a.abonos += m.abonosCredito
+    })
+    return rangoMeses(desde, hasta)
+      .map(m => mapa[m] ?? { mes: m, label: mesLabel(m), ventas: 0, gastos: 0, depositos: 0, tarjeta: 0, transferencias: 0, efectivoCalculado: 0, credito: 0, abonos: 0 })
+      .map(a => ({ ...a, efectivoCalculado: roundCurrency(a.ventas - a.tarjeta - a.transferencias - a.gastos - a.credito) }))
+  }, [movimientos, desde, hasta])
 
-      // Usar el filtro pasado como parámetro para evitar stale closure
-      const filtroActivo = filtroSucursal !== undefined ? filtroSucursal : sucursalFiltro
-      const url = filtroActivo
-        ? `/api/movimientos-diarios?sucursalId=${filtroActivo}`
-        : '/api/movimientos-diarios'
+  // ── totales ──────────────────────────────────────────────────────────────────
+  const totales = useMemo(() => {
+    return mesesAgregados.reduce((acc, m) => ({
+      ventas: acc.ventas + m.ventas,
+      gastos: acc.gastos + m.gastos,
+      depositos: acc.depositos + m.depositos,
+      tarjeta: acc.tarjeta + m.tarjeta,
+      transferencias: acc.transferencias + m.transferencias,
+      credito: acc.credito + m.credito,
+      abonos: acc.abonos + m.abonos,
+      efectivoCalculado: acc.efectivoCalculado + m.efectivoCalculado,
+    }), { ventas: 0, gastos: 0, depositos: 0, tarjeta: 0, transferencias: 0, credito: 0, abonos: 0, efectivoCalculado: 0 })
+  }, [mesesAgregados])
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setMovimientosDiarios(data.movimientosDiarios || [])
-      }
-    } catch (error) {
-      console.error('Error al cargar movimientos diarios:', error)
-    } finally {
-      setLoading(false)
-    }
+  // ── P&L ─────────────────────────────────────────────────────────────────────
+  const pnl = useMemo(() => {
+    const ventasNetas = roundCurrency(totales.ventas * 0.98)
+    const cogs = roundCurrency(ventasNetas * simCogs / 100)
+    const utilidadBruta = roundCurrency(ventasNetas - cogs)
+    const mesesCount = mesesAgregados.filter(m => m.ventas > 0).length || 1
+    const opexFijo = simFixed * mesesCount
+    const ebitda = roundCurrency(utilidadBruta - totales.gastos - opexFijo)
+    const comisionTarjeta = roundCurrency(totales.tarjeta * 0.02)
+    const isr = roundCurrency(Math.max(0, ebitda * 0.30))
+    const utilidadNeta = roundCurrency(ebitda - comisionTarjeta - isr)
+    return { ventasNetas, cogs, utilidadBruta, opexFijo, ebitda, comisionTarjeta, isr, utilidadNeta }
+  }, [totales, simCogs, simFixed, mesesAgregados])
+
+  // ── tabla día por día ────────────────────────────────────────────────────────
+  const filasDias = useMemo(() => {
+    return movimientos
+      .map(m => ({
+        fecha: (m.fecha as unknown as string).split('T')[0],
+        sucursal: (m as any).sucursal?.nombre ?? '',
+        ventas: m.ventasBrutas,
+        gastos: m.gastos,
+        tarjeta: m.pagoTarjeta,
+        transferencias: m.transferencias,
+        depositos: m.depositos || 0,
+        credito: m.credito,
+        abonos: m.abonosCredito,
+        saldoDia: roundCurrency(m.ventasBrutas - m.credito + m.abonosCredito - m.pagoTarjeta - m.transferencias - m.gastos),
+      }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))
+  }, [movimientos])
+
+  const filasFiltradas = useMemo(() =>
+    filasDias.filter(f => !searchTerm || f.fecha.includes(searchTerm) || f.sucursal.toLowerCase().includes(searchTerm.toLowerCase()))
+  , [filasDias, searchTerm])
+
+  const totalPages = Math.ceil(filasFiltradas.length / itemsPerPage)
+  const filasPaginadas = filasFiltradas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // ── exportar Excel ───────────────────────────────────────────────────────────
+  const exportarExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(filasDias.map(f => ({
+      Fecha: f.fecha,
+      Sucursal: f.sucursal,
+      'Ventas Brutas': f.ventas,
+      Gastos: f.gastos,
+      Tarjeta: f.tarjeta,
+      Transferencias: f.transferencias,
+      Crédito: f.credito,
+      Abonos: f.abonos,
+      Depósitos: f.depositos,
+      'Saldo Día': f.saldoDia,
+    })))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Resumen')
+    XLSX.writeFile(wb, `Resumen_${desde}_${hasta}.xlsx`)
   }
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/auth/login')
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error)
-    }
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/auth/login')
   }
 
-  const exportarAExcel = () => {
-    // BUG-15 FIX: leer directamente desde movimientosDelMes (ya filtrado con split('T')[0])
-    // y construir fechas como strings puros — sin new Date() para evitar desfase UTC→local
-    const [año, mes] = mesSeleccionado.split('-')
-    const añoNum = parseInt(año)
-    const mesNum = parseInt(mes)
-    const diasEnMes = new Date(añoNum, mesNum, 0).getDate()
-
-    // Mapa O(1): "YYYY-MM-DD" → registro DB (usa split para evitar timezone shift)
-    const movPorFechaMap = new Map<string, MovimientoDiario>()
-    movimientosDelMes.forEach(mov => {
-      const fechaKey = (mov.fecha as unknown as string).split('T')[0]
-      movPorFechaMap.set(fechaKey, mov)
-    })
-
-    // Iterar día por día usando strings, nunca objetos Date
-    const datosExcel: Record<string, string | number>[] = []
-    let saldoAcumAnterior = 0
-
-    for (let d = 1; d <= diasEnMes; d++) {
-      const dStr   = String(d).padStart(2, '0')
-      const mesStr = String(mesNum).padStart(2, '0')
-      const fechaKey = `${año}-${mesStr}-${dStr}`          // "YYYY-MM-DD" sin timezone
-      const mov = movPorFechaMap.get(fechaKey)
-
-      // Leer campos directamente desde el registro DB (nombres exactos del modelo)
-      const ventas       = mov?.ventasBrutas    ?? 0
-      const credito      = mov?.credito         ?? 0
-      const abonos       = mov?.abonosCredito   ?? 0
-      const recargas     = mov?.recargas        ?? 0
-      const tarjeta      = mov?.pagoTarjeta     ?? 0
-      const transf       = mov?.transferencias  ?? 0
-      const gastos       = mov?.gastos          ?? 0
-      const depositos    = mov?.depositos       ?? 0
-
-      // Saldo del Día: Ventas - Crédito + Abonos - Recargas - Tarjeta - Transf - Gastos
-      const saldoDia = roundCurrency(ventas - credito + abonos - recargas - tarjeta - transf - gastos)
-      // Saldo Acumulado: acumula día a día, los depósitos salen del efectivo
-      const saldoAcum = roundCurrency(saldoAcumAnterior + saldoDia - depositos)
-      saldoAcumAnterior = saldoAcum
-
-      datosExcel.push({
-        'Fecha':           `${dStr}/${mesStr}/${año}`,
-        'Ventas Brutas':   parseFloat(ventas.toFixed(2)),
-        'Crédito':         parseFloat(credito.toFixed(2)),
-        'Abonos':          parseFloat(abonos.toFixed(2)),
-        'Recargas':        parseFloat(recargas.toFixed(2)),
-        'Pago con Tarjeta':parseFloat(tarjeta.toFixed(2)),
-        'Transferencias':  parseFloat(transf.toFixed(2)),
-        'Gastos':          parseFloat(gastos.toFixed(2)),
-        'Saldo del Día':   parseFloat(saldoDia.toFixed(2)),
-        'Depósitos':       parseFloat(depositos.toFixed(2)),
-        'Saldo Acumulado': parseFloat(saldoAcum.toFixed(2))
-      })
-    }
-
-    const ws = XLSX.utils.json_to_sheet(datosExcel)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Resumen Mensual')
-    const sucursalNombre = sucursalFiltro
-      ? (sucursalesDisponibles.find(s => String(s.id) === sucursalFiltro)?.nombre ?? sucursalFiltro)
-      : (user?.sucursal?.nombre ?? 'Todas')
-    const nombreArchivo = `Resumen_${sucursalNombre}_${obtenerNombreMes(mesSeleccionado)}_${año}.xlsx`
-    XLSX.writeFile(wb, nombreArchivo)
-  }
-
-  // Filtrar movimientos diarios por mes seleccionado y ordenar por fecha ascendente
-  // BUG-10 FIX: extraer fecha del ISO string directamente para evitar desfase UTC→local
-  // "2026-01-31T00:00:00.000Z".split('T')[0] → "2026-01-31" sin importar la zona horaria
-  const movimientosDelMes = movimientosDiarios
-    .filter(movimiento => {
-      const fechaKey = (movimiento.fecha as unknown as string).split('T')[0]
-      const [añoFecha, mesFecha] = fechaKey.split('-')
-      const [año, mes] = mesSeleccionado.split('-')
-      return añoFecha === año && mesFecha === mes
-    })
-    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
-
-  // Calcular resumen del mes
-  const calcularResumen = () => {
-    let totalVentas = 0
-    let totalGastos = 0
-    let totalEfectivo = 0
-    let totalCredito = 0
-    let totalAbonosCredito = 0
-    let totalRecargas = 0
-    let totalPagoTarjeta = 0
-    let totalTransferencias = 0
-
-    movimientosDelMes.forEach(movimiento => {
-      totalVentas += movimiento.ventasBrutas
-      totalGastos += movimiento.gastos
-      totalEfectivo += movimiento.efectivo
-      totalCredito += movimiento.credito
-      totalAbonosCredito += movimiento.abonosCredito
-      totalRecargas += movimiento.recargas
-      totalPagoTarjeta += movimiento.pagoTarjeta
-      totalTransferencias += movimiento.transferencias
-    })
-
-    const totalSaldo = roundCurrency(totalVentas - totalGastos)
-    
-    // Calcular depósitos
-    let totalDepositos = 0
-    movimientosDelMes.forEach(movimiento => {
-      totalDepositos += movimiento.depositos || 0
-    })
-    
-    // Calcular Saldo del Día y Saldo Acumulado
-    const saldoDelDia = roundCurrency(totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos)
-    const saldoAcumulado = roundCurrency(saldoDelDia - totalDepositos)
-
-    return {
-      totalVentas,
-      totalGastos,
-      totalEfectivo,
-      totalCredito,
-      totalAbonosCredito,
-      totalRecargas,
-      totalPagoTarjeta,
-      totalTransferencias,
-      totalDepositos,
-      saldoDelDia,
-      saldoAcumulado,
-      totalSaldo,
-      cantidadMovimientos: movimientosDelMes.length
-    }
-  }
-
-  const resumen = calcularResumen()
-
-  // BUG-05 FIX: Generar TODOS los días del mes, no solo los que tienen registro en BD
-  // Días sin registro aparecen con valores en cero (igual que la lógica de exportarAExcel)
-  // Para el mes actual: solo hasta HOY (no mostrar días futuros)
-  // Para meses pasados: todos los días del mes
-  const [_añoStr, _mesStr] = mesSeleccionado.split('-')
-  const _añoNum = parseInt(_añoStr)
-  const _mesNum = parseInt(_mesStr)
-  const _diasEnMes = new Date(_añoNum, _mesNum, 0).getDate()
-
-  const _hoy = new Date()
-  const _esMesActual = _añoNum === _hoy.getFullYear() && _mesNum === (_hoy.getMonth() + 1)
-  const _diasAMostrar = _esMesActual ? Math.min(_hoy.getDate(), _diasEnMes) : _diasEnMes
-
-  // Normalizar fecha a clave YYYY-MM-DD usando tiempo local (igual que exportarAExcel)
-  const _normalizarFecha = (fecha: Date): string => {
-    const a = fecha.getFullYear()
-    const m = String(fecha.getMonth() + 1).padStart(2, '0')
-    const d = String(fecha.getDate()).padStart(2, '0')
-    return `${a}-${m}-${d}`
-  }
-
-  // Mapa lookup O(1): fechaKey → movimiento
-  // BUG-10 FIX: usar el string ISO directamente para evitar desfase UTC→local
-  const _movPorFechaMap = new Map<string, MovimientoDiario>()
-  movimientosDelMes.forEach(mov => {
-    const fechaKey = (mov.fecha as unknown as string).split('T')[0]
-    _movPorFechaMap.set(fechaKey, mov)
-  })
-
-  // Generar los días del mes con saldo acumulado encadenado
-  // (hasta hoy si es el mes actual, hasta fin de mes si es pasado)
-  let _saldoAcumAnterior = 0
-  const movimientosPorDia = Array.from({ length: _diasAMostrar }, (_, i) => {
-    const fechaDia = new Date(_añoNum, _mesNum - 1, i + 1)
-    const movimiento = _movPorFechaMap.get(_normalizarFecha(fechaDia))
-
-    const totalVentas        = movimiento?.ventasBrutas    ?? 0
-    const totalCredito       = movimiento?.credito         ?? 0
-    const totalAbonosCredito = movimiento?.abonosCredito   ?? 0
-    const totalRecargas      = movimiento?.recargas        ?? 0
-    const totalPagoTarjeta   = movimiento?.pagoTarjeta     ?? 0
-    const totalTransferencias= movimiento?.transferencias  ?? 0
-    const totalGastos        = movimiento?.gastos          ?? 0
-    const totalEfectivo      = movimiento?.efectivo        ?? 0
-    const totalDepositos     = movimiento?.depositos       ?? 0
-
-    const saldoDelDiaCalculado = roundCurrency(totalVentas - totalCredito + totalAbonosCredito - totalRecargas - totalPagoTarjeta - totalTransferencias - totalGastos)
-    const saldoAcumulado = roundCurrency(_saldoAcumAnterior + saldoDelDiaCalculado - totalDepositos)
-    _saldoAcumAnterior = saldoAcumulado
-
-    return {
-      fecha: fechaDia,
-      movimientos: movimiento ? [movimiento] : [],
-      totalVentas,
-      totalGastos,
-      totalEfectivo,
-      totalCredito,
-      totalAbonosCredito,
-      totalRecargas,
-      totalPagoTarjeta,
-      totalTransferencias,
-      totalDepositos,
-      saldoDia: movimiento?.saldoDia ?? 0,
-      saldoDelDiaCalculado,
-      saldoAcumulado
-    }
-  })
-
-  // Ordenar por fecha
-  const diasOrdenados = movimientosPorDia.sort((a: any, b: any) => 
-    new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (!user) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+    </div>
   )
 
-  // Filtrar días por término de búsqueda
-  const diasFiltrados = diasOrdenados.filter((dia: any) => {
-    if (!searchTerm) return true
-    
-    const fechaStr = dia.fecha.toLocaleDateString('es-ES')
-    const observacionesStr = dia.movimientos[0]?.observaciones || ''
-    
-    return fechaStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           observacionesStr.toLowerCase().includes(searchTerm.toLowerCase())
-  })
-
-  // Paginación
-  const totalPages = Math.ceil(diasFiltrados.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const diasPaginados = diasFiltrados.slice(startIndex, endIndex)
-
-  // Obtener nombre del mes
-  const obtenerNombreMes = (mesString: string) => {
-    const [año, mes] = mesString.split('-')
-    const fecha = new Date(parseInt(año), parseInt(mes) - 1)
-    return fecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
+  const esAdmin = user.rol?.nombre === 'Administrador'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-lg border-b sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center gap-6">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 transition-colors"
-              >
-                <span className="text-xl">←</span> Dashboard
-              </button>
-              <div>
-                <h1 className="text-3xl font-extrabold text-blue-900 tracking-tight drop-shadow-sm">
-                  Resumen Empresarial
-                </h1>
-                <p className="text-base text-gray-500 font-medium mt-1">
-                  {user.sucursal?.nombre || 'Sin sucursal'}
-                </p>
-              </div>
+      <header className="bg-white shadow border-b sticky top-0 z-20">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.push('/dashboard')} className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+              <span className="text-lg">←</span> Dashboard
+            </button>
+            <div>
+              <h1 className="text-2xl font-extrabold text-blue-900">Resumen Empresarial</h1>
+              <p className="text-sm text-gray-400">{user.sucursal?.nombre || (esAdmin ? 'Todas las sucursales' : 'Sin sucursal')}</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-base font-bold text-blue-900">{user.nombre}</p>
-                <p className="text-xs text-gray-400">{user.rol.nombre}</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors text-sm font-semibold"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-gray-700">{user.nombre}</span>
+            <button onClick={handleLogout} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-semibold">
+              Salir
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className=" mx-auto px-4 2xl:px-28 sm:px-6 lg:px-8 py-8">
-        {/* Selector de Mes con Calendario */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-            <h2 className="text-2xl font-bold text-blue-900 mb-6 flex items-center gap-2">
-              <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              Seleccionar Mes y Año
-            </h2>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        {/* ── Filtros ── */}
+        <div className="bg-white rounded-xl shadow border border-gray-200 p-5">
+          <div className="flex flex-wrap items-end gap-4">
+            {/* Desde */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Desde</label>
+              <input type="month" value={desde} max={hasta}
+                onChange={e => { setDesde(e.target.value); setCurrentPage(1) }}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+
+            {/* Hasta */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Hasta</label>
+              <input type="month" value={hasta} min={desde}
+                onChange={e => { setHasta(e.target.value); setCurrentPage(1) }}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+
+            {/* Sucursal (solo admin) */}
+            {esAdmin && sucursales.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Año
-                </label>
-                <select
-                  value={mesSeleccionado.split('-')[0]}
-                  onChange={(e) => {
-                    const nuevoAño = e.target.value
-                    const mesActual = mesSeleccionado.split('-')[1]
-                    setMesSeleccionado(`${nuevoAño}-${mesActual}`)
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" style={{ colorScheme: 'light', color: '#111827' }}
-                >
-                  {Array.from({ length: 10 }, (_, i) => {
-                    const año = new Date().getFullYear() - 5 + i
-                    return (
-                      <option key={año} value={año} className="bg-white text-black">
-                        {año}
-                      </option>
-                    )
-                  })}
+                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Sucursal</label>
+                <select value={sucursalFiltro} onChange={e => { setSucursalFiltro(e.target.value); setCurrentPage(1) }}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                  <option value="">Todas</option>
+                  {sucursales.map(s => <option key={s.id} value={String(s.id)}>{s.nombre}</option>)}
                 </select>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mes
-                </label>
-                <select
-                  value={mesSeleccionado.split('-')[1]}
-                  onChange={(e) => {
-                    const nuevoMes = e.target.value
-                    const añoActual = mesSeleccionado.split('-')[0]
-                    setMesSeleccionado(`${añoActual}-${nuevoMes}`)
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" style={{ colorScheme: 'light', color: '#111827' }}
-                >
-                  <option value="01" className="bg-white text-black">Enero</option>
-                  <option value="02" className="bg-white text-black">Febrero</option>
-                  <option value="03" className="bg-white text-black">Marzo</option>
-                  <option value="04" className="bg-white text-black">Abril</option>
-                  <option value="05" className="bg-white text-black">Mayo</option>
-                  <option value="06" className="bg-white text-black">Junio</option>
-                  <option value="07" className="bg-white text-black">Julio</option>
-                  <option value="08" className="bg-white text-black">Agosto</option>
-                  <option value="09" className="bg-white text-black">Septiembre</option>
-                  <option value="10" className="bg-white text-black">Octubre</option>
-                  <option value="11" className="bg-white text-black">Noviembre</option>
-                  <option value="12" className="bg-white text-black">Diciembre</option>
-                </select>
-              </div>
-              
-              {/* Selector de sucursal — solo visible para Administrador */}
-              {user?.rol?.nombre === 'Administrador' && sucursalesDisponibles.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sucursal
-                  </label>
-                  <select
-                    value={sucursalFiltro}
-                    onChange={(e) => { setSucursalFiltro(e.target.value); setCurrentPage(1) }}
-                    className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    style={{ colorScheme: 'light', color: '#111827' }}
-                  >
-                    <option value="">Todas las sucursales</option>
-                    {sucursalesDisponibles.map(s => (
-                      <option key={s.id} value={String(s.id)} className="bg-white text-black">
-                        {s.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seleccionado
-                </label>
-                <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-2">
-                  <p className="text-sm font-medium text-primary-800">
-                    📅 {obtenerNombreMes(mesSeleccionado)}
-                  </p>
-                </div>
-              </div>
+            {/* Exportar */}
+            {esAdmin && (
+              <button onClick={exportarExcel}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+              </button>
+            )}
 
-              {user?.rol?.nombre === 'Administrador' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Exportar
-                  </label>
-                  <button
-                    onClick={exportarAExcel}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                    title="Exportar a Excel"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>Excel</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* Promedio del Mes Seleccionado */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-500">Total Ventas</p>
-                  <p className="text-lg font-bold text-green-600">
-                    ${formatMoney(resumen.totalVentas)}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-500">Total Gastos</p>
-                  <p className="text-lg font-bold text-red-600">
-                    ${formatMoney(resumen.totalGastos)}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-500">Saldo</p>
-                  <p className={`text-lg font-bold ${resumen.totalSaldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${formatMoney(resumen.totalSaldo)}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-500">Movimientos</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {resumen.cantidadMovimientos}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-        {/* Desglose Detallado */}
-        <div className="mb-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6">
-            {/* Crédito */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Crédito</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${formatMoney(resumen.totalCredito)}
-                </p>
-              </div>
-            </div>
-
-            {/* Recargas */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Recargas</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${formatMoney(resumen.totalRecargas)}
-                </p>
-              </div>
-            </div>
-
-            {/* Pago con Tarjeta */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Tarjeta</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${formatMoney(resumen.totalPagoTarjeta)}
-                </p>
-              </div>
-            </div>
-
-            {/* Transferencias */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Transf.</p>
-                <p className="text-sm font-bold text-gray-900">
-                  ${formatMoney(resumen.totalTransferencias)}
-                </p>
-              </div>
-            </div>
-
-            {/* Saldo del Día */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Saldo Día</p>
-                <p className="text-sm font-bold text-blue-600">
-                  ${formatMoney(resumen.saldoDelDia)}
-                </p>
-              </div>
-            </div>
-
-            {/* Depósitos */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-3 h-3 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Depósitos</p>
-                <p className="text-sm font-bold text-teal-600">
-                  ${formatMoney(resumen.totalDepositos)}
-                </p>
-              </div>
-            </div>
-
-            {/* Saldo Acumulado */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="text-center">
-                <div className={`w-6 h-6 ${resumen.saldoAcumulado >= 0 ? 'bg-green-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-2`}>
-                  <svg className={`w-3 h-3 ${resumen.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Saldo Acum.</p>
-                <p className={`text-sm font-bold ${resumen.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${formatMoney(resumen.saldoAcumulado)}
-                </p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Lista de Movimientos del Mes */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-8 py-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  Movimientos de {obtenerNombreMes(mesSeleccionado)}
-                </h3>
-              </div>
-              
-              {/* Buscador */}
-              <div className="flex items-center space-x-2">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Buscar por fecha o descripción..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                </div>
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            {/* Contador de resultados */}
-            {searchTerm && (
-              <div className="mt-3 text-sm text-gray-600">
-                {diasFiltrados.length === 0 ? (
-                  <span>No se encontraron resultados para "{searchTerm}"</span>
-                ) : (
-                  <span>
-                    Mostrando {diasFiltrados.length} de {diasOrdenados.length} días
-                    {searchTerm && (
-                      <button
-                        onClick={() => setSearchTerm('')}
-                        className="ml-2 text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Limpiar búsqueda
-                      </button>
-                    )}
-                  </span>
-                )}
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />
+                Cargando...
               </div>
             )}
           </div>
-          
-          {movimientosDelMes.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <p className="text-lg font-medium text-gray-900 mb-2">No hay movimientos en este mes</p>
-              <p className="text-gray-500">Selecciona otro mes para ver los movimientos</p>
+        </div>
+
+        {/* ── KPI Cards ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: 'Ventas Brutas', value: totales.ventas, color: 'text-green-600' },
+            { label: 'Gastos Caja', value: totales.gastos, color: 'text-red-600' },
+            { label: 'Depósitos', value: totales.depositos, color: 'text-teal-600' },
+            { label: 'Pago Tarjeta', value: totales.tarjeta, color: 'text-indigo-600' },
+            { label: 'Créditos', value: totales.credito, color: 'text-amber-600' },
+            { label: 'Abonos', value: totales.abonos, color: 'text-blue-600' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+              <p className="text-xs text-gray-500 mb-1">{label}</p>
+              <p className={`text-base font-bold ${color}`}>${fmt(value)}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Tabs de gráficas ── */}
+        <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex border-b border-gray-200">
+            {([
+              { id: 'ceo', label: '👑 CEO & Dirección' },
+              { id: 'comercial', label: '🏪 Estrategia Comercial' },
+              { id: 'tienda', label: '🏦 Control de Tienda' },
+            ] as const).map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`px-5 py-3 text-sm font-semibold transition-colors ${activeTab === t.id
+                  ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── CEO Tab ── */}
+          {activeTab === 'ceo' && (
+            <div className="p-6 space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Tendencia mensual */}
+                <div className="lg:col-span-2">
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Tendencia Mensual: Ventas, Gastos y Depósitos</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={mesesAgregados} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v: any) => fmtCurrency(Number(v))} />
+                      <Legend />
+                      <Bar dataKey="ventas" name="Ventas" fill="#3b82f6" radius={[3,3,0,0]} />
+                      <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[3,3,0,0]} />
+                      <Bar dataKey="depositos" name="Depósitos" fill="#10b981" radius={[3,3,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Pie participación por tienda (admin con todas) */}
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Distribución por Sucursal</h3>
+                  {esAdmin && !sucursalFiltro ? (
+                    <SucursalPieChart movimientos={movimientos} />
+                  ) : (
+                    <div className="h-[300px] flex flex-col items-center justify-center text-gray-400 text-sm">
+                      <svg className="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                      </svg>
+                      Selecciona "Todas" las sucursales para ver comparativa
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* P&L simulado */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">Estado de Resultados Estimado (P&L)</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Tabla P&L */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-sm space-y-2">
+                    <PnlRow label="(+) Ventas Brutas" value={totales.ventas} color="text-gray-800" bold />
+                    <PnlRow label="(-) Descuentos est. 2%" value={-totales.ventas * 0.02} color="text-gray-500" indent />
+                    <PnlRow label="(=) Ventas Netas" value={pnl.ventasNetas} color="text-emerald-600" bold separator />
+                    <PnlRow label={`(-) COGS ${simCogs}%`} value={-pnl.cogs} color="text-red-500" />
+                    <PnlRow label="(=) Utilidad Bruta" value={pnl.utilidadBruta} color="text-blue-600" bold separator />
+                    <PnlRow label="(-) Gastos directos de caja" value={-totales.gastos} color="text-red-400" />
+                    <PnlRow label={`(-) Gastos fijos corp. $${fmt(simFixed)}/mes`} value={-pnl.opexFijo} color="text-red-400" indent />
+                    <PnlRow label="(=) EBITDA" value={pnl.ebitda} color="text-amber-600" bold separator />
+                    <PnlRow label="(-) Comisión TPV 2%" value={-pnl.comisionTarjeta} color="text-gray-500" indent />
+                    <PnlRow label="(-) ISR estimado 30%" value={-pnl.isr} color="text-gray-500" indent />
+                    <PnlRow label="(=) UTILIDAD NETA ESTIMADA" value={pnl.utilidadNeta}
+                      color={pnl.utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600'} bold separator />
+                  </div>
+
+                  {/* Sliders */}
+                  <div className="space-y-5">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-xs font-bold text-amber-700 uppercase mb-3">⚙️ Parámetros ERP (Simulado)</p>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Costo de Ventas (COGS)</span>
+                            <span className="font-bold text-gray-900">{simCogs}%</span>
+                          </div>
+                          <input type="range" min={30} max={80} value={simCogs}
+                            onChange={e => setSimCogs(Number(e.target.value))}
+                            className="w-full accent-blue-600" />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Gastos Fijos Corp. / mes</span>
+                            <span className="font-bold text-gray-900">{fmtCurrency(simFixed)}</span>
+                          </div>
+                          <input type="range" min={10000} max={200000} step={5000} value={simFixed}
+                            onChange={e => setSimFixed(Number(e.target.value))}
+                            className="w-full accent-blue-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Indicadores rápidos */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatBox label="Margen Flujo Local"
+                        value={totales.ventas > 0 ? `${((totales.ventas - totales.gastos) / totales.ventas * 100).toFixed(1)}%` : '—'}
+                        color="text-blue-600" />
+                      <StatBox label="Ratio Bancarización"
+                        value={totales.ventas > 0 ? `${Math.min((totales.depositos / (totales.ventas - totales.tarjeta - totales.transferencias - totales.gastos) * 100), 100).toFixed(1)}%` : '—'}
+                        color="text-emerald-600" />
+                      <StatBox label="% Gastos / Ventas"
+                        value={totales.ventas > 0 ? `${(totales.gastos / totales.ventas * 100).toFixed(1)}%` : '—'}
+                        color="text-red-600" />
+                      <StatBox label="Margen Neto Est."
+                        value={totales.ventas > 0 ? `${(pnl.utilidadNeta / totales.ventas * 100).toFixed(1)}%` : '—'}
+                        color={pnl.utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600'} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Estrategia Comercial Tab ── */}
+          {activeTab === 'comercial' && (
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Mix métodos de pago */}
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Mix de Canales de Cobro</h3>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Efectivo', value: Math.max(0, totales.efectivoCalculado) },
+                            { name: 'Tarjeta', value: totales.tarjeta },
+                            { name: 'Transferencias', value: totales.transferencias },
+                            { name: 'Crédito', value: totales.credito },
+                          ].filter(d => d.value > 0)}
+                          cx="50%" cy="50%" outerRadius={100}
+                          dataKey="value" nameKey="name"
+                          label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                          labelLine={true}
+                        >
+                          {['#10b981','#3b82f6','#8b5cf6','#f59e0b'].map((c, i) => <Cell key={i} fill={c} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: any) => fmtCurrency(Number(v))} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Eficiencia recuperación cartera */}
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Recuperación de Cartera Mensual</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={mesesAgregados} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v: any) => fmtCurrency(Number(v))} />
+                      <Legend />
+                      <Line dataKey="credito" name="Créditos otorgados" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                      <Line dataKey="abonos" name="Abonos recibidos" stroke="#10b981" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Tendencia ventas mensual */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Tendencia de Ventas por Mes</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={mesesAgregados} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: any) => fmtCurrency(Number(v))} />
+                    <Legend />
+                    <Line dataKey="ventas" name="Ventas Brutas" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* ── Control de Tienda Tab ── */}
+          {activeTab === 'tienda' && (
+            <div className="p-6 space-y-6">
+              {/* Entradas vs Salidas */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Entradas vs Salidas por Mes</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={mesesAgregados.map(m => ({
+                    ...m,
+                    entradas: m.ventas + m.abonos,
+                    salidas: m.gastos + m.tarjeta + m.transferencias + m.credito,
+                  }))} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: any) => fmtCurrency(Number(v))} />
+                    <Legend />
+                    <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[3,3,0,0]} />
+                    <Bar dataKey="salidas" name="Salidas" fill="#ef4444" radius={[3,3,0,0]} />
+                    <Bar dataKey="depositos" name="Depósitos Banco" fill="#3b82f6" radius={[3,3,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabla conciliación mensual */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Conciliación Mensual</h3>
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="w-full text-sm divide-y divide-gray-200">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <tr>
+                        {['Mes','Ventas','+ Abonos','- Créditos','- Tarjeta','- Transf.','- Gastos','= Efectivo Teórico','- Depósitos','= Saldo Remanente'].map(h => (
+                          <th key={h} className="px-3 py-2 text-right first:text-left whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {mesesAgregados.map(m => {
+                        const efectivo = roundCurrency((m.ventas + m.abonos) - m.credito - m.tarjeta - m.transferencias - m.gastos)
+                        const remanente = roundCurrency(efectivo - m.depositos)
+                        return (
+                          <tr key={m.mes} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 font-semibold text-gray-800 whitespace-nowrap">{m.label}</td>
+                            <td className="px-3 py-2 text-right text-green-600">${fmt(m.ventas)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-600">+${fmt(m.abonos)}</td>
+                            <td className="px-3 py-2 text-right text-amber-600">-${fmt(m.credito)}</td>
+                            <td className="px-3 py-2 text-right text-indigo-600">-${fmt(m.tarjeta)}</td>
+                            <td className="px-3 py-2 text-right text-purple-600">-${fmt(m.transferencias)}</td>
+                            <td className="px-3 py-2 text-right text-red-600">-${fmt(m.gastos)}</td>
+                            <td className="px-3 py-2 text-right font-semibold">${fmt(efectivo)}</td>
+                            <td className="px-3 py-2 text-right text-teal-600">-${fmt(m.depositos)}</td>
+                            <td className={`px-3 py-2 text-right font-bold ${remanente >= 0 ? 'text-green-700' : 'text-red-600'}`}>${fmt(remanente)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Tabla día a día ── */}
+        <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-base font-bold text-gray-800">
+              Detalle diario — {mesLabel(desde)}{desde !== hasta ? ` a ${mesLabel(hasta)}` : ''}
+              <span className="ml-2 text-sm font-normal text-gray-400">({filasFiltradas.length} registros)</span>
+            </h3>
+            <input type="text" placeholder="Buscar por fecha o sucursal..." value={searchTerm}
+              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1) }}
+              className="pl-3 pr-4 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-full sm:w-64" />
+          </div>
+
+          {filasDias.length === 0 && !loading ? (
+            <div className="py-16 text-center text-gray-400">
+              <p className="text-lg font-medium">Sin movimientos en el período seleccionado</p>
             </div>
           ) : (
             <>
-              {/* Vista de tarjetas para móvil */}
-              <div className="block lg:hidden space-y-6 p-4">
-                {diasPaginados.map((dia: any, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {dia.fecha.toLocaleDateString('es-ES', { 
-                            day: '2-digit', 
-                            month: '2-digit',
-                            year: 'numeric'
-                          })}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {dia.movimientos.length} movimiento{dia.movimientos.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-green-600">
-                          ${formatMoney(dia.totalVentas)}
-                        </p>
-                        <p className="text-xs text-gray-500">Ventas</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="bg-white rounded-lg p-3 border border-gray-200">
-                        <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Gastos</p>
-                        <p className="text-sm font-bold text-red-900">${formatMoney(dia.totalGastos)}</p>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-gray-200">
-                        <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Saldo</p>
-                        <p className={`text-sm font-bold ${(dia.totalVentas - dia.totalGastos) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
-                          ${formatMoney(dia.totalVentas - dia.totalGastos)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Efectivo:</span>
-                        <span className="font-medium">${formatMoney(dia.totalEfectivo)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Crédito:</span>
-                        <span className="font-medium">${formatMoney(dia.totalCredito)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Abonos:</span>
-                        <span className="font-medium">${formatMoney(dia.totalAbonosCredito)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Recargas:</span>
-                        <span className="font-medium">${formatMoney(dia.totalRecargas)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Tarjeta:</span>
-                        <span className="font-medium">${formatMoney(dia.totalPagoTarjeta)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Transf.:</span>
-                        <span className="font-medium">${formatMoney(dia.totalTransferencias)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Vista de tabla para desktop */}
-              <div className="hidden lg:block overflow-x-auto rounded-xl shadow-lg bg-white">
-                <table className="w-full divide-y divide-gray-200 table-fixed">
-                  <thead className="bg-gray-50">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs divide-y divide-gray-200">
+                  <thead className="bg-gray-50 text-gray-500 uppercase">
                     <tr>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha
-                      </th>
-                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ventas Brutas
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Crédito
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Abonos
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Recargas
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pago Tarjeta
-                      </th>
-                      <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transf.
-                      </th>
-                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Gastos
-                      </th>
-                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Saldo Día
-                      </th>
-                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Depósitos
-                      </th>
-                      <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Saldo Acum.
-                      </th>
+                      {['Fecha','Sucursal','Ventas','Gastos','Tarjeta','Transf.','Crédito','Abonos','Depósitos','Saldo Día'].map(h => (
+                        <th key={h} className="px-3 py-2 text-right first:text-left whitespace-nowrap">{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {diasPaginados.map((dia: any, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-2 py-3 text-xs font-medium text-gray-900">
-                          {dia.fecha.toLocaleDateString('es-ES', { 
-                            day: '2-digit', 
-                            month: '2-digit' 
-                          })}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-green-600 font-medium">
-                          ${formatMoney(dia.totalVentas)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${formatMoney(dia.totalCredito)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${formatMoney(dia.totalAbonosCredito)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${formatMoney(dia.totalRecargas)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${formatMoney(dia.totalPagoTarjeta)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-gray-900">
-                          ${formatMoney(dia.totalTransferencias)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-red-600 font-medium">
-                          ${formatMoney(dia.totalGastos)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-blue-600 font-medium">
-                          ${formatMoney(dia.saldoDelDiaCalculado)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-teal-600 font-medium">
-                          ${formatMoney(dia.totalDepositos || 0)}
-                        </td>
-                        <td className={`px-2 py-3 text-xs font-medium ${dia.saldoAcumulado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ${formatMoney(dia.saldoAcumulado)}
-                        </td>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {filasPaginadas.map((f, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-medium text-gray-800">{f.fecha}</td>
+                        <td className="px-3 py-2 text-gray-500">{f.sucursal}</td>
+                        <td className="px-3 py-2 text-right text-green-600">${fmt(f.ventas)}</td>
+                        <td className="px-3 py-2 text-right text-red-500">${fmt(f.gastos)}</td>
+                        <td className="px-3 py-2 text-right text-indigo-600">${fmt(f.tarjeta)}</td>
+                        <td className="px-3 py-2 text-right text-purple-600">${fmt(f.transferencias)}</td>
+                        <td className="px-3 py-2 text-right text-amber-600">${fmt(f.credito)}</td>
+                        <td className="px-3 py-2 text-right text-emerald-600">${fmt(f.abonos)}</td>
+                        <td className="px-3 py-2 text-right text-teal-600">${fmt(f.depositos)}</td>
+                        <td className={`px-3 py-2 text-right font-semibold ${f.saldoDia >= 0 ? 'text-green-700' : 'text-red-600'}`}>${fmt(f.saldoDia)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Paginación */}
-              {diasFiltrados.length > itemsPerPage && (
-                <div className="px-6 py-4 border-t border-gray-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    {/* Información de resultados */}
-                    <div className="text-sm text-gray-700 text-center sm:text-left">
-                      Mostrando {startIndex + 1} a {Math.min(endIndex, diasFiltrados.length)} de {diasFiltrados.length} días
-                    </div>
-                    
-                    {/* Controles de paginación */}
-                    <div className="flex justify-center">
-                      <nav className="flex items-center space-x-1">
-                        {/* Botón Anterior */}
-                        <button
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                          disabled={currentPage === 1}
-                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Anterior
-                        </button>
-                        
-                        {/* Números de página */}
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum
-                          if (totalPages <= 5) {
-                            pageNum = i + 1
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i
-                          } else {
-                            pageNum = currentPage - 2 + i
-                          }
-                          
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setCurrentPage(pageNum)}
-                              className={`px-3 py-2 text-sm font-medium border-t border-b ${
-                                currentPage === pageNum
-                                  ? 'bg-blue-50 border-blue-500 text-blue-600'
-                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                              }`}
-                            >
-                              {pageNum}
-                            </button>
-                          )
-                        })}
-                        
-                        {/* Botón Siguiente */}
-                        <button
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Siguiente
-                        </button>
-                      </nav>
-                    </div>
+              {totalPages > 1 && (
+                <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
+                  <span>Mostrando {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filasFiltradas.length)} de {filasFiltradas.length}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                      className="px-3 py-1 border border-gray-300 rounded disabled:opacity-40 hover:bg-gray-50">Anterior</button>
+                    <span className="px-3 py-1">{currentPage} / {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                      className="px-3 py-1 border border-gray-300 rounded disabled:opacity-40 hover:bg-gray-50">Siguiente</button>
                   </div>
                 </div>
               )}
             </>
           )}
         </div>
+
       </main>
+    </div>
+  )
+}
+
+// ─── sub-componentes ──────────────────────────────────────────────────────────
+
+function SucursalPieChart({ movimientos }: { movimientos: MovimientoDiario[] }) {
+  const data = useMemo(() => {
+    const map: Record<string, { name: string; value: number }> = {}
+    movimientos.forEach(m => {
+      const nombre = (m as any).sucursal?.nombre ?? 'Sin sucursal'
+      if (!map[nombre]) map[nombre] = { name: nombre, value: 0 }
+      map[nombre].value += m.ventasBrutas
+    })
+    return Object.values(map).filter(d => d.value > 0)
+  }, [movimientos])
+
+  if (data.length === 0) return (
+    <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
+  )
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <PieChart>
+        <Pie data={data} cx="50%" cy="50%" outerRadius={100} dataKey="value" nameKey="name"
+          label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
+          {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+        </Pie>
+        <Tooltip formatter={(v: any) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(Number(v))} />
+      </PieChart>
+    </ResponsiveContainer>
+  )
+}
+
+function PnlRow({ label, value, color, bold, separator, indent }: {
+  label: string; value: number; color: string; bold?: boolean; separator?: boolean; indent?: boolean
+}) {
+  const cls = `flex justify-between ${bold ? 'font-semibold' : ''} ${separator ? 'border-t border-gray-300 pt-1.5 mt-0.5' : ''} ${indent ? 'pl-4 text-xs' : ''}`
+  return (
+    <div className={cls}>
+      <span className="text-gray-600">{label}</span>
+      <span className={`font-mono ${color}`}>
+        {value < 0 ? `-${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(Math.abs(value))}` : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(value)}
+      </span>
+    </div>
+  )
+}
+
+function StatBox({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className={`text-lg font-bold ${color}`}>{value}</p>
     </div>
   )
 }

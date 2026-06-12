@@ -41,6 +41,8 @@ export default function PedidosEspecialesPage() {
     totalVentas: 0,
     totalRestante: 0
   })
+  const [showAbonoModal, setShowAbonoModal] = useState(false)
+  const [abonoData, setAbonoData] = useState({ monto: '', imagen: '' })
   const [deliveryData, setDeliveryData] = useState({
     comprobante: '',
     pagoRestante: ''
@@ -559,6 +561,37 @@ export default function PedidosEspecialesPage() {
       console.error('Error al cargar historial:', error)
     } finally {
       setLoadingHistorial(false)
+    }
+  }
+
+  const handleAbonoOpen = (pedido: PedidoEspecial) => {
+    setSelectedPedido(pedido)
+    setAbonoData({ monto: '', imagen: '' })
+    setShowAbonoModal(true)
+  }
+
+  const handleAbonoSubmit = async () => {
+    if (!selectedPedido || !abonoData.monto) {
+      showModal('Ingresa el monto del abono')
+      return
+    }
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) { router.push('/auth/login'); return }
+      const res = await fetch(`/api/pedidos-especiales/${selectedPedido.id}/abonos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(abonoData)
+      })
+      if (res.ok) {
+        setShowAbonoModal(false)
+        fetchPedidos()
+        showModal('Abono registrado exitosamente', 'success')
+      } else {
+        showModal((await res.json()).error || 'Error al registrar abono')
+      }
+    } catch {
+      showModal('Error al registrar abono')
     }
   }
 
@@ -1110,8 +1143,15 @@ export default function PedidosEspecialesPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {pedido.cantidad}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          ${formatMoney(pedido.total)}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="text-blue-600">${formatMoney(pedido.total)}</div>
+                          {(() => {
+                            const totalAbonos = (pedido.abonos || []).reduce((s, a) => s + a.monto, 0)
+                            const saldo = pedido.total - pedido.anticipo - totalAbonos
+                            return saldo > 0 && pedido.estado !== 'Cancelado' ? (
+                              <div className="text-xs text-orange-600">Saldo: ${formatMoney(saldo)}</div>
+                            ) : null
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1199,18 +1239,32 @@ export default function PedidosEspecialesPage() {
                               </button>
                             )}
                             
+                            {/* Botón Abono - Para estados activos con saldo pendiente */}
+                            {['Pendiente','Recibido','Avisado'].includes(pedido.estado) && (() => {
+                              const totalAbonos = (pedido.abonos || []).reduce((s, a) => s + a.monto, 0)
+                              const saldo = pedido.total - pedido.anticipo - totalAbonos
+                              return saldo > 0 ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleAbonoOpen(pedido) }}
+                                  className="text-teal-600 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                >
+                                  + Abono
+                                </button>
+                              ) : null
+                            })()}
+
                             {/* Estado Entregado - Solo texto */}
                             {pedido.estado === 'Entregado' && (
                               <span className="text-green-600 text-xs font-medium">✓ Entregado</span>
                             )}
-                            
+
                             {/* Estado Cancelado - Solo texto */}
                             {pedido.estado === 'Cancelado' && (
                               <span className="text-red-600 text-xs font-medium">✗ Cancelado</span>
                             )}
                           </div>
                         </td>
-                        
+
                         {/* Columna Edit/Delete - Editar y Eliminar */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex flex-wrap gap-1">
@@ -1994,6 +2048,47 @@ export default function PedidosEspecialesPage() {
           isOpen={showHistorialModal}
           onClose={() => setShowHistorialModal(false)}
         />
+      )}
+
+      {/* Modal Registrar Abono */}
+      {showAbonoModal && selectedPedido && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Registrar Abono — {selectedPedido.marca} {selectedPedido.codigo}
+            </h3>
+            {(() => {
+              const totalAbonos = (selectedPedido.abonos || []).reduce((s, a) => s + a.monto, 0)
+              const saldo = selectedPedido.total - selectedPedido.anticipo - totalAbonos
+              return (
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-600">Total pedido:</span><span className="font-medium">${formatMoney(selectedPedido.total)}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Anticipo inicial:</span><span className="font-medium">${formatMoney(selectedPedido.anticipo)}</span></div>
+                  {totalAbonos > 0 && <div className="flex justify-between"><span className="text-gray-600">Abonos previos:</span><span className="font-medium">${formatMoney(totalAbonos)}</span></div>}
+                  <div className="flex justify-between border-t border-blue-200 mt-1 pt-1"><span className="font-semibold text-blue-800">Saldo pendiente:</span><span className="font-bold text-blue-800">${formatMoney(saldo)}</span></div>
+                </div>
+              )
+            })()}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monto del abono *</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={abonoData.monto}
+                  onChange={e => setAbonoData(p => ({ ...p, monto: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-5">
+              <button onClick={() => setShowAbonoModal(false)} className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">Cancelar</button>
+              <button onClick={handleAbonoSubmit} className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">Registrar Abono</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

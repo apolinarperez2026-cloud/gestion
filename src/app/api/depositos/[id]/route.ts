@@ -16,7 +16,7 @@ export async function PATCH(
     }
 
     const token = authHeader.substring(7)
-    jwt.verify(token, process.env.JWT_SECRET!) as any
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
 
     const params = typeof context.params?.then === 'function'
       ? await context.params
@@ -60,6 +60,14 @@ export async function PATCH(
     await recalcularMovimientoDiario(deposito.fecha, deposito.sucursalId, prisma)
     if (data.fecha && data.fecha.toISOString().slice(0, 10) !== deposito.fecha.toISOString().slice(0, 10)) {
       await recalcularMovimientoDiario(data.fecha, deposito.sucursalId, prisma)
+    }
+
+    // Bitácora
+    if (data.monto !== undefined && data.monto !== deposito.monto) {
+      await prisma.bitacoraEdicion.create({ data: { modulo: 'deposito', registroId: idNum, campoModificado: 'monto', valorAnterior: String(deposito.monto), valorNuevo: String(data.monto), usuarioId: decoded.userId } })
+    }
+    if (data.fecha && data.fecha.toISOString().slice(0,10) !== deposito.fecha.toISOString().slice(0,10)) {
+      await prisma.bitacoraEdicion.create({ data: { modulo: 'deposito', registroId: idNum, campoModificado: 'fecha', valorAnterior: deposito.fecha.toISOString().slice(0,10), valorNuevo: data.fecha.toISOString().slice(0,10), usuarioId: decoded.userId } })
     }
 
     return NextResponse.json({

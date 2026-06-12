@@ -86,9 +86,6 @@ export async function PUT(
         throw new Error('Pedido no encontrado')
       }
 
-      // Calcular nuevo anticipo: sumar el pago recibido al entregar
-      const nuevoAnticipo = pedidoActual.anticipo + montoPago
-
       // Actualizar el pedido con la información de entrega
       const pedidoActualizado = await tx.pedidoEspecial.update({
         where: { id },
@@ -96,7 +93,6 @@ export async function PUT(
           estado: 'Entregado',
           fechaEntrega: new Date(),
           comprobante,
-          anticipo: nuevoAnticipo,
           actualizadoPor: decoded.userId,
           actualizadoEn: new Date()
         },
@@ -109,6 +105,18 @@ export async function PUT(
           }
         }
       })
+
+      // Registrar abono si hay monto
+      if (montoPago > 0) {
+        await tx.abonoPedido.create({
+          data: {
+            pedidoId: id,
+            monto: montoPago,
+            imagen: comprobante,
+            usuarioId: decoded.userId
+          }
+        })
+      }
 
       // Si hay pago del restante, sumarlo a abonosCredito del movimientoDiario del día
       if (montoPago > 0 && pedidoActual.sucursalId) {
@@ -150,7 +158,6 @@ export async function PUT(
             estado: 'Entregado',
             fechaEntrega: new Date(),
             comprobante,
-            anticipo: nuevoAnticipo,
             pagoRestanteRegistrado: montoPago
           },
           usuarioId: decoded.userId

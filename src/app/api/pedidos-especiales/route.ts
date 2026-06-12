@@ -81,6 +81,9 @@ export async function GET(request: NextRequest) {
             id: true,
             nombre: true
           }
+        },
+        abonos: {
+          orderBy: { fecha: 'asc' }
         }
       },
       orderBy: {

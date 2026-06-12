@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
     // Obtener parámetros de la URL
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get('month')
+    const fechaInicioParam = searchParams.get('fechaInicio')
+    const fechaFinParam = searchParams.get('fechaFin')
     const sucursalIdParam = searchParams.get('sucursalId')
 
     // Si es administrador sin sucursal específica: respetar ?sucursalId= del query param si lo hay
@@ -32,16 +34,16 @@ export async function GET(request: NextRequest) {
         ? { sucursalId: decoded.sucursalId }
         : {}
 
-    // Si se proporciona un mes, agregar filtro por fecha
-    if (monthParam) {
+    // Prioridad: fechaInicio+fechaFin > month
+    if (fechaInicioParam && fechaFinParam) {
+      const { fechaInicio } = createDateRange(fechaInicioParam)
+      const { fechaFin } = createDateRange(fechaFinParam)
+      whereClause.fecha = { gte: fechaInicio, lte: fechaFin }
+    } else if (monthParam) {
       const [year, month] = monthParam.split('-')
       if (year && month) {
         const { fechaInicio, fechaFin } = createMonthRange(parseInt(year), parseInt(month))
-        
-        whereClause.fecha = {
-          gte: fechaInicio,
-          lte: fechaFin
-        }
+        whereClause.fecha = { gte: fechaInicio, lte: fechaFin }
       }
     }
 

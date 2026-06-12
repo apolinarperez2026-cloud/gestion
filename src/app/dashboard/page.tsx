@@ -671,6 +671,74 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Card de Vacaciones */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Vacaciones</h3>
+                  <p className="text-sm text-gray-500">Control de vacaciones del personal</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button onClick={() => router.push('/dashboard/vacaciones')} className="btn-primary w-full">
+                  Ver Vacaciones
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Inventario */}
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Inventario</h3>
+                  <p className="text-sm text-gray-500">Sesiones de inventario digital</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button onClick={() => router.push('/dashboard/inventario')} className="btn-primary w-full">
+                  Ver Inventario
+                </button>
+              </div>
+            </div>
+
+            {/* Card de Bloques - Solo Administradores */}
+            {user.rol.nombre === 'Administrador' && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Bloques de Tiendas</h3>
+                    <p className="text-sm text-gray-500">Agrupar sucursales por bloque</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/bloques')} className="btn-primary w-full">
+                    Ver Bloques
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Card de Configuración - Solo para Administradores */}
             {user.rol.nombre === 'Administrador' && (
               <div className="card">
@@ -689,7 +757,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <button 
+                  <button
                     onClick={() => router.push('/dashboard/configuracion')}
                     className="btn-primary w-full"
                   >

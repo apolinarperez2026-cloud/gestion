@@ -108,7 +108,10 @@ export interface PedidoEspecial {
   
   // Historial de cambios
   historial?: PedidoEspecialHistorial[]
-  
+
+  // Abonos adicionales (Req #4)
+  abonos?: { id: number; monto: number; fecha: Date; imagen?: string }[]
+
   createdAt: Date
   updatedAt: Date
 }

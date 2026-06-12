@@ -39,6 +39,13 @@ model Usuario {
   mercaderias                 Mercaderia[]
   historialPedidos            PedidoEspecialHistorial[]
   tpvs                        Tpv[]
+  abonosPedido                AbonoPedido[]
+  bitacoraEdiciones           BitacoraEdicion[]
+  configVacaciones            ConfigVacaciones[]
+  solicitudesVacaciones       SolicitudVacaciones[]     @relation("SolicitudUsuario")
+  solicitudesAprobadas        SolicitudVacaciones[]     @relation("SolicitudAprobador")
+  inventarioSesiones          InventarioSesion[]
+  inventarioIncidencias       InventarioIncidencia[]
 }
 
 model Sucursal {
@@ -57,6 +64,8 @@ model Sucursal {
   garantias          Garantia[]
   mercaderias        Mercaderia[]
   tpvs               Tpv[]
+  bloques            BloqueSucursal[]
+  inventarioSesiones InventarioSesion[]
 }
 
 model FormaDePago {
@@ -186,6 +195,7 @@ model PedidoEspecial {
   sucursal       Sucursal                  @relation(fields: [sucursalId], references: [id])
   usuario        Usuario                   @relation(fields: [usuarioId], references: [id])
   historial      PedidoEspecialHistorial[]
+  abonos         AbonoPedido[]
 }
 
 model UsuarioSucursal {
@@ -280,4 +290,127 @@ enum MovimientoTipo {
   GASTO
   FONDO_CAJA
   DEPOSITO
+}
+
+// Req #4: Abonos adicionales en pedidos especiales
+model AbonoPedido {
+  id        Int            @id @default(autoincrement())
+  pedidoId  Int
+  monto     Float
+  fecha     DateTime       @default(now())
+  imagen    String?
+  usuarioId Int?
+  createdAt DateTime       @default(now())
+  pedido    PedidoEspecial @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuario   Usuario?       @relation(fields: [usuarioId], references: [id])
+}
+
+// Req #5: Bitácora genérica de ediciones
+model BitacoraEdicion {
+  id              Int      @id @default(autoincrement())
+  modulo          String
+  registroId      Int
+  campoModificado String
+  valorAnterior   String
+  valorNuevo      String
+  usuarioId       Int
+  fechaCambio     DateTime @default(now())
+  observaciones   String?
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+}
+
+// Req #1: Bloques de tiendas
+model Bloque {
+  id          Int              @id @default(autoincrement())
+  nombre      String           @unique
+  descripcion String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  sucursales  BloqueSucursal[]
+}
+
+model BloqueSucursal {
+  id         Int      @id @default(autoincrement())
+  bloqueId   Int
+  sucursalId Int
+  createdAt  DateTime @default(now())
+  bloque     Bloque   @relation(fields: [bloqueId], references: [id], onDelete: Cascade)
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+
+  @@unique([bloqueId, sucursalId])
+}
+
+// Req #3: Vacaciones
+model ConfigVacaciones {
+  id             Int      @id @default(autoincrement())
+  usuarioId      Int
+  anio           Int
+  diasAsignados  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, anio])
+}
+
+model SolicitudVacaciones {
+  id              Int      @id @default(autoincrement())
+  usuarioId       Int
+  fechaInicio     DateTime
+  dias            Int
+  estado          String   @default("Borrador")
+  observaciones   String?
+  comprobanteUrl  String?
+  fechaAprobacion DateTime?
+  aprobadoPor     Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  usuario         Usuario  @relation("SolicitudUsuario", fields: [usuarioId], references: [id])
+  aprobador       Usuario? @relation("SolicitudAprobador", fields: [aprobadoPor], references: [id])
+}
+
+// Req #7: Inventario
+model InventarioSesion {
+  id          Int                   @id @default(autoincrement())
+  nombre      String
+  sucursalId  Int
+  estado      String                @default("En Proceso")
+  fechaInicio DateTime              @default(now())
+  fechaFin    DateTime?
+  usuarioId   Int
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  sucursal    Sucursal              @relation(fields: [sucursalId], references: [id])
+  usuario     Usuario               @relation(fields: [usuarioId], references: [id])
+  items       InventarioItem[]
+  incidencias InventarioIncidencia[]
+}
+
+model InventarioItem {
+  id          Int              @id @default(autoincrement())
+  sesionId    Int
+  sku         String
+  descripcion String
+  cantidadSistema Float        @default(0)
+  cantidadFisica  Float?
+  diferencia      Float?
+  estado          String       @default("Pendiente")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  sesion      InventarioSesion @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+}
+
+model InventarioIncidencia {
+  id          Int              @id @default(autoincrement())
+  sesionId    Int
+  itemId      Int?
+  descripcion String
+  foto        String?
+  conclusion  String?
+  estado      String           @default("Abierta")
+  usuarioId   Int
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  sesion      InventarioSesion @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  usuario     Usuario          @relation(fields: [usuarioId], references: [id])
 }

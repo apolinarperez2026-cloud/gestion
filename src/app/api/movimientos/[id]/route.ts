@@ -6,20 +6,30 @@ import { recalcularMovimientoDiario } from '@/lib/recalcularMovimientoDiario'
 
 const prisma = new PrismaClient()
 
+async function logBitacora(tx: any, modulo: string, registroId: number, campo: string, anterior: any, nuevo: any, usuarioId: number) {
+  await tx.bitacoraEdicion.create({
+    data: { modulo, registroId, campoModificado: campo, valorAnterior: String(anterior ?? ''), valorNuevo: String(nuevo ?? ''), usuarioId }
+  })
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null
+    const decoded: any = token ? jwt.verify(token, process.env.JWT_SECRET!) : null
+
     const { id } = await params
-    const { 
+    const {
       fecha,
-      descripcion, 
-      monto, 
-      tipo, 
+      descripcion,
+      monto,
+      tipo,
       imagen,
-      formaDePagoId, 
-      tipoGastoId 
+      formaDePagoId,
+      tipoGastoId
     } = await request.json()
 
     console.log('Actualizando movimiento:', { 
@@ -96,6 +106,20 @@ export async function PUT(
       const fechaNuevaStr    = movimiento.fecha.toISOString().split('T')[0]
       if (fechaAnteriorStr !== fechaNuevaStr) {
         await recalcularMovimientoDiario(movimiento.fecha, movimiento.sucursalId, prisma)
+      }
+    }
+
+    // Bitácora
+    if (decoded?.userId && movimientoExistente) {
+      const campos: [string, any, any][] = [
+        ['monto', movimientoExistente.monto, monto],
+        ['descripcion', movimientoExistente.descripcion, descripcion],
+        ['fecha', movimientoExistente.fecha, fecha],
+      ]
+      for (const [campo, ant, nue] of campos) {
+        if (String(ant ?? '') !== String(nue ?? '')) {
+          await logBitacora(prisma, 'movimiento', parseInt(id), campo, ant, nue, decoded.userId)
+        }
       }
     }
 
