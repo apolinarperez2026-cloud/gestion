@@ -179,6 +179,23 @@ export async function PUT(request: NextRequest) {
       }
     })
 
+    // Bitácora de cambios
+    const campos: Array<{ campo: string; antes: string; despues: string }> = []
+    if (String(mercaderiaExistente.tipo) !== tipo) campos.push({ campo: 'tipo', antes: String(mercaderiaExistente.tipo), despues: tipo })
+    if (String(mercaderiaExistente.referencia) !== referencia) campos.push({ campo: 'referencia', antes: String(mercaderiaExistente.referencia), despues: referencia })
+    if (String(mercaderiaExistente.entrega) !== entrega) campos.push({ campo: 'entrega', antes: String(mercaderiaExistente.entrega), despues: entrega })
+    if (String(mercaderiaExistente.recibe) !== recibe) campos.push({ campo: 'recibe', antes: String(mercaderiaExistente.recibe), despues: recibe })
+    if (Number(mercaderiaExistente.monto) !== parseFloat(monto)) campos.push({ campo: 'monto', antes: String(mercaderiaExistente.monto), despues: String(parseFloat(monto)) })
+    if (campos.length > 0) {
+      await prisma.bitacoraEdicion.createMany({
+        data: campos.map(c => ({
+          modulo: 'Mercaderias', registroId: parseInt(id),
+          campoModificado: c.campo, valorAnterior: c.antes, valorNuevo: c.despues,
+          usuarioId: decoded.userId
+        }))
+      })
+    }
+
     return NextResponse.json({ mercaderia })
   } catch (error) {
     console.error('Error al actualizar mercadería:', error)

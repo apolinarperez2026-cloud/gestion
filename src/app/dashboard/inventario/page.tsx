@@ -38,6 +38,7 @@ interface SesionDetail {
   id: number
   nombre: string
   estado: string
+  fotoFirmada?: string
   sucursal: { id: number; nombre: string }
   items: Item[]
   incidencias: Incidencia[]
@@ -53,6 +54,8 @@ export default function InventarioPage() {
   const [view, setView] = useState<'list' | 'detail'>('list')
   const [showNewForm, setShowNewForm] = useState(false)
   const [showIncidenciaForm, setShowIncidenciaForm] = useState(false)
+  const [bloques, setBloques] = useState<{ id: number; nombre: string; sucursales: { sucursal: { id: number; nombre: string } }[] }[]>([])
+  const [bloqueFiltroNew, setBloqueFiltroNew] = useState('')
   const [newForm, setNewForm] = useState({ nombre: '', sucursalId: '' })
   const [incForm, setIncForm] = useState({ descripcion: '', itemId: '', foto: '', conclusion: '' })
   const [msg, setMsg] = useState('')
@@ -60,6 +63,8 @@ export default function InventarioPage() {
   const [csvInput, setCsvInput] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [localItems, setLocalItems] = useState<Record<number, string>>({})
+  const [conclusiones, setConclusiones] = useState<Record<number, string>>({})
+  const [fotoFirmadaUrl, setFotoFirmadaUrl] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const token = () => localStorage.getItem('token') || ''
@@ -87,8 +92,12 @@ export default function InventarioPage() {
       const meData = await meRes.json()
       setUser(meData.user)
       if (meData.user.rol?.nombre === 'Administrador') {
-        const sRes = await fetch('/api/sucursales', { headers: { Authorization: `Bearer ${t}` } })
+        const [sRes, bRes] = await Promise.all([
+          fetch('/api/sucursales', { headers: { Authorization: `Bearer ${t}` } }),
+          fetch('/api/bloques', { headers: { Authorization: `Bearer ${t}` } })
+        ])
         if (sRes.ok) setSucursales((await sRes.json()).sucursales || [])
+        if (bRes.ok) setBloques((await bRes.json()).bloques || [])
       }
       await fetchSesiones(t)
       setLoading(false)
@@ -129,7 +138,12 @@ export default function InventarioPage() {
 
   const openDetail = async (id: number) => {
     const t = token()
-    await fetchSesionDetail(t, id)
+    const res = await fetch(`/api/inventario/${id}`, { headers: { Authorization: `Bearer ${t}` } })
+    if (res.ok) {
+      const data = await res.json()
+      setActiveSesion(data.sesion)
+      setFotoFirmadaUrl(data.sesion.fotoFirmada || '')
+    }
     setView('detail')
     setLocalItems({})
   }
@@ -191,6 +205,30 @@ export default function InventarioPage() {
     await fetchSesiones(t)
     await fetchSesionDetail(t, activeSesion.id)
     notify('Sesión cerrada')
+  }
+
+  const handleResolverIncidencia = async (incId: number, conclusion: string) => {
+    if (!activeSesion) return
+    const t = token()
+    await fetch(`/api/inventario/${activeSesion.id}/incidencias`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ incidenciaId: incId, estado: 'Resuelta', conclusion })
+    })
+    await fetchSesionDetail(t, activeSesion.id)
+    notify('Incidencia resuelta — cantidad sistema ajustada')
+  }
+
+  const handleGuardarFotoFirmada = async (url: string) => {
+    if (!activeSesion) return
+    const t = token()
+    await fetch(`/api/inventario/${activeSesion.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ fotoFirmada: url })
+    })
+    await fetchSesionDetail(t, activeSesion.id)
+    notify('Foto firmada guardada')
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,9 +425,61 @@ export default function InventarioPage() {
                         </span>
                       </div>
                       {inc.conclusion && <p className="text-sm text-gray-600 mt-1">Conclusión: {inc.conclusion}</p>}
+                      {inc.foto && <a href={inc.foto} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 block">Ver foto</a>}
                       <p className="text-xs text-gray-400 mt-1">Por: {inc.usuario.nombre}</p>
+                      {inc.estado !== 'Resuelta' && isAdmin && (
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Conclusión / acción tomada..."
+                            className="text-xs border border-gray-300 rounded px-2 py-1 flex-1"
+                            value={conclusiones[inc.id] || ''}
+                            onChange={e => setConclusiones(prev => ({ ...prev, [inc.id]: e.target.value }))}
+                          />
+                          <button
+                            onClick={() => handleResolverIncidencia(inc.id, conclusiones[inc.id] || '')}
+                            className="text-xs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 px-2 py-1 rounded whitespace-nowrap"
+                          >
+                            Resolver
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Foto firmada de cierre */}
+            {isAdmin && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="font-medium text-gray-900 mb-3">Evidencia — Hoja Firmada</h3>
+                {activeSesion.fotoFirmada ? (
+                  <div className="flex items-center gap-3">
+                    <a href={activeSesion.fotoFirmada} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                      Ver foto firmada
+                    </a>
+                    <button onClick={() => setFotoFirmadaUrl(activeSesion.fotoFirmada || '')} className="text-xs text-gray-500 hover:text-gray-700">
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-2">Sin foto de evidencia aún.</p>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="text"
+                    placeholder="URL de la foto firmada..."
+                    className="text-sm border border-gray-300 rounded px-3 py-1.5 flex-1"
+                    value={fotoFirmadaUrl}
+                    onChange={e => setFotoFirmadaUrl(e.target.value)}
+                  />
+                  <button
+                    onClick={() => { if (fotoFirmadaUrl) handleGuardarFotoFirmada(fotoFirmadaUrl) }}
+                    className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+                  >
+                    Guardar
+                  </button>
                 </div>
               </div>
             )}
@@ -408,13 +498,27 @@ export default function InventarioPage() {
                 <input type="text" value={newForm.nombre} onChange={e => setNewForm(p => ({ ...p, nombre: e.target.value }))} className="input-field" placeholder="Ej: Inventario Jun 2026 - FK01" />
               </div>
               {isAdmin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sucursal *</label>
-                  <select value={newForm.sucursalId} onChange={e => setNewForm(p => ({ ...p, sucursalId: e.target.value }))} className="input-field">
-                    <option value="">Seleccionar...</option>
-                    {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
-                </div>
+                <>
+                  {bloques.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Bloque (opcional)</label>
+                      <select value={bloqueFiltroNew} onChange={e => { setBloqueFiltroNew(e.target.value); setNewForm(p => ({ ...p, sucursalId: '' })) }} className="input-field">
+                        <option value="">Todas las sucursales</option>
+                        {bloques.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sucursal *</label>
+                    <select value={newForm.sucursalId} onChange={e => setNewForm(p => ({ ...p, sucursalId: e.target.value }))} className="input-field">
+                      <option value="">Seleccionar...</option>
+                      {(bloqueFiltroNew
+                        ? (bloques.find(b => String(b.id) === bloqueFiltroNew)?.sucursales.map(bs => bs.sucursal) || [])
+                        : sucursales
+                      ).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+                </>
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Importar items desde CSV (opcional)</label>

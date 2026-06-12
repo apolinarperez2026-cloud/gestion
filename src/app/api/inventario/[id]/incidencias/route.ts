@@ -67,6 +67,17 @@ export async function PATCH(
       }
     })
 
+    // Al resolver una incidencia ligada a un ítem, ajustar cantidadSistema = cantidadFisica
+    if (estado === 'Resuelta' && updated.itemId) {
+      const item = await prisma.inventarioItem.findUnique({ where: { id: updated.itemId } })
+      if (item && item.cantidadFisica !== null && item.cantidadFisica !== undefined) {
+        await prisma.inventarioItem.update({
+          where: { id: updated.itemId },
+          data: { cantidadSistema: item.cantidadFisica, diferencia: 0, estado: 'OK' }
+        })
+      }
+    }
+
     return NextResponse.json({ incidencia: updated })
   } catch (error) {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

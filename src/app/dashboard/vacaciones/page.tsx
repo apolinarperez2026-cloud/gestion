@@ -293,6 +293,13 @@ export default function VacacionesPage() {
                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{s.observaciones || '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1 flex-wrap">
+                            {/* PDF de solicitud */}
+                            <button
+                              onClick={() => router.push(`/dashboard/vacaciones/${s.id}/imprimir`)}
+                              className="text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 px-2 py-1 rounded"
+                            >
+                              Generar PDF
+                            </button>
                             {/* Empleado: enviar comprobante */}
                             {!isAdmin && s.estado === 'Borrador' && (
                               <button

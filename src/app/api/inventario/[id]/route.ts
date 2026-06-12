@@ -111,7 +111,8 @@ export async function PATCH(
         where: { id },
         data: {
           estado: body.estado,
-          fechaFin: body.estado === 'Cerrado' ? new Date() : undefined
+          fechaFin: body.estado === 'Cerrado' ? new Date() : undefined,
+          ...(body.fotoFirmada !== undefined && { fotoFirmada: body.fotoFirmada })
         }
       })
     }

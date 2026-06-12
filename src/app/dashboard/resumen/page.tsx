@@ -67,9 +67,10 @@ export default function ResumenPage() {
   const [movimientos, setMovimientos] = useState<MovimientoDiario[]>([])
   const [loading, setLoading] = useState(true)
   const [sucursales, setSucursales] = useState<{ id: number; nombre: string }[]>([])
-  const [sucursalFiltro, setSucursalFiltro] = useState('')
-  const [bloques, setBloques] = useState<{ id: number; nombre: string }[]>([])
-  const [bloqueFiltro, setBloqueFiltro] = useState('')
+  const [sucursalesSeleccionadas, setSucursalesSeleccionadas] = useState<number[]>([])
+  const [bloques, setBloques] = useState<{ id: number; nombre: string; sucursales?: { sucursal: { id: number; nombre: string } }[] }[]>([])
+  // legacy kept for non-admin single-branch fetch
+  const [sucursalFiltro] = useState('')
 
   const nowMes = () => {
     const n = new Date()
@@ -81,8 +82,8 @@ export default function ResumenPage() {
   })
   const [hasta, setHasta] = useState(nowMes)
 
-  // tabs: 'ceo' | 'comercial' | 'tienda'
-  const [activeTab, setActiveTab] = useState<'ceo' | 'comercial' | 'tienda'>('ceo')
+  // tabs
+  const [activeTab, setActiveTab] = useState<'ceo' | 'comercial' | 'almacen' | 'tienda'>('ceo')
 
   // P&L sliders
   const [simCogs, setSimCogs] = useState(60)
@@ -111,7 +112,10 @@ export default function ResumenPage() {
           fetch('/api/bloques', { headers: { Authorization: `Bearer ${token}` } }),
         ])
         if (sr.ok) setSucursales((await sr.json()).sucursales || [])
-        if (br.ok) setBloques((await br.json()).bloques || [])
+        if (br.ok) {
+          const bData = await br.json()
+          setBloques(bData.bloques || [])
+        }
       }
     }
     init()
@@ -121,7 +125,7 @@ export default function ResumenPage() {
   useEffect(() => {
     if (!user) return
     fetchData()
-  }, [user, desde, hasta, sucursalFiltro, bloqueFiltro])
+  }, [user, desde, hasta])
 
   const fetchData = async () => {
     setLoading(true)
@@ -130,8 +134,8 @@ export default function ResumenPage() {
       fechaInicio: firstDayOfMonth(desde),
       fechaFin: lastDayOfMonth(hasta),
     })
-    if (sucursalFiltro) params.set('sucursalId', sucursalFiltro)
-    if (bloqueFiltro && !sucursalFiltro) params.set('bloqueId', bloqueFiltro)
+    // Admin always fetches all data, filtering happens client-side via sucursalesSeleccionadas
+    // Non-admin: their sucursalId is enforced by the API itself (from JWT)
 
     const r = await fetch(`/api/movimientos-diarios?${params}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -143,10 +147,16 @@ export default function ResumenPage() {
     setLoading(false)
   }
 
+  // ── filtrado client-side por sucursales seleccionadas ──────────────────────
+  const movimientosFiltrados = useMemo(() => {
+    if (sucursalesSeleccionadas.length === 0) return movimientos
+    return movimientos.filter(m => sucursalesSeleccionadas.includes((m as any).sucursalId ?? (m as any).sucursal?.id))
+  }, [movimientos, sucursalesSeleccionadas])
+
   // ── agregados por mes ────────────────────────────────────────────────────────
   const mesesAgregados = useMemo<MesAgregado[]>(() => {
     const mapa: Record<string, MesAgregado> = {}
-    movimientos.forEach(m => {
+    movimientosFiltrados.forEach(m => {
       const mes = (m.fecha as unknown as string).split('T')[0].substring(0, 7)
       if (!mapa[mes]) mapa[mes] = {
         mes, label: mesLabel(mes),
@@ -165,7 +175,7 @@ export default function ResumenPage() {
     return rangoMeses(desde, hasta)
       .map(m => mapa[m] ?? { mes: m, label: mesLabel(m), ventas: 0, gastos: 0, depositos: 0, tarjeta: 0, transferencias: 0, efectivoCalculado: 0, credito: 0, abonos: 0 })
       .map(a => ({ ...a, efectivoCalculado: roundCurrency(a.ventas - a.tarjeta - a.transferencias - a.gastos - a.credito) }))
-  }, [movimientos, desde, hasta])
+  }, [movimientosFiltrados, desde, hasta])
 
   // ── totales ──────────────────────────────────────────────────────────────────
   const totales = useMemo(() => {
@@ -197,7 +207,7 @@ export default function ResumenPage() {
 
   // ── tabla día por día ────────────────────────────────────────────────────────
   const filasDias = useMemo(() => {
-    return movimientos
+    return movimientosFiltrados
       .map(m => ({
         fecha: (m.fecha as unknown as string).split('T')[0],
         sucursal: (m as any).sucursal?.nombre ?? '',
@@ -211,7 +221,7 @@ export default function ResumenPage() {
         saldoDia: roundCurrency(m.ventasBrutas - m.credito + m.abonosCredito - m.pagoTarjeta - m.transferencias - m.gastos),
       }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [movimientos])
+  }, [movimientosFiltrados])
 
   const filasFiltradas = useMemo(() =>
     filasDias.filter(f => !searchTerm || f.fecha.includes(searchTerm) || f.sucursal.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -266,9 +276,11 @@ export default function ResumenPage() {
               <h1 className="text-2xl font-extrabold text-blue-900">Resumen Empresarial</h1>
               <p className="text-sm text-gray-400">
                 {user.sucursal?.nombre ||
-                  (bloqueFiltro ? `Bloque: ${bloques.find(b => String(b.id) === bloqueFiltro)?.nombre ?? bloqueFiltro}` :
-                  sucursalFiltro ? sucursales.find(s => String(s.id) === sucursalFiltro)?.nombre :
-                  esAdmin ? 'Todas las sucursales' : 'Sin sucursal')}
+                  (sucursalesSeleccionadas.length > 0
+                    ? sucursalesSeleccionadas.length === 1
+                      ? sucursales.find(s => s.id === sucursalesSeleccionadas[0])?.nombre
+                      : `${sucursalesSeleccionadas.length} tiendas seleccionadas`
+                    : esAdmin ? 'Todas las sucursales' : 'Sin sucursal')}
               </p>
             </div>
           </div>
@@ -302,27 +314,52 @@ export default function ResumenPage() {
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
 
-            {/* Sucursal (solo admin) */}
+            {/* Multi-select sucursales (solo admin) */}
             {esAdmin && sucursales.length > 0 && (
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Sucursal</label>
-                <select value={sucursalFiltro} onChange={e => { setSucursalFiltro(e.target.value); setBloqueFiltro(''); setCurrentPage(1) }}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="">Todas</option>
-                  {sucursales.map(s => <option key={s.id} value={String(s.id)}>{s.nombre}</option>)}
-                </select>
-              </div>
-            )}
-
-            {/* Bloque (solo admin) */}
-            {esAdmin && bloques.length > 0 && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Bloque</label>
-                <select value={bloqueFiltro} onChange={e => { setBloqueFiltro(e.target.value); setSucursalFiltro(''); setCurrentPage(1) }}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="">Todos</option>
-                  {bloques.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
-                </select>
+                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Tiendas</label>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {/* Botón Todas */}
+                  <button
+                    onClick={() => { setSucursalesSeleccionadas([]); setCurrentPage(1) }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${sucursalesSeleccionadas.length === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+                  >
+                    Todas
+                  </button>
+                  {/* Botones por bloque */}
+                  {bloques.map(b => (
+                    <button key={b.id}
+                      onClick={() => {
+                        const ids = (b.sucursales || []).map(bs => bs.sucursal.id)
+                        setSucursalesSeleccionadas(ids)
+                        setCurrentPage(1)
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border bg-white text-purple-700 border-purple-300 hover:bg-purple-50"
+                    >
+                      {b.nombre}
+                    </button>
+                  ))}
+                  {/* Checkboxes por sucursal */}
+                  {sucursales.map(s => {
+                    const checked = sucursalesSeleccionadas.includes(s.id)
+                    return (
+                      <label key={s.id} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border cursor-pointer transition-colors ${checked ? 'bg-blue-50 text-blue-700 border-blue-400' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-300'}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSucursalesSeleccionadas(prev =>
+                              checked ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                            )
+                            setCurrentPage(1)
+                          }}
+                          className="accent-blue-600"
+                        />
+                        {s.nombre}
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
@@ -370,6 +407,7 @@ export default function ResumenPage() {
             {([
               { id: 'ceo', label: '👑 CEO & Dirección' },
               { id: 'comercial', label: '🏪 Estrategia Comercial' },
+              { id: 'almacen', label: '📦 Cadena de Suministro' },
               { id: 'tienda', label: '🏦 Control de Tienda' },
             ] as const).map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
@@ -405,8 +443,8 @@ export default function ResumenPage() {
                 {/* Pie participación por tienda (admin con todas) */}
                 <div>
                   <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Distribución por Sucursal</h3>
-                  {esAdmin && !sucursalFiltro ? (
-                    <SucursalPieChart movimientos={movimientos} />
+                  {esAdmin ? (
+                    <SucursalPieChart movimientos={movimientosFiltrados} />
                   ) : (
                     <div className="h-[300px] flex flex-col items-center justify-center text-gray-400 text-sm">
                       <svg className="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,6 +584,125 @@ export default function ResumenPage() {
                     <Line dataKey="ventas" name="Ventas Brutas" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* ── Cadena de Suministro Tab ── */}
+          {activeTab === 'almacen' && (
+            <div className="p-6 space-y-6">
+              {/* Aviso datos simulados */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">Integración con sistema de inventarios (SMC / ERP)</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Los indicadores siguientes se generan a partir de la simulación de bases de datos de rotación y abasto. Conéctalos a tu ERP para datos en tiempo real.</p>
+                </div>
+              </div>
+
+              {/* KPIs Almacén */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  { label: 'Días de Inventario (DOH)', value: '42 días', sub: 'Nivel saludable (Meta: <45)', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: '⏳' },
+                  { label: 'Fill Rate de Almacén', value: '94.2%', sub: 'Surtido correcto de CEDIS', color: 'text-blue-600', bg: 'bg-blue-50', icon: '✅' },
+                  { label: 'Inventario Obsoleto / Lento', value: '8.5%', sub: 'SKUs sin venta >60 días', color: 'text-red-600', bg: 'bg-red-50', icon: '📦' },
+                ].map(kpi => (
+                  <div key={kpi.label} className={`${kpi.bg} border border-gray-200 rounded-xl p-5 flex items-center justify-between`}>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{kpi.label}</p>
+                      <p className={`text-2xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
+                      <p className="text-xs text-gray-500 mt-1">{kpi.sub}</p>
+                    </div>
+                    <span className="text-3xl">{kpi.icon}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Gráficos */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Clasificación ABC */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">Clasificación ABC de Inventario</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Clase A (Alto valor, 20% SKUs)', value: 70 },
+                          { name: 'Clase B (Medio, 30% SKUs)', value: 20 },
+                          { name: 'Clase C (Bajo, 50% SKUs)', value: 10 },
+                        ]}
+                        cx="50%" cy="50%" innerRadius={60} outerRadius={110}
+                        dataKey="value" nameKey="name"
+                        label={({ name, value }) => `${value}%`}
+                      >
+                        {['#3b82f6','#10b981','#f59e0b'].map((c, i) => <Cell key={i} fill={c} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: any) => `${v}%`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Fill Rate mensual */}
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">Desempeño de Resurtido CEDIS a Sucursales</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart
+                      data={['Ene','Feb','Mar','Abr','May','Jun'].map((m, i) => ({
+                        mes: m,
+                        fillRate: [91, 93, 94, 96, 94, 95][i],
+                        meta: 95,
+                      }))}
+                      margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                      <YAxis domain={[85, 100]} tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} />
+                      <Tooltip formatter={(v: any) => `${v}%`} />
+                      <Legend />
+                      <Line dataKey="fillRate" name="Fill Rate Real" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line dataKey="meta" name="Meta (95%)" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Tabla resumen inventario por tienda */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">Resumen de Inventario por Tienda (Simulado)</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm divide-y divide-gray-200">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <tr>
+                        {['Tienda','SKUs Totales','SKUs en Stock','Fill Rate','DOH (días)','Obsoletos','Estado'].map(h => (
+                          <th key={h} className="px-4 py-2 text-left">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {[
+                        { tienda: 'FK01', skus: 342, stock: 321, fill: '93.9%', doh: 38, obs: '6.2%', ok: true },
+                        { tienda: 'FK02', skus: 518, stock: 490, fill: '94.6%', doh: 45, obs: '9.8%', ok: false },
+                      ].map(r => (
+                        <tr key={r.tienda} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 font-semibold text-gray-800">{r.tienda}</td>
+                          <td className="px-4 py-2 text-gray-600">{r.skus}</td>
+                          <td className="px-4 py-2 text-gray-600">{r.stock}</td>
+                          <td className="px-4 py-2 text-blue-600 font-medium">{r.fill}</td>
+                          <td className="px-4 py-2 text-gray-600">{r.doh}</td>
+                          <td className={`px-4 py-2 font-medium ${parseFloat(r.obs) > 8 ? 'text-red-600' : 'text-amber-600'}`}>{r.obs}</td>
+                          <td className="px-4 py-2">
+                            <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${r.ok ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {r.ok ? 'Saludable' : 'Revisar'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

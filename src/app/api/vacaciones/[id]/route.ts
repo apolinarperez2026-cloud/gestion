@@ -2,6 +2,44 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token no proporcionado' }, { status: 401 })
+    }
+    const decoded = jwt.verify(authHeader.substring(7), process.env.JWT_SECRET!) as any
+
+    const { id: idParam } = await params
+    const id = parseInt(idParam)
+
+    const solicitud = await prisma.solicitudVacaciones.findUnique({
+      where: { id },
+      include: {
+        usuario: { select: { id: true, nombre: true } },
+        aprobador: { select: { id: true, nombre: true } }
+      }
+    })
+
+    if (!solicitud) {
+      return NextResponse.json({ error: 'Solicitud no encontrada' }, { status: 404 })
+    }
+
+    const esAdmin = decoded.rol === 'Administrador'
+    const esPropietario = solicitud.usuarioId === decoded.userId
+    if (!esAdmin && !esPropietario) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    }
+
+    return NextResponse.json({ solicitud })
+  } catch (error) {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

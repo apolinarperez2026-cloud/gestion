@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
     const sucursalIdParam = searchParams.get('sucursalId')
     const bloqueIdParam = searchParams.get('bloqueId')
 
-    // Si es administrador sin sucursal específica: respetar ?sucursalId= o ?bloqueId=
-    let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId
+    // Administrador siempre ve todos los datos (filtrado client-side en resumen)
+    // ?sucursalId= o ?bloqueId= pueden restringir opcionalmente
+    let whereClause: any = decoded.rol === 'Administrador'
       ? (sucursalIdParam
           ? { sucursalId: parseInt(sucursalIdParam) }
           : bloqueIdParam
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
         : {}
 
     // Filtro por bloque: resolvemos las sucursales que pertenecen al bloque
-    if (bloqueIdParam && decoded.rol === 'Administrador' && !decoded.sucursalId) {
+    if (bloqueIdParam && decoded.rol === 'Administrador') {
       const bloqueSucursales = await prisma.bloqueSucursal.findMany({
         where: { bloqueId: parseInt(bloqueIdParam) },
         select: { sucursalId: true }

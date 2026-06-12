@@ -393,15 +393,16 @@ model SolicitudVacaciones {
 
 // Req #7: Inventario
 model InventarioSesion {
-  id          Int                   @id @default(autoincrement())
-  nombre      String
-  sucursalId  Int
-  estado      String                @default("En Proceso")
-  fechaInicio DateTime              @default(now())
-  fechaFin    DateTime?
-  usuarioId   Int
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  id            Int                   @id @default(autoincrement())
+  nombre        String
+  sucursalId    Int
+  estado        String                @default("En Proceso")
+  fechaInicio   DateTime              @default(now())
+  fechaFin      DateTime?
+  fotoFirmada   String?
+  usuarioId     Int
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
   sucursal    Sucursal              @relation(fields: [sucursalId], references: [id])
   usuario     Usuario               @relation(fields: [usuarioId], references: [id])
   items       InventarioItem[]
