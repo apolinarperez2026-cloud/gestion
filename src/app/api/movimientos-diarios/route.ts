@@ -25,14 +25,28 @@ export async function GET(request: NextRequest) {
     const fechaInicioParam = searchParams.get('fechaInicio')
     const fechaFinParam = searchParams.get('fechaFin')
     const sucursalIdParam = searchParams.get('sucursalId')
+    const bloqueIdParam = searchParams.get('bloqueId')
 
-    // Si es administrador sin sucursal específica: respetar ?sucursalId= del query param si lo hay
-    // Si tiene sucursal específica en el JWT: filtrar siempre por esa sucursal
+    // Si es administrador sin sucursal específica: respetar ?sucursalId= o ?bloqueId=
     let whereClause: any = decoded.rol === 'Administrador' && !decoded.sucursalId
-      ? (sucursalIdParam ? { sucursalId: parseInt(sucursalIdParam) } : {})
+      ? (sucursalIdParam
+          ? { sucursalId: parseInt(sucursalIdParam) }
+          : bloqueIdParam
+            ? {} // se resuelve abajo
+            : {})
       : decoded.sucursalId
         ? { sucursalId: decoded.sucursalId }
         : {}
+
+    // Filtro por bloque: resolvemos las sucursales que pertenecen al bloque
+    if (bloqueIdParam && decoded.rol === 'Administrador' && !decoded.sucursalId) {
+      const bloqueSucursales = await prisma.bloqueSucursal.findMany({
+        where: { bloqueId: parseInt(bloqueIdParam) },
+        select: { sucursalId: true }
+      })
+      const ids = bloqueSucursales.map(bs => bs.sucursalId)
+      whereClause = ids.length > 0 ? { sucursalId: { in: ids } } : { sucursalId: -1 }
+    }
 
     // Prioridad: fechaInicio+fechaFin > month
     if (fechaInicioParam && fechaFinParam) {

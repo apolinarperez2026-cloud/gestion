@@ -68,6 +68,8 @@ export default function ResumenPage() {
   const [loading, setLoading] = useState(true)
   const [sucursales, setSucursales] = useState<{ id: number; nombre: string }[]>([])
   const [sucursalFiltro, setSucursalFiltro] = useState('')
+  const [bloques, setBloques] = useState<{ id: number; nombre: string }[]>([])
+  const [bloqueFiltro, setBloqueFiltro] = useState('')
 
   const nowMes = () => {
     const n = new Date()
@@ -104,11 +106,12 @@ export default function ResumenPage() {
       setUser(u)
 
       if (u?.rol?.nombre === 'Administrador') {
-        const sr = await fetch('/api/sucursales', { headers: { Authorization: `Bearer ${token}` } })
-        if (sr.ok) {
-          const sd = await sr.json()
-          setSucursales(sd.sucursales || [])
-        }
+        const [sr, br] = await Promise.all([
+          fetch('/api/sucursales', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/bloques', { headers: { Authorization: `Bearer ${token}` } }),
+        ])
+        if (sr.ok) setSucursales((await sr.json()).sucursales || [])
+        if (br.ok) setBloques((await br.json()).bloques || [])
       }
     }
     init()
@@ -118,7 +121,7 @@ export default function ResumenPage() {
   useEffect(() => {
     if (!user) return
     fetchData()
-  }, [user, desde, hasta, sucursalFiltro])
+  }, [user, desde, hasta, sucursalFiltro, bloqueFiltro])
 
   const fetchData = async () => {
     setLoading(true)
@@ -128,6 +131,7 @@ export default function ResumenPage() {
       fechaFin: lastDayOfMonth(hasta),
     })
     if (sucursalFiltro) params.set('sucursalId', sucursalFiltro)
+    if (bloqueFiltro && !sucursalFiltro) params.set('bloqueId', bloqueFiltro)
 
     const r = await fetch(`/api/movimientos-diarios?${params}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -260,7 +264,12 @@ export default function ResumenPage() {
             </button>
             <div>
               <h1 className="text-2xl font-extrabold text-blue-900">Resumen Empresarial</h1>
-              <p className="text-sm text-gray-400">{user.sucursal?.nombre || (esAdmin ? 'Todas las sucursales' : 'Sin sucursal')}</p>
+              <p className="text-sm text-gray-400">
+                {user.sucursal?.nombre ||
+                  (bloqueFiltro ? `Bloque: ${bloques.find(b => String(b.id) === bloqueFiltro)?.nombre ?? bloqueFiltro}` :
+                  sucursalFiltro ? sucursales.find(s => String(s.id) === sucursalFiltro)?.nombre :
+                  esAdmin ? 'Todas las sucursales' : 'Sin sucursal')}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -297,10 +306,22 @@ export default function ResumenPage() {
             {esAdmin && sucursales.length > 0 && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Sucursal</label>
-                <select value={sucursalFiltro} onChange={e => { setSucursalFiltro(e.target.value); setCurrentPage(1) }}
+                <select value={sucursalFiltro} onChange={e => { setSucursalFiltro(e.target.value); setBloqueFiltro(''); setCurrentPage(1) }}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
                   <option value="">Todas</option>
                   {sucursales.map(s => <option key={s.id} value={String(s.id)}>{s.nombre}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Bloque (solo admin) */}
+            {esAdmin && bloques.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Bloque</label>
+                <select value={bloqueFiltro} onChange={e => { setBloqueFiltro(e.target.value); setSucursalFiltro(''); setCurrentPage(1) }}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                  <option value="">Todos</option>
+                  {bloques.map(b => <option key={b.id} value={String(b.id)}>{b.nombre}</option>)}
                 </select>
               </div>
             )}

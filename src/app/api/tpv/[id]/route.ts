@@ -78,6 +78,26 @@ export async function PUT(
       }
     })
 
+    // Bitácora de cambios
+    const campos: { campo: string; anterior: string; nuevo: string }[] = []
+    if (String(existingTpv.monto) !== String(parseFloat(monto)))
+      campos.push({ campo: 'monto', anterior: String(existingTpv.monto), nuevo: String(parseFloat(monto)) })
+    if (existingTpv.estado !== estado)
+      campos.push({ campo: 'estado', anterior: existingTpv.estado, nuevo: estado })
+    if (existingTpv.quienCobro !== quienCobro)
+      campos.push({ campo: 'quienCobro', anterior: existingTpv.quienCobro, nuevo: quienCobro })
+    if (existingTpv.fecha.toISOString().split('T')[0] !== fechaEspecifica.toISOString().split('T')[0])
+      campos.push({ campo: 'fecha', anterior: existingTpv.fecha.toISOString().split('T')[0], nuevo: fechaEspecifica.toISOString().split('T')[0] })
+    if (campos.length > 0) {
+      await prisma.bitacoraEdicion.createMany({
+        data: campos.map(c => ({
+          modulo: 'TPV', registroId: parseInt(id),
+          campoModificado: c.campo, valorAnterior: c.anterior, valorNuevo: c.nuevo,
+          usuarioId: decoded.userId
+        }))
+      })
+    }
+
     // Recalcular MovimientoDiario para el día afectado (y el nuevo día si cambió la fecha)
     await recalcularMovimientoDiario(existingTpv.fecha, existingTpv.sucursalId, prisma)
     if (existingTpv.fecha.toISOString().split('T')[0] !== fechaEspecifica.toISOString().split('T')[0]) {

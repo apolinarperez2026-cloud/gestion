@@ -55,12 +55,18 @@ export async function DELETE(
       )
     }
 
-    // Eliminar la mercadería
-    await prisma.mercaderia.delete({
-      where: { id }
+    // Bitácora antes de eliminar
+    await prisma.bitacoraEdicion.create({
+      data: {
+        modulo: 'Mercaderias', registroId: id,
+        campoModificado: 'estado', valorAnterior: 'activo', valorNuevo: 'eliminado',
+        usuarioId: decoded.userId
+      }
     })
 
-    return NextResponse.json({ 
+    await prisma.mercaderia.delete({ where: { id } })
+
+    return NextResponse.json({
       message: 'Mercadería eliminada exitosamente'
     }, { status: 200 })
 

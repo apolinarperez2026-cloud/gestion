@@ -148,14 +148,23 @@ export async function PUT(
       data: updateData,
       include: {
         sucursal: true,
-        usuario: {
-          select: {
-            id: true,
-            nombre: true
-          }
-        }
+        usuario: { select: { id: true, nombre: true } }
       }
     })
+
+    // Bitácora de cambios
+    const auditCampos = ['cliente','marca','sku','descripcion','estado'] as const
+    const bitacoraRows: any[] = []
+    for (const campo of auditCampos) {
+      const anterior = String((garantiaExistente as any)[campo] ?? '')
+      const nuevo = String((updateData as any)[campo] ?? anterior)
+      if (anterior !== nuevo)
+        bitacoraRows.push({ modulo: 'Garantias', registroId: garantiaId, campoModificado: campo, valorAnterior: anterior, valorNuevo: nuevo, usuarioId: decoded.userId })
+    }
+    if (updateData.cantidad !== undefined && String(garantiaExistente.cantidad) !== String(updateData.cantidad))
+      bitacoraRows.push({ modulo: 'Garantias', registroId: garantiaId, campoModificado: 'cantidad', valorAnterior: String(garantiaExistente.cantidad), valorNuevo: String(updateData.cantidad), usuarioId: decoded.userId })
+    if (bitacoraRows.length > 0)
+      await prisma.bitacoraEdicion.createMany({ data: bitacoraRows })
 
     return NextResponse.json({ garantia })
   } catch (error) {

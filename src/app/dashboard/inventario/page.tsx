@@ -176,7 +176,12 @@ export default function InventarioPage() {
   }
 
   const handleCerrarSesion = async () => {
-    if (!activeSesion || !confirm('¿Cerrar esta sesión de inventario?')) return
+    if (!activeSesion) return
+    const negativos = activeSesion.items.filter(i => (i.diferencia ?? 0) < 0)
+    const msg = negativos.length > 0
+      ? `¿Cerrar esta sesión?\n\n⚠️ Hay ${negativos.length} ítem(s) con faltante:\n${negativos.map(i => `• ${i.sku}: ${i.diferencia}`).join('\n')}\n\nSe crearán incidencias automáticas para los faltantes.`
+      : '¿Cerrar esta sesión de inventario?'
+    if (!confirm(msg)) return
     const t = token()
     await fetch(`/api/inventario/${activeSesion.id}`, {
       method: 'PATCH',
@@ -228,18 +233,28 @@ export default function InventarioPage() {
                 + Nueva Sesión
               </button>
             )}
-            {view === 'detail' && activeSesion && activeSesion.estado === 'En Proceso' && (
+            {view === 'detail' && activeSesion && (
               <div className="flex gap-2">
-                <button onClick={() => setShowIncidenciaForm(true)} className="btn-secondary text-sm">
-                  + Incidencia
+                <button
+                  onClick={() => router.push(`/dashboard/inventario/${activeSesion.id}/imprimir`)}
+                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded text-sm font-medium"
+                >
+                  Imprimir / PDF
                 </button>
-                <button onClick={handleSaveConteo} className="btn-primary text-sm">
-                  Guardar Conteo
-                </button>
-                {isAdmin && (
-                  <button onClick={handleCerrarSesion} className="bg-gray-600 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700">
-                    Cerrar Sesión
-                  </button>
+                {activeSesion.estado === 'En Proceso' && (
+                  <>
+                    <button onClick={() => setShowIncidenciaForm(true)} className="btn-secondary text-sm">
+                      + Incidencia
+                    </button>
+                    <button onClick={handleSaveConteo} className="btn-primary text-sm">
+                      Guardar Conteo
+                    </button>
+                    {isAdmin && (
+                      <button onClick={handleCerrarSesion} className="bg-gray-600 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700">
+                        Cerrar Sesión
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}

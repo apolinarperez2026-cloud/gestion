@@ -76,6 +76,37 @@ export async function PATCH(
 
     // Actualizar estado de sesión
     if (body.estado) {
+      // Al cerrar: verificar items negativos y crear incidencias automáticas si no existen
+      if (body.estado === 'Cerrado') {
+        const itemsNegativos = await prisma.inventarioItem.findMany({
+          where: { sesionId: id, diferencia: { lt: 0 } }
+        })
+        for (const item of itemsNegativos) {
+          const yaExiste = await prisma.inventarioIncidencia.findFirst({
+            where: { sesionId: id, itemId: item.id }
+          })
+          if (!yaExiste) {
+            await prisma.inventarioIncidencia.create({
+              data: {
+                sesionId: id,
+                itemId: item.id,
+                descripcion: `Faltante automático: SKU ${item.sku} — diferencia ${item.diferencia} (sistema: ${item.cantidadSistema}, físico: ${item.cantidadFisica})`,
+                estado: 'Pendiente',
+                usuarioId: decoded.userId
+              }
+            })
+          }
+        }
+        // Bitácora del cierre
+        await prisma.bitacoraEdicion.create({
+          data: {
+            modulo: 'Inventario', registroId: id,
+            campoModificado: 'estado', valorAnterior: 'En Proceso', valorNuevo: 'Cerrado',
+            usuarioId: decoded.userId
+          }
+        })
+      }
+
       await prisma.inventarioSesion.update({
         where: { id },
         data: {
