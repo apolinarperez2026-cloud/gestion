@@ -176,6 +176,9 @@ export default function DashboardPage() {
     return null
   }
 
+  const tieneP = (codigo: string) =>
+    user.rol.nombre === 'Administrador' || (user.permisos?.includes(codigo) ?? true)
+
   // Si el usuario tiene múltiples sucursales asignadas pero no ha seleccionado una específica,
   // mostrar el selector de sucursales
   const tieneMultiplesSucursales = user.sucursalesAsignadas && user.sucursalesAsignadas.length > 1
@@ -440,282 +443,242 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          // Dashboard para Gerentes (todas las opciones)
+          // Dashboard para no-Administradores con permisos configurados
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Fila 1: Resumen | Control | Gastos | Pedidos Especiales */}
-            
-            {/* Card de Resumen */}
-            <div className="card border-4 border-primary-600 shadow-2xl bg-gradient-to-br from-primary-50 to-white scale-105 hover:scale-110 transition-transform duration-300">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-primary-200 rounded-xl flex items-center justify-center shadow-lg">
-                    <svg className="w-6 h-6 text-primary-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+            {tieneP('VER_RESUMEN') && (
+              <div className="card border-4 border-primary-600 shadow-2xl bg-gradient-to-br from-primary-50 to-white scale-105 hover:scale-110 transition-transform duration-300">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-primary-200 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-6 h-6 text-primary-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-6">
+                    <h3 className="text-xl font-bold text-primary-800 drop-shadow">Resumen</h3>
+                    <p className="text-base text-primary-600 font-medium">Ver resumen financiero y movimientos</p>
                   </div>
                 </div>
-                <div className="ml-6">
-                  <h3 className="text-xl font-bold text-primary-800 drop-shadow">Resumen</h3>
-                  <p className="text-base text-primary-600 font-medium">Ver resumen financiero y movimientos</p>
+                <div className="mt-6">
+                  <button onClick={() => router.push('/dashboard/resumen')} className="btn-primary w-full py-3 text-lg font-semibold shadow-md bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors duration-200">
+                    Ver Resumen
+                  </button>
                 </div>
               </div>
-              <div className="mt-6">
-                <button 
-                  onClick={() => router.push('/dashboard/resumen')}
-                  className="btn-primary w-full py-3 text-lg font-semibold shadow-md bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors duration-200"
-                >
-                  Ver Resumen
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Control */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
+            {tieneP('VER_CONTROL') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Control</h3>
+                    <p className="text-sm text-gray-500">Ingresar movimientos diarios</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Control</h3>
-                  <p className="text-sm text-gray-500">Ingresar movimientos diarios</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/movimientos')} className="btn-primary w-full">Ver Control</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/movimientos')}
-                  className="btn-primary w-full"
-                >
-                  Ver Control
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Gastos */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
+            {tieneP('VER_GASTOS') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Gastos</h3>
+                    <p className="text-sm text-gray-500">Registrar gastos con imágenes</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Gastos</h3>
-                  <p className="text-sm text-gray-500">Registrar gastos con imágenes</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/movimientos-individuales')} className="btn-primary w-full">Ver Gastos</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/movimientos-individuales')}
-                  className="btn-primary w-full"
-                >
-                  Ver Gastos
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Pedidos Especiales */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
+            {tieneP('VER_PEDIDOS') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Pedidos Especiales</h3>
+                    <p className="text-sm text-gray-500">Gestionar pedidos especiales</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Pedidos Especiales</h3>
-                  <p className="text-sm text-gray-500">Gestionar pedidos especiales</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/pedidos-especiales')} className="btn-primary w-full">Ver Pedidos</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/pedidos-especiales')}
-                  className="btn-primary w-full"
-                >
-                  Ver Pedidos
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Fila 2: Depósitos | Cobros TPV | Entradas | Garantías */}
-            
-            {/* Card de Depósitos Bancarios */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
+            {tieneP('VER_DEPOSITOS') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Depósitos Bancarios</h3>
+                    <p className="text-sm text-gray-500">Registrar depósitos con comprobante</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Depósitos Bancarios</h3>
-                  <p className="text-sm text-gray-500">Registrar depósitos con comprobante</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/depositos')} className="btn-primary w-full">Ver Depósitos</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/depositos')}
-                  className="btn-primary w-full"
-                >
-                  Ver Depósitos
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Fondo de Caja Inicial */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
+            {tieneP('VER_FONDO_CAJA') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Fondo de Caja Inicial</h3>
+                    <p className="text-sm text-gray-500">Establecer saldo inicial del día</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Fondo de Caja Inicial</h3>
-                  <p className="text-sm text-gray-500">Establecer saldo inicial del día</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/fondo-caja-inicial')} className="btn-primary w-full">Ver Fondo Inicial</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/fondo-caja-inicial')}
-                  className="btn-primary w-full"
-                >
-                  Ver Fondo Inicial
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Cobro TPV */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
+            {tieneP('VER_TPV') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Cobro TPV</h3>
+                    <p className="text-sm text-gray-500">Registrar cobros con terminal punto de venta</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Cobro TPV</h3>
-                  <p className="text-sm text-gray-500">Registrar cobros con terminal punto de venta</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/tpv')} className="btn-primary w-full">Ver Cobros TPV</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/tpv')}
-                  className="btn-primary w-full"
-                >
-                  Ver Cobros TPV
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Entradas */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
+            {tieneP('VER_MERCADERIAS') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Entradas</h3>
+                    <p className="text-sm text-gray-500">Registrar entradas y salidas de mercadería</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Entradas</h3>
-                  <p className="text-sm text-gray-500">Registrar entradas y salidas de mercadería</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/mercaderias')} className="btn-primary w-full">Ver Entradas</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/mercaderias')}
-                  className="btn-primary w-full"
-                >
-                  Ver Entradas
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Garantía */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
+            {tieneP('VER_GARANTIAS') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Garantía</h3>
+                    <p className="text-sm text-gray-500">Registrar garantías y seguimiento</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Garantía</h3>
-                  <p className="text-sm text-gray-500">Registrar garantías y seguimiento</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/garantia')} className="btn-primary w-full">Ver Garantías</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => router.push('/dashboard/garantia')}
-                  className="btn-primary w-full"
-                >
-                  Ver Garantías
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Vacaciones */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+            {tieneP('VER_VACACIONES') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Vacaciones</h3>
+                    <p className="text-sm text-gray-500">Control de vacaciones del personal</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Vacaciones</h3>
-                  <p className="text-sm text-gray-500">Control de vacaciones del personal</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/vacaciones')} className="btn-primary w-full">Ver Vacaciones</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button onClick={() => router.push('/dashboard/vacaciones')} className="btn-primary w-full">
-                  Ver Vacaciones
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Inventario */}
-            <div className="card">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
+            {tieneP('VER_INVENTARIO') && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Inventario</h3>
+                    <p className="text-sm text-gray-500">Sesiones de inventario digital</p>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Inventario</h3>
-                  <p className="text-sm text-gray-500">Sesiones de inventario digital</p>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/inventario')} className="btn-primary w-full">Ver Inventario</button>
                 </div>
               </div>
-              <div className="mt-4">
-                <button onClick={() => router.push('/dashboard/inventario')} className="btn-primary w-full">
-                  Ver Inventario
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Card de Bloques - Solo Administradores */}
+            {/* Cards solo para Administradores */}
             {user.rol.nombre === 'Administrador' && (
               <div className="card">
                 <div className="flex items-center">
@@ -734,6 +697,30 @@ export default function DashboardPage() {
                 <div className="mt-4">
                   <button onClick={() => router.push('/dashboard/bloques')} className="btn-primary w-full">
                     Ver Bloques
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Card de Permisos - Solo para Administradores */}
+            {user.rol.nombre === 'Administrador' && (
+              <div className="card">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Roles y Permisos</h3>
+                    <p className="text-sm text-gray-500">Configurar accesos por rol</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <button onClick={() => router.push('/dashboard/permisos')} className="btn-primary w-full">
+                    Gestionar Permisos
                   </button>
                 </div>
               </div>

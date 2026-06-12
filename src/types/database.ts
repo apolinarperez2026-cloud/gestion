@@ -212,12 +212,14 @@ export interface AuthUser {
   rol: {
     id: number
     nombre: string
+    nivel?: number
   }
   sucursal: {
     id: number
     nombre: string
   } | null
   sucursalId: number | null
+  permisos?: string[]
   sucursalesAsignadas?: {
     id: number
     nombre: string

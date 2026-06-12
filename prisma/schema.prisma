@@ -8,11 +8,33 @@ datasource db {
 }
 
 model Rol {
-  id        Int       @id @default(autoincrement())
-  nombre    String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id        Int          @id @default(autoincrement())
+  nombre    String       @unique
+  nivel     Int          @default(1)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   usuarios  Usuario[]
+  permisos  RolPermiso[]
+}
+
+model Permiso {
+  id          Int          @id @default(autoincrement())
+  codigo      String       @unique
+  descripcion String
+  categoria   String       @default("General")
+  createdAt   DateTime     @default(now())
+  roles       RolPermiso[]
+}
+
+model RolPermiso {
+  id        Int      @id @default(autoincrement())
+  rolId     Int
+  permisoId Int
+  createdAt DateTime @default(now())
+  rol       Rol      @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso   Permiso  @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([rolId, permisoId])
 }
 
 model Usuario {

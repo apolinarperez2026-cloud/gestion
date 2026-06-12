@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { AuthUser } from '@/types/database'
+import { getPermisosDeRol } from '@/lib/permisos'
 
 export async function GET(request: NextRequest) {
   try {
@@ -80,14 +81,17 @@ export async function GET(request: NextRequest) {
       } : null
     }
 
-    // Usar la información del token JWT para la sucursal (si está disponible)
+    // Obtener permisos del rol
+    const permisos = await getPermisosDeRol(usuario.rol.id, usuario.rol.nombre)
+
     const authUser: AuthUser = {
       id: usuario.id,
       nombre: usuario.nombre,
       email: usuario.email,
       rol: {
         id: usuario.rol.id,
-        nombre: usuario.rol.nombre
+        nombre: usuario.rol.nombre,
+        nivel: (usuario.rol as any).nivel ?? 1
       },
       sucursal: sucursalActual,
       sucursalId: decoded.sucursalId || null,
@@ -95,7 +99,8 @@ export async function GET(request: NextRequest) {
         id: us.sucursal.id,
         nombre: us.sucursal.nombre,
         direccion: us.sucursal.direccion
-      }))
+      })),
+      permisos
     }
 
     return NextResponse.json({ user: authUser })
